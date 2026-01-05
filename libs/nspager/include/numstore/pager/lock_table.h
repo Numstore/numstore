@@ -33,7 +33,6 @@ struct lockt
 {
   struct clck_alloc gr_lock_alloc; // Allocate gr locks
   struct adptv_htable table;       // The table of locks
-  struct latch l;                  // Thread safety
 };
 
 err_t lockt_init (struct lockt *t, error *e);

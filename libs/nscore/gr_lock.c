@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for gr_lock.c
+ *   Multi-granularity locking implementation with IS/IX/S/SIX/X modes
  */
 
 #include "numstore/core/assert.h"
@@ -58,6 +58,9 @@ gr_lock_destroy (struct gr_lock *l)
 {
   i_mutex_free (&l->mutex);
 
+  // Note: This assumes no threads are still waiting
+  // TODO - Caller must ensure all threads have released locks
+
   while (l->waiters)
     {
       struct gr_lock_waiter *w = l->waiters;
@@ -66,7 +69,7 @@ gr_lock_destroy (struct gr_lock *l)
     }
 }
 
-static bool
+static inline bool
 is_compatible (struct gr_lock *l, enum lock_mode mode)
 {
   for (int i = 0; i < LM_COUNT; i++)
@@ -79,7 +82,7 @@ is_compatible (struct gr_lock *l, enum lock_mode mode)
   return true;
 }
 
-static void
+static inline void
 wake_waiters (struct gr_lock *l)
 {
   for (struct gr_lock_waiter *w = l->waiters; w; w = w->next)
@@ -96,38 +99,53 @@ gr_lock (struct gr_lock *l, enum lock_mode mode, error *e)
 {
   i_mutex_lock (&l->mutex);
 
-  struct gr_lock_waiter waiter = {
-    .mode = mode,
-  };
-
-  while (!is_compatible (l, mode))
+  // Fast path: lock is available
+  if (is_compatible (l, mode))
     {
-      if (i_cond_create (&waiter.cond, e))
-        {
-          i_mutex_unlock (&l->mutex);
-          return e->cause_code;
-        }
-
-      waiter.next = l->waiters;
-      l->waiters = &waiter;
-
-      i_cond_wait (&waiter.cond, &l->mutex);
-
-      struct gr_lock_waiter **ptr = &l->waiters;
-      while (*ptr)
-        {
-          if (*ptr == &waiter)
-            {
-              *ptr = waiter.next;
-              break;
-            }
-          ptr = &(*ptr)->next;
-        }
-
-      i_cond_free (&waiter.cond);
+      l->holder_counts[mode]++;
+      i_mutex_unlock (&l->mutex);
+      return SUCCESS;
     }
 
-  l->holder_counts[waiter.mode]++;
+  // Slow path: need to wait
+  struct gr_lock_waiter waiter = {
+    .mode = mode,
+    .next = NULL,
+  };
+
+  if (i_cond_create (&waiter.cond, e))
+    {
+      i_mutex_unlock (&l->mutex);
+      return e->cause_code;
+    }
+
+  // Add to waiters list
+  waiter.next = l->waiters;
+  l->waiters = &waiter;
+
+  // Wait until compatible
+  while (!is_compatible (l, mode))
+    {
+      i_cond_wait (&waiter.cond, &l->mutex);
+    }
+
+  // Remove from waiters list - TODO - this remove is ugly
+  struct gr_lock_waiter **ptr = &l->waiters;
+  while (*ptr)
+    {
+      if (*ptr == &waiter)
+        {
+          *ptr = waiter.next;
+          break;
+        }
+      ptr = &(*ptr)->next;
+    }
+
+  // Now safe to free - we're no longer in the list
+  i_cond_free (&waiter.cond);
+
+  // Acquire the lock
+  l->holder_counts[mode]++;
   i_mutex_unlock (&l->mutex);
 
   return SUCCESS;
@@ -158,7 +176,6 @@ gr_trylock (struct gr_lock *l, enum lock_mode mode)
 bool
 gr_unlock (struct gr_lock *l, enum lock_mode mode)
 {
-  // TODO
   i_mutex_lock (&l->mutex);
 
   bool is_last = false;
@@ -167,6 +184,7 @@ gr_unlock (struct gr_lock *l, enum lock_mode mode)
     {
       l->holder_counts[mode]--;
 
+      // Check if this was the last holder
       bool any_holders = false;
       for (int i = 0; i < LM_COUNT; i++)
         {
@@ -179,7 +197,11 @@ gr_unlock (struct gr_lock *l, enum lock_mode mode)
 
       is_last = !any_holders && (l->waiters == NULL);
 
-      wake_waiters (l);
+      // Wake any compatible waiters
+      if (l->waiters)
+        {
+          wake_waiters (l);
+        }
     }
 
   i_mutex_unlock (&l->mutex);
@@ -193,48 +215,67 @@ gr_upgrade (struct gr_lock *l, enum lock_mode old_mode, enum lock_mode new_mode,
   ASSERT (l);
   ASSERT (new_mode > old_mode);
 
-  struct gr_lock_waiter waiter = {
-    .mode = new_mode,
-  };
-
   i_mutex_lock (&l->mutex);
 
   ASSERT (l->holder_counts[old_mode] > 0);
 
+  // Release old lock
   l->holder_counts[old_mode]--;
 
-  while (!is_compatible (l, waiter.mode))
+  // Fast path: can we acquire immediately?
+  if (is_compatible (l, new_mode))
     {
-      err_t result = i_cond_create (&waiter.cond, e);
-      if (result != SUCCESS)
-        {
-          l->holder_counts[old_mode]++;
-          i_mutex_unlock (&l->mutex);
-          return result;
-        }
-
-      waiter.next = l->waiters;
-      l->waiters = &waiter;
-      i_cond_wait (&waiter.cond, &l->mutex);
-
-      struct gr_lock_waiter **ptr = &l->waiters;
-      while (*ptr)
-        {
-          if (*ptr == &waiter)
-            {
-              *ptr = waiter.next;
-              break;
-            }
-          ptr = &(*ptr)->next;
-        }
-      i_cond_free (&waiter.cond);
+      l->holder_counts[new_mode]++;
+      i_mutex_unlock (&l->mutex);
+      return SUCCESS;
     }
 
-  l->holder_counts[waiter.mode]++;
+  // Slow path: need to wait
+  struct gr_lock_waiter waiter = {
+    .mode = new_mode,
+    .next = NULL,
+  };
+
+  if (i_cond_create (&waiter.cond, e))
+    {
+      // restore old lock
+      l->holder_counts[old_mode]++;
+      i_mutex_unlock (&l->mutex);
+      return e->cause_code;
+    }
+
+  // Add to waiters list
+  waiter.next = l->waiters;
+  l->waiters = &waiter;
+
+  // Wait until compatible
+  while (!is_compatible (l, new_mode))
+    {
+      i_cond_wait (&waiter.cond, &l->mutex);
+    }
+
+  // Remove from waiters list
+  struct gr_lock_waiter **ptr = &l->waiters;
+  while (*ptr)
+    {
+      if (*ptr == &waiter)
+        {
+          *ptr = waiter.next;
+          break;
+        }
+      ptr = &(*ptr)->next;
+    }
+
+  // Now safe to free - we're no longer in the list
+  i_cond_free (&waiter.cond);
+
+  // Acquire the new lock
+  l->holder_counts[new_mode]++;
   i_mutex_unlock (&l->mutex);
 
   return SUCCESS;
 }
+
 const char *
 gr_lock_mode_name (enum lock_mode mode)
 {
@@ -695,7 +736,7 @@ reader_thread (void *arg)
   return NULL;
 }
 
-TEST_disabled (TT_UNIT, gr_lock_concurrent_readers)
+TEST (TT_UNIT, gr_lock_concurrent_readers)
 {
   struct gr_lock lock;
   error e = error_create ();
@@ -708,8 +749,6 @@ TEST_disabled (TT_UNIT, gr_lock_concurrent_readers)
     {
       test_assert_equal (i_thread_create (&threads[i], reader_thread, &ctx, &e), SUCCESS);
     }
-
-  usleep (50000);
 
   for (int i = 0; i < 5; i++)
     {
@@ -762,6 +801,59 @@ TEST (TT_HEAVY, gr_lock_data_race_protection)
     }
 
   test_assert_equal (ctx.counter, 500); // 5 threads * 100 increments
+
+  gr_lock_destroy (&lock);
+}
+
+// Test upgrade functionality
+static void *
+upgrade_thread (void *arg)
+{
+  struct lock_test_ctx *ctx = arg;
+  error e = error_create ();
+
+  // Acquire S lock
+  err_t result = gr_lock (ctx->lock, LM_S, &e);
+  if (result != SUCCESS)
+    {
+      return NULL;
+    }
+
+  ctx->t1_acquired = 1;
+  usleep (20000);
+
+  // Upgrade to X lock
+  result = gr_upgrade (ctx->lock, LM_S, LM_X, &e);
+  if (result != SUCCESS)
+    {
+      gr_unlock (ctx->lock, LM_S);
+      return NULL;
+    }
+
+  ctx->t1_acquired = 2; // Mark as upgraded
+  usleep (50000);
+
+  gr_unlock (ctx->lock, LM_X);
+  return NULL;
+}
+
+TEST (TT_UNIT, gr_lock_upgrade)
+{
+  struct gr_lock lock;
+  error e = error_create ();
+
+  test_err_t_wrap (gr_lock_init (&lock, &e), &e);
+
+  struct lock_test_ctx ctx = { .lock = &lock };
+  i_thread t1;
+
+  test_assert_equal (i_thread_create (&t1, upgrade_thread, &ctx, &e), SUCCESS);
+
+  usleep (100000);
+
+  test_err_t_wrap (i_thread_join (&t1, &e), &e);
+
+  test_assert_equal (ctx.t1_acquired, 2); // Verify upgrade succeeded
 
   gr_lock_destroy (&lock);
 }

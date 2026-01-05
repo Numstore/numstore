@@ -27,7 +27,6 @@
 #include <numstore/core/hash_table.h>
 #include <numstore/core/hashing.h>
 #include <numstore/core/ht_models.h>
-#include <numstore/core/latch.h>
 #include <numstore/pager/lt_lock.h>
 #include <numstore/pager/txn.h>
 
@@ -173,8 +172,6 @@ lockt_init (struct lockt *t, error *e)
       return e->cause_code;
     }
 
-  latch_init (&t->l);
-
   return SUCCESS;
 }
 
@@ -205,7 +202,7 @@ lockt_lock_once (
   // Initialize it as a key
   lt_lock_init_key_from_txn (lock);
 
-  // Try to find it if it exists
+  // Try to find the gr_lock if it exists
   struct hnode *node = adptv_htable_lookup (&t->table, &lock->lock_type_node, lt_lock_eq);
 
   // FOUND
