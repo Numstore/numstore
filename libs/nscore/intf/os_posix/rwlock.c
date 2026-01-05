@@ -1,0 +1,303 @@
+/*
+ * Copyright 2025 Theo Lincke
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Description:
+ *   POSIX read-write lock operations implementation
+ */
+
+#include <numstore/core/assert.h>
+#include <numstore/core/error.h>
+#include <numstore/intf/logging.h>
+#include <numstore/intf/os.h>
+
+#include <errno.h>
+#include <pthread.h>
+#include <string.h>
+
+////////////////// RW Lock
+
+err_t
+i_rwlock_create (i_rwlock *dest, error *e)
+{
+  errno = 0;
+#ifndef NDEBUG
+  pthread_rwlockattr_t attr;
+  int r1 = pthread_rwlockattr_init (&attr);
+  ASSERT (!r1);
+  // Set prefer-writer or other attributes if needed
+  // pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+  int r2 = pthread_rwlock_init (&dest->lock, &attr);
+  r1 = pthread_rwlockattr_destroy (&attr);
+  ASSERT (!r1);
+  if (r2)
+#else
+  if (pthread_rwlock_init (&dest->lock, NULL))
+#endif
+    {
+      switch (errno)
+        {
+        case EAGAIN:
+          {
+            return error_causef (
+                e, ERR_IO,
+                "Failed to initialize rwlock: %s",
+                strerror (errno));
+          }
+        case ENOMEM:
+          {
+            return error_causef (
+                e, ERR_NOMEM,
+                "Failed to initialize rwlock: %s",
+                strerror (errno));
+          }
+        case EPERM:
+          {
+            i_log_error ("rwlock create: insufficient permissions: %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        case EINVAL:
+          {
+            i_log_error ("rwlock create: invalid attributes: %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        default:
+          {
+            UNREACHABLE ();
+          }
+        }
+    }
+  return SUCCESS;
+}
+
+void
+i_rwlock_free (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  if (pthread_rwlock_destroy (&m->lock))
+    {
+      switch (errno)
+        {
+        case EBUSY:
+          {
+            i_log_error ("RWLock is locked! %s\n", strerror (errno));
+            UNREACHABLE ();
+          }
+        case EINVAL:
+          {
+            i_log_error ("Invalid RWLock! %s\n", strerror (errno));
+            UNREACHABLE ();
+          }
+        default:
+          {
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+void
+i_rwlock_s_lock (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  if (pthread_rwlock_rdlock (&m->lock))
+    {
+      switch (errno)
+        {
+        case EBUSY:
+          {
+            i_log_error ("s_lock: Already locked for reading: %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        case EDEADLK:
+          {
+            i_log_error ("s_lock: Deadlock detected! %s\n", strerror (errno));
+            UNREACHABLE ();
+          }
+        default:
+          {
+            i_log_error ("s_lock: Unknown error detected! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+void
+i_rwlock_x_lock (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  if (pthread_rwlock_wrlock (&m->lock))
+    {
+      switch (errno)
+        {
+        case EDEADLK:
+          {
+            i_log_error ("x_lock: Deadlock detected! %s\n", strerror (errno));
+            UNREACHABLE ();
+          }
+        default:
+          {
+            i_log_error ("x_lock: Unknown error detected! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+bool
+i_rwlock_s_try_lock (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  int result = pthread_rwlock_tryrdlock (&m->lock);
+
+  if (result == 0)
+    {
+      return true; // Lock acquired
+    }
+  else if (result == EBUSY)
+    {
+      return false; // Lock not available, but not an error
+    }
+  else
+    {
+      switch (errno)
+        {
+        default:
+          {
+            i_log_error ("s_try_lock: Unknown error detected! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+bool
+i_rwlock_x_try_lock (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  int result = pthread_rwlock_trywrlock (&m->lock);
+
+  if (result == 0)
+    {
+      return true; // Lock acquired
+    }
+  else if (result == EBUSY)
+    {
+      return false; // Lock not available, but not an error
+    }
+  else
+    {
+      switch (errno)
+        {
+        default:
+          {
+            i_log_error ("x_try_lock: Unknown error detected! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+void
+i_rwlock_s_unlock (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  if (pthread_rwlock_unlock (&m->lock))
+    {
+      switch (errno)
+        {
+        case EINVAL:
+          {
+            i_log_error ("s_unlock: Failed to unlock rwlock! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        case EPERM:
+          {
+            i_log_error ("s_unlock: current thread doesn't own this lock: %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        default:
+          {
+            i_log_error ("s_unlock: Unknown error detected! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+void
+i_rwlock_x_unlock (i_rwlock *m)
+{
+  ASSERT (m);
+  errno = 0;
+  if (pthread_rwlock_unlock (&m->lock))
+    {
+      switch (errno)
+        {
+        case EINVAL:
+          {
+            i_log_error ("x_unlock: Failed to unlock rwlock! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        case EPERM:
+          {
+            i_log_error ("x_unlock: current thread doesn't own this lock: %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        default:
+          {
+            i_log_error ("x_unlock: Unknown error detected! %s\n",
+                         strerror (errno));
+            UNREACHABLE ();
+          }
+        }
+    }
+}
+
+void
+i_rwlock_rdlock (i_rwlock *rw)
+{
+  i_rwlock_s_lock (rw);
+}
+
+void
+i_rwlock_wrlock (i_rwlock *rw)
+{
+  i_rwlock_x_lock (rw);
+}
+
+void
+i_rwlock_unlock (i_rwlock *rw)
+{
+  i_rwlock_s_unlock (rw);
+}

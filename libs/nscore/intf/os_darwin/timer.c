@@ -14,18 +14,16 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for os_emscripten.c
+ *   Darwin timer operations implementation
  */
 
-// core
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/intf/os.h>
 
-#include <emscripten.h>
+#include <mach/mach_time.h>
+#include <time.h>
 
-// os
-// system
 ////////////////////////////////////////////////////////////
 // TIMING
 
@@ -35,8 +33,16 @@ i_timer_create (i_timer *timer, error *e)
 {
   ASSERT (timer);
 
-  // emscripten_get_now() returns milliseconds as double
-  timer->start = emscripten_get_now ();
+  // Get timebase info for mach_absolute_time conversion
+  mach_timebase_info_data_t timebase_info;
+  if (mach_timebase_info (&timebase_info) != KERN_SUCCESS)
+    {
+      return error_causef (e, ERR_IO, "mach_timebase_info failed");
+    }
+
+  timer->numer = timebase_info.numer;
+  timer->denom = timebase_info.denom;
+  timer->start = mach_absolute_time ();
 
   return SUCCESS;
 }
@@ -45,7 +51,7 @@ void
 i_timer_free (i_timer *timer)
 {
   ASSERT (timer);
-  // No cleanup needed for Emscripten timers
+  // No cleanup needed for Darwin timers
 }
 
 u64
@@ -53,11 +59,11 @@ i_timer_now_ns (i_timer *timer)
 {
   ASSERT (timer);
 
-  f64 now = emscripten_get_now ();
-  f64 elapsed_ms = now - timer->start;
+  u64 now = mach_absolute_time ();
+  u64 elapsed = now - timer->start;
 
-  // Convert milliseconds to nanoseconds
-  return (u64) (elapsed_ms * 1000000.0);
+  // Convert to nanoseconds
+  return elapsed * timer->numer / timer->denom;
 }
 
 u64
@@ -82,9 +88,22 @@ i_timer_now_s (i_timer *timer)
 void
 i_get_monotonic_time (struct timespec *ts)
 {
-  f64 now_ms = emscripten_get_now ();
-  f64 now_s = now_ms / 1000.0;
+  // Use mach_absolute_time() for high-resolution timing on Darwin (macOS/iOS)
+  static mach_timebase_info_data_t timebase_info;
+  static int initialized = 0;
 
-  ts->tv_sec = (long)now_s;
-  ts->tv_nsec = (long)((now_s - (f64)ts->tv_sec) * 1000000000.0);
+  if (!initialized)
+    {
+      mach_timebase_info (&timebase_info);
+      initialized = 1;
+    }
+
+  uint64_t mach_time = mach_absolute_time ();
+
+  // Convert to nanoseconds
+  uint64_t nanoseconds = mach_time * timebase_info.numer / timebase_info.denom;
+
+  // Convert to timespec (seconds and nanoseconds)
+  ts->tv_sec = (long)(nanoseconds / 1000000000ULL);
+  ts->tv_nsec = (long)(nanoseconds % 1000000000ULL);
 }
