@@ -30,6 +30,7 @@ txn_init (struct txn *dest, txid tid, struct txn_data data)
 {
   dest->data = data;
   dest->tid = tid;
+  dest->locks = NULL;
   hnode_init (&dest->node, tid);
   latch_init (&dest->l);
 }
@@ -107,10 +108,10 @@ txn_freelock (struct txn *t, struct lt_lock *lock)
 void
 txn_free_all_locks (struct txn *t)
 {
-  latch_lock (&t->l);
+  //latch_lock (&t->l);
   struct lt_lock *cur = t->locks;
   t->locks = NULL;
-  latch_lock (&t->l);
+  //latch_unlock (&t->l);
 
   while (cur)
     {
