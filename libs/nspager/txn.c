@@ -74,9 +74,11 @@ txn_newlock (struct txn *t, enum lt_lock_type type, union lt_lock_data data, enu
   lock->type = type;
   lock->mode = mode;
   lock->data = data;
+  lock->tid = t->tid;
 
   latch_lock (&t->l);
 
+  lock->prev = NULL;
   lock->next = t->locks;
   t->locks = lock;
 
@@ -115,12 +117,12 @@ txn_free_all_locks (struct txn *t)
 
   while (cur)
     {
-      latch_lock (&cur->l); // TODO - do I need to do this?
+      // latch_lock (&cur->l); // TODO - do I need to do this?
 
       ASSERT (cur->lock == NULL);
       struct lt_lock *next = cur->next;
-      gr_unlock (cur->lock, cur->mode);
-      i_free (cur);
+      // gr_unlock (cur->lock, cur->mode);
+      //i_free (cur);
 
       cur = next;
     }

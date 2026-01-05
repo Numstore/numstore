@@ -77,4 +77,5 @@ struct lt_lock
   struct lt_lock *next;        // Next lock in this transaction id
   struct lt_lock *prev;        // Previous lock in this transaction id
   struct latch l;              // For thread safety
+  txid tid;                    // Parent transaction id
 };

@@ -210,6 +210,14 @@ lockt_lock_once (
     {
       // LOCK
       struct lt_lock *existing = container_of (node, struct lt_lock, lock_type_node);
+
+      if (existing->tid == tx->tid)
+        {
+          ASSERT (existing->mode == mode);
+          txn_freelock (tx, lock);
+          return existing;
+        }
+
       struct gr_lock *_gr_lock = existing->lock;
       if (gr_lock (_gr_lock, mode, e))
         {
