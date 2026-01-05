@@ -20,7 +20,7 @@
  */
 
 #include <numstore/core/hash_table.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 
 struct adptv_htable_settings
 {
@@ -36,7 +36,7 @@ struct adptv_htable
   struct htable *current;
   struct htable *prev;
   u32 migrate_pos;
-  struct spx_latch latch;
+  struct latch latch;
 
   struct adptv_htable_settings settings;
 };
