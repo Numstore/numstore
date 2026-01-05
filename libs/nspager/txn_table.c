@@ -103,18 +103,28 @@ txn_state_to_str (int state)
 static bool
 txn_equals_for_exists (const struct hnode *left, const struct hnode *right)
 {
-  struct txn *_left = container_of (left, struct txn, node);
-  struct txn *_right = container_of (right, struct txn, node);
+  // Might have passed the exact same reference as exists in the htable
+  if (left == right)
+    {
+      return true;
+    }
 
-  latch_lock (&_left->l);
-  latch_lock (&_right->l);
+  // Otherwise, passed a key with just relevant information
+  else
+    {
+      struct txn *_left = container_of (left, struct txn, node);
+      struct txn *_right = container_of (right, struct txn, node);
 
-  bool ret = _left->tid == _right->tid;
+      latch_lock (&_left->l);
+      latch_lock (&_right->l);
 
-  latch_unlock (&_right->l);
-  latch_unlock (&_left->l);
+      bool ret = _left->tid == _right->tid;
 
-  return ret;
+      latch_unlock (&_right->l);
+      latch_unlock (&_left->l);
+
+      return ret;
+    }
 }
 
 bool

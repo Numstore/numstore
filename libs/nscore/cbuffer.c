@@ -288,13 +288,7 @@ cbuffer_fakewrite (struct cbuffer *b, u32 nbytes)
 TEST (TT_UNIT, cbuffer_fakewrite)
 {
   u8 raw[8];
-  struct cbuffer b = {
-    .data = raw,
-    .cap = sizeof (raw),
-    .head = 0,
-    .tail = 0,
-    .isfull = false,
-  };
+  struct cbuffer b = cbuffer_create_from (raw);
 
   TEST_CASE ("empty buffer")
   {
@@ -385,13 +379,7 @@ cbuffer_fakeread (struct cbuffer *b, u32 nbytes)
 TEST (TT_UNIT, cbuffer_fakeread)
 {
   u8 raw[8];
-  struct cbuffer b = {
-    .data = raw,
-    .cap = sizeof (raw),
-    .head = 0,
-    .tail = 0,
-    .isfull = false,
-  };
+  struct cbuffer b = cbuffer_create_from (raw);
 
   TEST_CASE ("empty buffer")
   {
