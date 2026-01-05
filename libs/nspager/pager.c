@@ -886,6 +886,8 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
       tx->data.state = TX_DONE;
 
+      //err_t_wrap (lockt_unlock (p->lt, tx, e), e);
+
       latch_unlock (&tx->l);
 
       return SUCCESS;
@@ -899,6 +901,13 @@ pgr_update_master_lsn (struct pager *p, lsn mlsn, error *e)
   // BEGIN TXN
   struct txn tx;
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
+
+  // X(db.root.mlsn)
+  struct lt_lock *mlsn_lock = lockt_lock (p->lt, LOCK_MLSN, (union lt_lock_data){ 0 }, LM_X, &tx, e);
+  if (mlsn_lock == NULL)
+    {
+      goto theend;
+    }
 
   // GET ROOT
   page_h root = page_h_create ();
@@ -1343,14 +1352,18 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
   err_t ret = SUCCESS;
   page_h root_node = page_h_create ();
 
+  // S(fstmbst)
+  struct lt_lock *root_lock = lockt_lock (p->lt, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_X, tx, e);
+  if (root_lock == NULL)
+    {
+      return e->cause_code;
+    }
+
   /**
    * First, we'll check the tombstone to see if we can
    * dish out a new page that's already been deleted
    */
   err_t_wrap (pgr_get (&root_node, PG_ROOT_NODE, ROOT_PGNO, p, e), e);
-
-  // S(fstmbst)
-  // struct lt_lock *fstmbst = lockt_lock (p->lt, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_S, tx, e);
 
   pgno ftpg = rn_get_first_tmbst (page_h_ro (&root_node));
   ret = pgr_make_writable (p, tx, &root_node, e);
@@ -1358,6 +1371,13 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
     {
       pgr_release_no_tx (p, &root_node, PG_ROOT_NODE, e);
       return ret;
+    }
+
+  // X(tombstone)
+  struct lt_lock *tmbst_lock = lockt_lock (p->lt, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = ftpg }, LM_X, tx, e);
+  if (tmbst_lock == NULL)
+    {
+      return e->cause_code;
     }
 
   if (ftpg < fpgr_get_npages (&p->fp))
@@ -1380,25 +1400,6 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
           return ret;
         }
     }
-
-  // S(tmbst(ftpg))
-  /**
-  // struct lt_lock *tmbst = lockt_lock (p->lt, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = ftpg }, LM_S, tx, e);
-  if (tmbst == NULL)
-    {
-      pgr_cancel_w (p, &root_node);
-      pgr_release_no_tx (p, &root_node, PG_ROOT_NODE, e);
-      return ret;
-    }
-
-  // S -> X(fstmbst)
-  if ((ret = lockt_upgrade (p->lt, fstmbst, LM_X, e)))
-    {
-      pgr_cancel_w (p, &root_node);
-      pgr_release_no_tx (p, &root_node, PG_ROOT_NODE, e);
-      return ret;
-    }
-    */
 
   // Update root node's first tombstone link
   pgno ntbst = tmbst_get_next (page_h_ro (dest));
