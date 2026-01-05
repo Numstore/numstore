@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for attr.h
+ *   Defines attribute structures for R+ tree cursor operations (read, remove,
+ *   insert, write), specifying element counts, offsets, and stride parameters.
  */
 
 struct read_attr

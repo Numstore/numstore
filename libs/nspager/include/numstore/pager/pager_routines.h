@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for pager_routines.h
+ *   High-level pager utility routines for common page operations like allocation, navigation, and transaction management.
  */
 
 // numstore

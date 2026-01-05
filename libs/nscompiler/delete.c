@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for delete.c
+ *   Implements queries/delete.h. Provides builder pattern implementation for
+ *   constructing DELETE queries that remove variables.
  */
 
 #include <numstore/compiler/queries/delete.h>

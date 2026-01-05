@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for types.h
+ *   Main type system header defining the unified type structure that represents all
+ *   data types in NumStore (primitives, structs, unions, enums, static arrays) with
+ *   serialization, validation, and utility functions.
  */
 
 // core

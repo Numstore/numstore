@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for literal_validate_type.c
+ *   Implements semantic.h. Provides semantic validation of literal values
+ *   against expected types, including range checking for primitives, structure
+ *   field matching, union variant validation, and array length verification.
  */
 
 #include <numstore/compiler/literal.h>

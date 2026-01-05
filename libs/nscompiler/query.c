@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for query.c
+ *   Implements queries/query.h. Provides query logging and equality comparison
+ *   functions that dispatch to type-specific implementations for all query
+ *   types.
  */
 
 #include <numstore/compiler/queries/query.h>

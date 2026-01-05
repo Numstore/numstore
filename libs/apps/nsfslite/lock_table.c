@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for lock_table.c
+ *   Implements lock_table.h. Provides a hierarchical lock table implementation for
+ *   transaction concurrency control using two-phase locking (2PL). Manages lock acquisition
+ *   and release for database resources including pages, variables, and internal structures.
  */
 
 #include <lock_table.h>

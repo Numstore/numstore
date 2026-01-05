@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for node_updates.h
+ *   Defines structures and functions for tracking and applying updates to inner
+ *   nodes during R+ tree modifications, managing left/right node changes and pivot updates.
  */
 
 // numstore

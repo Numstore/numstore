@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for checksums.h
+ *   Checksum computation interface for data integrity verification.
  */
 
 // core

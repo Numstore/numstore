@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for deserializer.c
+ *   Implements deserializer.h. Binary data deserialization from fixed buffers.
  */
 
 #include <numstore/core/deserializer.h>

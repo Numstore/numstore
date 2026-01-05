@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _read.c
+ *   Implements _read.h. Provides sequential read operations for the R+ tree cursor,
+ *   supporting strided reads and block size specifications.
  */
 
 #include <numstore/core/error.h>

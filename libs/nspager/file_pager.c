@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for file_pager.c
+ *   Implements file_pager.h. Provides low-level file I/O operations including page reading, writing, and file management.
  */
 
 #include <file_pager.h>

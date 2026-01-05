@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for hashing.c
+ *   Implements hashing.h. FNV-1a hash functions for strings and data.
  */
 
 #include <numstore/core/hashing.h>

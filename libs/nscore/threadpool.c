@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for threadpool.c
+ *   Implements threadpool.h. Thread pool with work queue for parallel task execution.
  */
 
 #include <numstore/core/threadpool.h>

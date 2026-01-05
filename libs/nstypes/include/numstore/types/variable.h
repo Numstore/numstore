@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for variable.h
+ *   Variable type declarations and definitions for the NumStore type system.
  */
 
 // Core

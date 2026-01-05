@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for robin_hood_manual_ht.h
+ *   Generic Robin Hood hash table with manual hash and comparison functions.
+ *   Template-based (via macros) with configurable value type, hash, and compare.
  */
 
 #include <numstore/core/assert.h>

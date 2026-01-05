@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dirty_page_table.c
+ *   Implements dirty_page_table.h. Manages dirty page tracking with hash table for efficient lookups during transaction commit.
  */
 
 #include <numstore/pager/dirty_page_table.h>

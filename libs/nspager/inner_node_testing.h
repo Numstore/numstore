@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for inner_node_testing.h
+ *   Testing utilities for inner node operations including test data generation and validation.
  */
 
 #ifndef NTEST

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for checksums.c
+ *   Implements checksums.h. CRC32C checksum calculation for data integrity.
  */
 
 #include <numstore/core/checksums.h>

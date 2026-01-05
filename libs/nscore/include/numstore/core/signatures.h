@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for signatures.h
+ *   Compiler attribute macros for function signatures, providing cross-platform
+ *   support for unused attributes and header-only inline functions.
  */
 
 // MSVC doesn't support __attribute__, define it as empty

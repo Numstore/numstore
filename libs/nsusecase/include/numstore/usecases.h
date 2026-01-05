@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for usecases.h
+ *   Utility functions for debugging and inspecting NumStore internal data structures.
+ *   Provides interfaces for printing data list contents, database pages, and WAL records.
  */
 
 #include <numstore/intf/types.h>

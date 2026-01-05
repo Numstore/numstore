@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for spx_latch.h
+ *   Lock-free shared/exclusive (reader-writer) latch using atomic operations.
+ *   Provides S (shared) and X (exclusive) locking with upgrade/downgrade support.
  */
 
 #include <numstore/intf/os.h>

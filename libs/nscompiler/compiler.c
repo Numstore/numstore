@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for compiler.c
+ *   Implements compiler.h. Provides the main compiler orchestration logic that
+ *   coordinates the scanner and parser to transform input characters into
+ *   compiled statements.
  */
 
 #include <numstore/compiler/compiler.h>

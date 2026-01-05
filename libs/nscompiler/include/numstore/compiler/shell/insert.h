@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for insert.h
+ *   Shell insert query data structure. Defines the query type for inserting
+ *   data to variables via shell interface, including variable name, start
+ *   offset, and length.
  */
 
 // numstore

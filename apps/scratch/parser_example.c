@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for parser_example.c
+ *   Scratch/example program demonstrating parser functionality.
  */
 
 // core

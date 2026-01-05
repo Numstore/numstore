@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for expression.c
+ *   Implements expression.h. Provides expression evaluation logic for binary,
+ *   unary, and grouping operations on literals.
  */
 
 #include <numstore/compiler/expression.h>

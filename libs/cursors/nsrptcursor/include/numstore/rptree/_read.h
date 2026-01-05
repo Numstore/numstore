@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _read.h
+ *   Internal header defining read operation structures and functions for the
+ *   R+ tree cursor, supporting sequential and strided read patterns.
  */
 
 #include <numstore/core/cbuffer.h>

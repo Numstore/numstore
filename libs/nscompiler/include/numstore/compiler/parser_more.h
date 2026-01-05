@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for parser_more.h
+ *   Parser structures and state management. Defines parser result types,
+ *   parser state including lemon parser integration, and functions for
+ *   parsing token streams into statements.
  */
 
 // compiler

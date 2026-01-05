@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for delete.h
+ *   DELETE query structures and builder pattern. Defines query type for
+ *   deleting variables by name, including builder functions for constructing
+ *   queries.
  */
 
 // numstore

@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page_h.h
+ *   Page handle structure wrapping page references with access modes (read-only, read-write) and lifetime management.
  */
 
 #include <numstore/core/spx_latch.h>

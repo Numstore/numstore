@@ -16,7 +16,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for numstore.h
+ *   Main API header for the NumStore database library. Provides type definitions,
+ *   data accessors, operation parameters, and the complete nslib API for database
+ *   operations including create, delete, read, write, insert, and remove. Supports
+ *   blocking, stop-and-resume, and asynchronous operation patterns.
  */
 
 // Core

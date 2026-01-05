@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for string.c
+ *   Implements string.h. Core string type conversion utilities.
  */
 
 #include <numstore/core/string.h>

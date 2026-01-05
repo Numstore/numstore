@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for expression.h
+ *   Expression data structures and evaluation functions. Defines unary, binary,
+ *   and grouping expression types along with constructors and evaluation logic
+ *   for arithmetic, logical, and bitwise operations.
  */
 
 #include <numstore/compiler/literal.h>

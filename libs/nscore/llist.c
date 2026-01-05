@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for llist.c
+ *   Implements llist.h. Intrusive doubly-linked list data structure.
  */
 
 #include <numstore/core/llist.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nstores.c
+ *   NumStore server (nstores) - Database server daemon that listens for client connections and processes queries.
  */
 
 // other libraries

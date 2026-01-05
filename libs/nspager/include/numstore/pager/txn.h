@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for txn.h
+ *   Transaction structure managing transaction state, isolation levels, and transaction lifecycle operations.
  */
 
 #include <numstore/core/hash_table.h>

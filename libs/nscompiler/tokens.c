@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for tokens.c
+ *   Implements tokens.h. Provides token equality comparison and string
+ *   conversion functions for debugging and testing token streams.
  */
 
 #include <numstore/compiler/tokens.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for clock_allocator.c
+ *   Implements clock_allocator.h. Clock-based page replacement allocator.
  */
 
 #include <numstore/core/clock_allocator.h>

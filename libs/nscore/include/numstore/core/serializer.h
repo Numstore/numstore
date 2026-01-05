@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for serializer.h
+ *   Thread-safe binary data serializer for writing arbitrary data into a
+ *   fixed-capacity buffer with bounds checking and latch-based synchronization.
  */
 
 // core

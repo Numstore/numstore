@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dllist.h
+ *   Doubly linked list data structure and operations. Provides push, append, pop,
+ *   remove, reverse, and iteration utilities for intrusive list nodes.
  */
 
 // core

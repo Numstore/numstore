@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _insert.c
+ *   Implements _insert.h. Provides insertion operations for the R+ tree cursor,
+ *   handling data insertion at the current cursor position with automatic page
+ *   splitting and tree rebalancing.
  */
 
 #include <numstore/core/assert.h>

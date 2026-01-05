@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for numbers.h
+ *   Number parsing and arithmetic utilities for i32 and f32 types, including
+ *   Python-style modulo operations that handle negative operands correctly.
  */
 
 // core

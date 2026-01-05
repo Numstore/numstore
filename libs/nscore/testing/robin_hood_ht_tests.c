@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for robin_hood_ht_tests.c
+ *   Integration tests for Robin Hood hash table implementation.
  */
 
 #include <numstore/test/testing.h>

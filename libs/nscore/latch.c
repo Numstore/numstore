@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for latch.c
+ *   Implements latch.h. Atomic latch synchronization primitive.
  */
 
 #include <numstore/core/latch.h>

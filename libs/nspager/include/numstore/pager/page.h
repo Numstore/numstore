@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page.h
+ *   Core page structure and operations for all page types including lifecycle management, type checking, and page handle operations.
  */
 
 #include <numstore/core/assert.h>

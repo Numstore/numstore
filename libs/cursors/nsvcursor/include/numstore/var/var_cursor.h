@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_cursor.h
+ *   Defines the variable cursor structure and operations for managing named
+ *   variables in the database, providing create, get, and delete functionality
+ *   with type tracking.
  */
 
 #include <numstore/core/assert.h>

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for adptv_hash_table.h
+ *   Adaptive hash table implementation that dynamically resizes based on load
+ *   factor. Supports concurrent incremental rehashing and configurable size bounds.
  */
 
 #include <numstore/core/hash_table.h>

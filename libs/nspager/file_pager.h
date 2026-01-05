@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for file_pager.h
+ *   Internal file pager interface for low-level file I/O operations on database and WAL files.
  */
 
 // core

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for gr_lock.c
+ *   Implements gr_lock.h. Granular locking with multiple lock modes (IS, IX, S, SIX, X).
  */
 
 #include <numstore/core/gr_lock.h>

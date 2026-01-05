@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for kvt_builder.h
+ *   Builder pattern implementation for constructing struct and union types by
+ *   incrementally accepting key-value-type triples and building final type structures.
  */
 
 #include <numstore/core/llist.h>

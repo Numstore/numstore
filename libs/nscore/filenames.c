@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for filenames.c
+ *   Implements filenames.h. Cross-platform filename and path utilities.
  */
 
 #include <numstore/core/filenames.h>

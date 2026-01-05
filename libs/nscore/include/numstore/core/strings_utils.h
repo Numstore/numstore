@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for strings_utils.h
+ *   String utility functions for comparison, concatenation, uniqueness checking,
+ *   disjoint set operations, substring containment, and lexical ordering.
  */
 
 // core

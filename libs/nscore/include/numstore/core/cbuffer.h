@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for cbuffer.h
+ *   Thread-safe circular buffer implementation supporting read/write operations,
+ *   file I/O integration, and single-element push/pop/peek operations.
  */
 
 // core

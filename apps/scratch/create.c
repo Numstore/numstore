@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for create.c
+ *   Scratch/example program demonstrating database creation.
  */
 
 // numstore

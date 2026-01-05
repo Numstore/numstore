@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for logging.h
+ *   Leveled logging system with colored output for trace, debug, info, warn, and
+ *   error messages. Supports compile-time log level control and testing assertions.
  */
 
 ////////////////////////////////////////////////////////////

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for closure.h
+ *   Function closure structure for deferred execution with context. Pairs a
+ *   function pointer with an arbitrary context pointer.
  */
 
 #include <numstore/core/assert.h>

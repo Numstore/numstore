@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for os_windows.c
+ *   Implements os.h for Windows platform-specific OS operations.
  */
 
 // core

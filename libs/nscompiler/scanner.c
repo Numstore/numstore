@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for scanner.c
+ *   Implements scanner.h. Provides lexical analysis implementation with
+ *   state machine for tokenizing input, recognizing keywords, identifiers,
+ *   operators, strings, numbers, and handling error recovery.
  */
 
 #include <numstore/compiler/scanner.h>

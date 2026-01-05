@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for testing.h
+ *   Testing framework dispatcher that includes either full testing macros
+ *   (testing_test.h) or no-op stubs (testing_ntest.h) based on NTEST definition.
  */
 
 #ifndef NTEST

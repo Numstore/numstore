@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for string.h
+ *   Core string types (mutable and const) with length-prefixed representation
+ *   and utility functions for converting from C-style null-terminated strings.
  */
 
 // core

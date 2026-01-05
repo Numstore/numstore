@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for semantic.h
+ *   Semantic analysis functions for type validation. Provides functions to
+ *   validate that literal values match expected types, including range checking
+ *   and type coercion rules.
  */
 
 // numstore

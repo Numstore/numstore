@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dbl_buffer.c
+ *   Implements dbl_buffer.h. Double buffering for concurrent read/write operations.
  */
 
 #include <numstore/core/dbl_buffer.h>

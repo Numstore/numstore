@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for inner_node.h
+ *   Inner node page structure for R+ tree index with key-value pairs and child page pointers for hierarchical navigation.
  */
 
 #include <numstore/pager/page.h>

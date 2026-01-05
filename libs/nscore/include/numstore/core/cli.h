@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for cli.h
+ *   Command-line interface parsing utilities for test programs. Supports test
+ *   filters, flag parsing, and help text generation.
  */
 
 #include <numstore/intf/types.h>

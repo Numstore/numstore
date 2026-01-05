@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for assert.h
+ *   Core assertion and crash handling utilities. Conditionally includes debug or
+ *   release assertion implementations based on NDEBUG flag.
  */
 
 #include <numstore/intf/os.h>

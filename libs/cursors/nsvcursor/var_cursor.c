@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_cursor.c
+ *   Implements var_cursor.h. Provides variable cursor operations for creating,
+ *   retrieving, and deleting named variables using a hash-based lookup system
+ *   with type serialization.
  */
 
 #include <numstore/var/var_cursor.h>

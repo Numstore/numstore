@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rptree_mem.c
+ *   Implements rptree_mem.h. Provides an in-memory implementation of R+ tree
+ *   operations for testing and comparison, using a simple byte array backend.
  */
 
 #include <rptree_mem.h>

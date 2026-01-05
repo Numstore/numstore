@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for insert.c
+ *   Implements network/insert.h. Provides builder pattern implementation for
+ *   constructing network INSERT queries with validation of variable names,
+ *   ports, and start offsets.
  */
 
 #include <numstore/compiler/network/insert.h>
