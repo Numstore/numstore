@@ -882,11 +882,9 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
       err_t_wrap (txnt_remove_txn_expect (&p->tnxt, tx, e), e);
 
-      latch_upgrade_s_x (&tx->l);
-
       tx->data.state = TX_DONE;
 
-      //err_t_wrap (lockt_unlock (p->lt, tx, e), e);
+      err_t_wrap (lockt_unlock (p->lt, tx, e), e);
 
       latch_unlock (&tx->l);
 
@@ -903,7 +901,7 @@ pgr_update_master_lsn (struct pager *p, lsn mlsn, error *e)
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
 
   // X(db.root.mlsn)
-  struct lt_lock *mlsn_lock = lockt_lock (p->lt, LOCK_MLSN, (union lt_lock_data){ 0 }, LM_X, &tx, e);
+  struct lt_lock *mlsn_lock = lockt_lock (p->lt, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_X, &tx, e);
   if (mlsn_lock == NULL)
     {
       goto theend;
