@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features - Numstore Documentation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Numstore Features</h1>
+        <p>Complete overview of Numstore capabilities</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="getting-started.html">Getting Started</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="api-reference.html">API Reference</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="examples.html">Examples</a></li>
+            <li><a href="downloads.html">Downloads</a></li>
+            <li><a href="about.html">About</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section class="section">
+            <h2>Core Features</h2>
+
+            <h3>High Performance Operations</h3>
+            <p>All core operations execute in logarithmic time complexity:</p>
+            <ul>
+                <li><strong>O(log N) Insertions</strong> - Insert data anywhere in the byte stream</li>
+                <li><strong>O(log N) Deletions</strong> - Remove data from any position</li>
+                <li><strong>O(log N) Reads</strong> - Access data at any offset</li>
+                <li><strong>640+ MB/s Write Speed</strong> - Sustained high-speed writes</li>
+            </ul>
+
+            <h3>Persistent Storage</h3>
+            <ul>
+                <li>Automatic persistence with write-ahead logging (WAL)</li>
+                <li>ARIES-based undo/redo logging</li>
+                <li>Crash recovery with automatic rollback</li>
+                <li>Durable ACID transactions</li>
+            </ul>
+
+            <h3>Flexible Data Access</h3>
+            <ul>
+                <li>Strided read/write operations (e.g., read every 3rd element)</li>
+                <li>Offset-based access patterns</li>
+                <li>Range operations (start:stop:stride)</li>
+                <li>Direct TCP socket streaming for large data transfers</li>
+            </ul>
+
+            <h3>Comprehensive Type System</h3>
+            <ul>
+                <li><strong>Primitives</strong> - Signed/unsigned integers, floats, complex numbers</li>
+                <li><strong>Structs</strong> - Composite data structures</li>
+                <li><strong>Unions</strong> - Variant types</li>
+                <li><strong>Arrays</strong> - Fixed-size arrays of any type</li>
+                <li><strong>Enums</strong> - Enumerated types</li>
+            </ul>
+
+            <h3>Multi-Language Support</h3>
+            <ul>
+                <li>Native C library (libnscore, libnspager)</li>
+                <li>Python wrapper with Pythonic API</li>
+                <li>Java bindings for JVM integration</li>
+                <li>Command-line interface for scripting</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>R+Tree Architecture</h2>
+            <p>
+                Numstore is built on an R+Tree data structure - a rope equivalent to a B+Tree
+                that tracks byte counts per node. This architecture enables:
+            </p>
+            <ul>
+                <li>Efficient random access to any position in the byte stream</li>
+                <li>Fast insertions and deletions without full data reorganization</li>
+                <li>Optimal cache performance with node-level operations</li>
+                <li>Scalable storage for large datasets</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Transaction Support</h2>
+            <p>Full ACID transaction guarantees:</p>
+            <ul>
+                <li><strong>Atomicity</strong> - All operations in a transaction succeed or fail together</li>
+                <li><strong>Consistency</strong> - Database remains in valid state after transactions</li>
+                <li><strong>Isolation</strong> - Concurrent transactions don't interfere</li>
+                <li><strong>Durability</strong> - Committed transactions survive system failures</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>What Numstore Can Do</h2>
+            <ul>
+                <li>Store and manipulate large contiguous byte streams efficiently</li>
+                <li>Handle time-series data with fast insertions and queries</li>
+                <li>Manage scientific datasets with complex access patterns</li>
+                <li>Provide file-system-like operations with database guarantees</li>
+                <li>Support machine learning workflows with typed array storage</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>What Numstore Cannot Do</h2>
+            <p>Numstore is specialized for contiguous byte operations and has limitations:</p>
+            <ul>
+                <li>Not a general-purpose relational database (no SQL)</li>
+                <li>Not optimized for highly sparse data structures</li>
+                <li>Not designed for document or key-value storage patterns</li>
+                <li>Not a distributed database (single-node only)</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Features Cheat Sheet</h2>
+            <table>
+                <tr>
+                    <th>Feature</th>
+                    <th>Supported</th>
+                    <th>Notes</th>
+                </tr>
+                <tr>
+                    <td>Log N Operations</td>
+                    <td>✓</td>
+                    <td>Insert, delete, read all O(log N)</td>
+                </tr>
+                <tr>
+                    <td>ACID Transactions</td>
+                    <td>✓</td>
+                    <td>Full ACID guarantees</td>
+                </tr>
+                <tr>
+                    <td>Crash Recovery</td>
+                    <td>✓</td>
+                    <td>Automatic via WAL</td>
+                </tr>
+                <tr>
+                    <td>Type System</td>
+                    <td>✓</td>
+                    <td>Primitives, structs, unions, arrays, enums</td>
+                </tr>
+                <tr>
+                    <td>Multi-Language</td>
+                    <td>✓</td>
+                    <td>C, Python, Java</td>
+                </tr>
+                <tr>
+                    <td>Strided Access</td>
+                    <td>✓</td>
+                    <td>Read/write with custom strides</td>
+                </tr>
+                <tr>
+                    <td>TCP Streaming</td>
+                    <td>✓</td>
+                    <td>For large data transfers</td>
+                </tr>
+                <tr>
+                    <td>Distributed</td>
+                    <td>✗</td>
+                    <td>Single-node only</td>
+                </tr>
+                <tr>
+                    <td>SQL</td>
+                    <td>✗</td>
+                    <td>Not a relational database</td>
+                </tr>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>Copyright 2025 Theo Lincke | Licensed under the Apache License 2.0</p>
+        <p><a href="https://gitlab.com/lincketheo/numstore">GitHub Repository</a></p>
+    </footer>
+</body>
+</html>
