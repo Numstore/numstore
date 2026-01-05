@@ -1,8 +1,0 @@
-{
-  "files": [],
-  "compilerOptions": {
-    "module": "NodeNext",
-    "strict": true,
-    "noImplicitAny": false
-  }
-}
