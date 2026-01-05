@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - Numstore Documentation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>About Numstore</h1>
+        <p>Background, context, and contact information</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="getting-started.html">Getting Started</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="api-reference.html">API Reference</a></li>
+            <li><a href="configuration.html">Configuration</a></li>
+            <li><a href="examples.html">Examples</a></li>
+            <li><a href="downloads.html">Downloads</a></li>
+            <li><a href="about.html">About</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section class="section">
+            <h2>What is Numstore?</h2>
+            <p>
+                Numstore is a database designed specifically for contiguous byte streams.
+                It combines the flexibility of a file system with the performance and
+                reliability guarantees of a database.
+            </p>
+            <p>
+                At its core, Numstore uses an R+Tree data structure - a rope equivalent
+                to a B+Tree that maintains byte count information at each node. This
+                architecture enables logarithmic time complexity for insertions, deletions,
+                and reads at any position in the byte stream.
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>Context and Motivation</h2>
+            <p>
+                Traditional file systems provide linear access to data, making insertions
+                and deletions in the middle of a file expensive O(N) operations. Databases
+                offer better random access but often aren't optimized for contiguous byte
+                operations.
+            </p>
+            <p>
+                Numstore bridges this gap by providing:
+            </p>
+            <ul>
+                <li>O(log N) insertions and deletions anywhere in the stream</li>
+                <li>Database-grade reliability with ACID transactions</li>
+                <li>High throughput (640+ MB/s sustained writes)</li>
+                <li>A flexible type system for structured data</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Historical Precedent</h2>
+
+            <h3>Machine Learning and Scientific Computing</h3>
+            <p>
+                Scientific computing and machine learning workflows often require efficient
+                random access to large arrays of structured data. Formats like HDF5 and
+                NetCDF address some of these needs but don't provide efficient mid-stream
+                insertions or database-style transactions.
+            </p>
+
+            <h3>US Intelligence Community</h3>
+            <p>
+                The intelligence community has long worked with massive datasets requiring
+                efficient random access, structured storage, and strong reliability guarantees.
+                Numstore's design draws inspiration from these requirements.
+            </p>
+
+            <h3>Other Scientific and Engineering Formats</h3>
+            <p>
+                Numstore complements existing formats like:
+            </p>
+            <ul>
+                <li><strong>HDF5</strong> - Hierarchical data format for scientific data</li>
+                <li><strong>NetCDF</strong> - Network Common Data Form for array-oriented data</li>
+                <li><strong>FITS</strong> - Flexible Image Transport System for astronomy</li>
+                <li><strong>Parquet</strong> - Columnar storage for analytics</li>
+            </ul>
+            <p>
+                Unlike these formats, Numstore prioritizes efficient mid-stream mutations
+                and provides transaction support with crash recovery.
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>Numstore's Positioning</h2>
+            <p>Numstore is designed for applications that need:</p>
+            <ul>
+                <li>Efficient random insertions/deletions in large byte streams</li>
+                <li>Strong reliability guarantees (ACID, crash recovery)</li>
+                <li>Structured data with a type system</li>
+                <li>High throughput for both reads and writes</li>
+                <li>Simple, file-like interface with database features</li>
+            </ul>
+
+            <p>Numstore is NOT designed for:</p>
+            <ul>
+                <li>Relational data with complex queries (use PostgreSQL, MySQL)</li>
+                <li>Key-value lookups (use Redis, RocksDB)</li>
+                <li>Document storage (use MongoDB, CouchDB)</li>
+                <li>Distributed/replicated storage (use Cassandra, Riak)</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Use Cases</h2>
+            <p>Ideal applications for Numstore include:</p>
+            <ul>
+                <li><strong>Time-series databases</strong> - Efficient append and random read operations</li>
+                <li><strong>Scientific datasets</strong> - Large arrays with structured types</li>
+                <li><strong>Machine learning pipelines</strong> - Training data with complex access patterns</li>
+                <li><strong>Engineering simulations</strong> - Large contiguous data structures</li>
+                <li><strong>Log aggregation</strong> - High-throughput writes with reliable persistence</li>
+                <li><strong>Sensor data</strong> - Continuous streams with structured records</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Comparison with Other Databases</h2>
+            <table>
+                <tr>
+                    <th>Feature</th>
+                    <th>Numstore</th>
+                    <th>PostgreSQL</th>
+                    <th>HDF5</th>
+                    <th>Redis</th>
+                </tr>
+                <tr>
+                    <td>Log N insertions</td>
+                    <td>✓</td>
+                    <td>✓ (B-tree)</td>
+                    <td>✗</td>
+                    <td>✗</td>
+                </tr>
+                <tr>
+                    <td>Byte streams</td>
+                    <td>✓</td>
+                    <td>Limited</td>
+                    <td>✓</td>
+                    <td>✗</td>
+                </tr>
+                <tr>
+                    <td>ACID transactions</td>
+                    <td>✓</td>
+                    <td>✓</td>
+                    <td>✗</td>
+                    <td>Limited</td>
+                </tr>
+                <tr>
+                    <td>Type system</td>
+                    <td>✓</td>
+                    <td>✓</td>
+                    <td>✓</td>
+                    <td>Limited</td>
+                </tr>
+                <tr>
+                    <td>SQL queries</td>
+                    <td>✗</td>
+                    <td>✓</td>
+                    <td>✗</td>
+                    <td>✗</td>
+                </tr>
+                <tr>
+                    <td>Strided access</td>
+                    <td>✓</td>
+                    <td>✗</td>
+                    <td>✓</td>
+                    <td>✗</td>
+                </tr>
+            </table>
+        </section>
+
+        <section class="section" id="contact">
+            <h2>Contact and Community</h2>
+
+            <h3>Author</h3>
+            <p>
+                Numstore is developed and maintained by <strong>Theo Lincke</strong>.
+            </p>
+
+            <h3>Contributing</h3>
+            <p>
+                Contributions are welcome! This project is in early stages, so please
+                be considerate when submitting issues or pull requests.
+            </p>
+            <p>
+                <a href="https://gitlab.com/lincketheo/numstore">
+                    View the repository on GitLab
+                </a>
+            </p>
+
+            <h3>Reporting Issues</h3>
+            <p>
+                Found a bug or have a feature request?
+                <a href="https://gitlab.com/lincketheo/numstore/-/issues">
+                    Open an issue on GitLab
+                </a>
+            </p>
+
+            <h3>Community Forum</h3>
+            <p>
+                Join the discussion and get help from the community.
+                <em>(Community forum coming soon)</em>
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>License</h2>
+            <p>
+                Numstore is licensed under the <strong>Apache License 2.0</strong>.
+            </p>
+            <pre><code>Copyright 2025 Theo Lincke
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.</code></pre>
+            <p>
+                <a href="https://www.apache.org/licenses/LICENSE-2.0">
+                    View full license text
+                </a>
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>Acknowledgments</h2>
+            <p>
+                Numstore builds on decades of research in database systems, file systems,
+                and data structures. Special thanks to the creators of:
+            </p>
+            <ul>
+                <li>B+Tree and rope data structures</li>
+                <li>ARIES recovery algorithm</li>
+                <li>HDF5 and NetCDF for inspiration</li>
+                <li>The open source database community</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>Copyright 2025 Theo Lincke | Licensed under the Apache License 2.0</p>
+        <p><a href="https://gitlab.com/lincketheo/numstore">GitHub Repository</a></p>
+    </footer>
+</body>
+</html>
