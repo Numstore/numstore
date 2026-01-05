@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nsfslite_py.c
+ *   Implements nsfslite.h. Python extension module bindings for nsfslite, providing
+ *   Python access to the NumStore File System Lite C library. Includes connection management,
+ *   variable operations, and transaction support with proper memory handling and error propagation.
  */
 
 #define PY_SSIZE_T_CLEAN

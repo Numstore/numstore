@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for cbuffer.c
+ *   Implements cbuffer.h. Circular buffer with read/write operations.
  */
 
 #include <numstore/core/cbuffer.h>

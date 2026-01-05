@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for scanner.h
+ *   Scanner (lexer) structures and state management. Defines scanner state
+ *   machine for tokenizing input character streams, handling identifiers,
+ *   strings, numbers, and error recovery.
  */
 
 // system

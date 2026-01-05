@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for struct.c
+ *   Implements struct.h. Provides struct type operations including validation,
+ *   byte size calculations, serialization, deserialization, and random generation.
  */
 
 #include <numstore/types/struct.h>

@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _delete_layers.h
+ *   Internal header defining structures for layer deletion operations in the R+ tree.
  */
 
 typedef struct

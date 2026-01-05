@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_file.c
+ *   Implements wal_file.h. WAL file I/O operations including log writing, reading, and file management.
  */
 
 #include <numstore/pager/wal_file.h>

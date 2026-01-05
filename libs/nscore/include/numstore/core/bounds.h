@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for bounds.h
+ *   Overflow-safe arithmetic macros for fixed-width numeric types (u8, u16, u32,
+ *   u64, i8, i16, i32, i64, f32, f64). Provides checked add, subtract, multiply,
+ *   and divide operations that detect overflow and division by zero.
  */
 
 // core

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_ostream.c
+ *   Implements wal_stream.h. Output stream operations for writing WAL records with buffering and flush control.
  */
 
 #include <numstore/core/assert.h>

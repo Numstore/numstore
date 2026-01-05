@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for threadpool_tests.c
+ *   Integration tests for thread pool functionality.
  */
 
 #include <numstore/core/assert.h>

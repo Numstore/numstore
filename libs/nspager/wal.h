@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal.h
+ *   Internal write-ahead log implementation details and private structures.
  */
 
 // numstore

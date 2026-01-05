@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for txn_table.h
+ *   Transaction table managing active transactions with locking and concurrency control mechanisms.
  */
 
 #include <numstore/core/adptv_hash_table.h>

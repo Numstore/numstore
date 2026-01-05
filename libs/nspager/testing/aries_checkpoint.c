@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for aries_checkpoint.c
+ *   Test implementation for ARIES checkpoint recovery protocol validation.
  */
 
 #include <numstore/core/assert.h>

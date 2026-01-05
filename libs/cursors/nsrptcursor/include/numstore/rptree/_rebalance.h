@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _rebalance.h
+ *   Internal header defining rebalancing structures and functions for the R+ tree,
+ *   managing node redistribution and tree structure maintenance after modifications.
  */
 
 #include <numstore/rptree/node_updates.h>

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for struct.h
+ *   Struct type definition with named fields and nested types, providing serialization,
+ *   validation, byte size calculations, and builder pattern for construction.
  */
 
 // core

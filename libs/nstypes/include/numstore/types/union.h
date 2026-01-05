@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for union.h
+ *   Union type definition with named variants and types, providing serialization,
+ *   validation, byte size calculations, and builder pattern for construction.
  */
 
 // core

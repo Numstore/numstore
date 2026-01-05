@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _insert.h
+ *   Internal header defining insertion operation structures and functions for
+ *   the R+ tree cursor, including state management for ongoing insert operations.
  */
 
 #include <numstore/rptree/node_updates.h>

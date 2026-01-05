@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for random.c
+ *   Implements random.h. Random number generation for all integer types and utilities.
  */
 
 #include <numstore/core/random.h>

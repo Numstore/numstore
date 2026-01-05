@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page.c
+ *   Implements page.h. Core page lifecycle management including allocation, initialization, and type-based dispatch.
  */
 
 // numstore

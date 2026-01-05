@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for aries_no_checkpoint_crash.c
+ *   Test implementation for ARIES crash recovery without checkpoints.
  */
 
 #include <numstore/core/assert.h>

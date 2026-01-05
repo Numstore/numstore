@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_rec_hdr.h
+ *   Write-ahead log record header structure defining log entry types and metadata for recovery operations.
  */
 
 #include <numstore/intf/types.h>

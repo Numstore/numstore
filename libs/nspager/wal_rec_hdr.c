@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_rec_hdr.c
+ *   Implements wal_rec_hdr.h. WAL record header operations including serialization and record type handling.
  */
 
 #include <numstore/pager/wal_rec_hdr.h>

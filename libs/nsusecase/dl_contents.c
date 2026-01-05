@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dl_contents.c
+ *   Implements usecases.h. Reads and outputs data list page contents for debugging,
+ *   traversing the linked list of data pages and writing their raw data to a stream.
  */
 
 #include <numstore/pager.h>

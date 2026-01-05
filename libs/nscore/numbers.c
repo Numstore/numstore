@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for numbers.c
+ *   Implements numbers.h. Number parsing and Python-style modulo operations.
  */
 
 #include <numstore/core/numbers.h>

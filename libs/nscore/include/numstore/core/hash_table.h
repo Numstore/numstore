@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for hash_table.h
+ *   Generic hash table implementation using separate chaining for collision
+ *   resolution. Supports insert, lookup, delete, and iteration operations.
  */
 
 #include <numstore/core/assert.h>

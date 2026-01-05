@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for hash_table.c
+ *   Implements hash_table.h. Generic hash table with collision handling.
  */
 
 #include <numstore/core/hash_table.h>

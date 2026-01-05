@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for pager_routines.c
+ *   Implements pager_routines.h. High-level utility routines simplifying common pager operations.
  */
 
 #include <numstore/pager/pager_routines.h>

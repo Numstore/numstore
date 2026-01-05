@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for union.c
+ *   Implements union.h. Provides union type operations including validation,
+ *   byte size calculations, serialization, deserialization, and random generation.
  */
 
 #include <numstore/types/union.h>

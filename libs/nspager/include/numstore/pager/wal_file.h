@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_file.h
+ *   Write-ahead log file interface for durable transaction logging supporting crash recovery and atomicity.
  */
 
 #include <numstore/core/latch.h>

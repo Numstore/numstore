@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for literal.c
+ *   Implements literal.h. Provides implementation of literal operations,
+ *   object and array builders, and arithmetic/logical operators for all
+ *   literal types.
  */
 
 #include <numstore/compiler/literal.h>

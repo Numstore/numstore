@@ -15,6 +15,7 @@
  *
  * Description:
  *   Multi-granularity locking implementation with IS/IX/S/SIX/X modes
+ *   Implements gr_lock.h. Granular locking with multiple lock modes (IS, IX, S, SIX, X).
  */
 
 #include "numstore/core/assert.h"

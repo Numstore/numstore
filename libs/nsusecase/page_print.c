@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page_print.c
+ *   Implements usecases.h. Prints formatted page information from database files
+ *   for debugging, with optional filtering by page number and page type.
  */
 
 #include <numstore/core/math.h>

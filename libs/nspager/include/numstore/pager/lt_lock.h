@@ -16,7 +16,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for lock_table.h
+ *   Defines lock table data structures and interfaces for transaction concurrency control.
+ *   Provides hierarchical locking for database resources (root page, variable hash pages,
+ *   variables, and RPtree structures) with support for shared and exclusive lock modes.
+ *   Maintains transaction-to-lock mappings using adaptive hash tables.
  */
 
 #include <numstore/core/gr_lock.h>

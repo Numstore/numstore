@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for txn.c
+ *   Implements txn.h. Transaction lifecycle management including begin, commit, abort, and rollback.
  */
 
 #include "numstore/intf/os.h"

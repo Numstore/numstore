@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for aries_rollback.c
+ *   Test implementation for ARIES transaction rollback and undo operations.
  */
 
 #include <numstore/core/assert.h>

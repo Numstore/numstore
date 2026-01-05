@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for math.h
+ *   Mathematical utility functions and array manipulation macros. Includes complex
+ *   number operations, array initialization, randomization, and search utilities.
  */
 
 // core

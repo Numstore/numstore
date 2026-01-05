@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for compiler_example.c
+ *   Scratch/example program demonstrating compiler functionality.
  */
 
 // core

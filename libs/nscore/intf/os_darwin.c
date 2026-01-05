@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for os_darwin.c
+ *   Implements os.h for macOS/Darwin platform-specific OS operations.
  */
 
 // core

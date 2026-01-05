@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for clock_allocator.h
+ *   Clock algorithm-based allocator for fixed-size element pools. Implements
+ *   a circular eviction policy for memory-constrained scenarios.
  */
 
 #include <numstore/core/assert.h>

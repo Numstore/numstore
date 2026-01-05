@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for tokens.h
+ *   Token types and structures for the scanner. Defines all token types
+ *   (operators, keywords, literals, identifiers) with associated data,
+ *   token comparison functions, and string conversion utilities.
  */
 
 // compiler

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for error.h
+ *   Error handling framework with error codes, formatted error messages, and
+ *   error propagation utilities. Supports error transformation and logging.
  */
 
 // core

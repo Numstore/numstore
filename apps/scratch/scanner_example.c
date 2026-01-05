@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for scanner_example.c
+ *   Scratch/example program demonstrating scanner/lexer functionality.
  */
 
 // core

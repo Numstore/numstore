@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nspprint.c
+ *   Command-line tool to print formatted page information from NumStore database files with filtering options.
  */
 
 #include <numstore/usecases.h>

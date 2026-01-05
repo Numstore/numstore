@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for robin_hood_ht.h
+ *   Generic Robin Hood hash table implementation using templates (via macros).
+ *   Thread-safe via spx_latch, with configurable key/value types and suffix.
  */
 
 #include <numstore/core/assert.h>

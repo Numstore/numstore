@@ -16,7 +16,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for config.h
+ *   Build configuration header defining compile-time constants for the NumStore system.
+ *   Specifies page sizes, memory limits, transaction table sizes, WAL buffer capacity,
+ *   cursor pool settings, and other fundamental system parameters. Provides logging
+ *   function for configuration inspection.
  */
 
 #include <numstore/intf/types.h>

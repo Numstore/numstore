@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for promise.c
+ *   Implements promise.h. Tests for promise synchronization primitives.
  */
 
 #include <numstore/core/promise.h>

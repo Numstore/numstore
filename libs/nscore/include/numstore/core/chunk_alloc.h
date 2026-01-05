@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for chunk_alloc.h
+ *   Chunk-based memory allocator with configurable pooling, size limits, and
+ *   automatic growth. Supports both allocation and reset without freeing.
  */
 
 #include <numstore/core/error.h>

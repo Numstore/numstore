@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for tombstone.c
+ *   Implements tombstone.h. Tombstone page operations for deletion tracking and cleanup.
  */
 
 #include <numstore/pager/tombstone.h>

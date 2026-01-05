@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dlread.c
+ *   Command-line tool to read and output data list page contents from NumStore database files.
  */
 
 // system

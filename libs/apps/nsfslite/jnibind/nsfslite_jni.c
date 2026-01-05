@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nsfslite_jni.c
+ *   Implements nsfslite.h. JNI (Java Native Interface) bindings for nsfslite, providing
+ *   Java access to the NumStore File System Lite C library. Includes connection management,
+ *   variable operations, and transaction support with proper error handling and type conversion.
  */
 
 #include "nsfslite.h"

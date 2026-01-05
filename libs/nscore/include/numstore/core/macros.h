@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for macros.h
+ *   Common utility macros including container_of, min/max, array length calculation,
+ *   character type checks, likely/unlikely branch hints, and token concatenation.
  */
 
 // system

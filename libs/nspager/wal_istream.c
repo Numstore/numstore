@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_istream.c
+ *   Implements wal_stream.h. Input stream operations for reading WAL records sequentially with buffering.
  */
 
 #include <numstore/core/assert.h>

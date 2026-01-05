@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for compiler.h
+ *   Main compiler interface for the numstore compiler system. Provides functions
+ *   to create and manage compiler instances, access input/output buffers, and
+ *   execute compilation of character input into statement results.
  */
 
 // compiler

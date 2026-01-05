@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rptree_mem.h
+ *   Defines an in-memory R+ tree implementation for testing, providing read, write,
+ *   insert, and remove operations on a simple byte array with locking support.
  */
 
 // numstore

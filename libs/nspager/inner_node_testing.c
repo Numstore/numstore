@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for inner_node_testing.c
+ *   Implements inner_node_testing.h. Test utilities for inner node validation and debugging.
  */
 
 #include <inner_node_testing.h>

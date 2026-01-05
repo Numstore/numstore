@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_tail.c
+ *   Implements var_tail.h. Variable tail management for tracking end positions in variable data.
  */
 
 #include <numstore/pager/var_tail.h>

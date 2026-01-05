@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for sarray.c
+ *   Implements sarray.h. Provides static array type operations including validation,
+ *   byte size calculations, serialization, deserialization, and builder functions.
  */
 
 #include <numstore/types/sarray.h>

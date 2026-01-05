@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for bytes.h
+ *   Simple byte buffer structures (mutable and const) for representing memory
+ *   regions with pointer and length.
  */
 
 // core

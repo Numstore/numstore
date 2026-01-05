@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for promise.h
+ *   Promise synchronization primitive for thread coordination, providing a
+ *   simple wait/signal mechanism using mutexes and condition variables.
  */
 
 #include <numstore/core/error.h>

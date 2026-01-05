@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for test.c
+ *   Main test runner executable that discovers and runs all registered NumStore tests with filtering and reporting.
  */
 
 #include <numstore/core/cli.h>

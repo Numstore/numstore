@@ -16,7 +16,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for memcpy_types.h
+ *   Defines types and interfaces for complex memory copy operations with access patterns.
+ *   Supports strictly increasing accessors for monotonic source reads with non-monotonic
+ *   destination writes, and jump accessors for non-contiguous source reads with monotonic
+ *   destination writes. Provides stateful, resumable memory copy operations.
  */
 
 #include <numstore/intf/types.h>

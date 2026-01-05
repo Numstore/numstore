@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for config.c
+ *   Implements config.h. Provides logging functionality for build and page
+ *   configuration parameters including page sizes, memory settings, and layout offsets.
  */
 
 #include <config.h>

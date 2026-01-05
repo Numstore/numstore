@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for deserializer.h
+ *   Simple deserialization interface for reading structured data from byte
+ *   streams. Tracks read position and provides bounds-checked read operations.
  */
 
 // core

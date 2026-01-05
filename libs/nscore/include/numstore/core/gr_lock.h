@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for gr_lock.h
+ *   Granular lock implementation supporting multiple lock modes (IS, IX, S, SIX, X)
+ *   with compatibility matrix-based conflict resolution and waiter queues.
  */
 
 #include <numstore/core/clock_allocator.h>

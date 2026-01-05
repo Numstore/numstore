@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for os.h
+ *   Cross-platform OS abstraction layer for file I/O, timers, memory allocation,
+ *   and synchronization primitives (mutexes, spinlocks, rwlocks, threads, condvars).
  */
 
 #include <numstore/intf/os/file_system.h>

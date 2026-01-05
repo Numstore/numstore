@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rptree_cursor.h
+ *   Main header for the R+ tree cursor, defining the cursor structure and core
+ *   operations for managing stateful traversal and modification of the R+ tree.
  */
 
 // numstore

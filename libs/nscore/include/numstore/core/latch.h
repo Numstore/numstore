@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for latch.h
+ *   Lightweight spinlock synchronization primitive using atomic operations
+ *   for protecting critical sections in concurrent code.
  */
 
 #include "numstore/intf/os/threading.h"

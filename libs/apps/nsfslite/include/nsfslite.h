@@ -14,7 +14,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nsfslite.h
+ *   Public C API header for NumStore File System Lite (nsfslite). Provides a simplified
+ *   interface for managing named variables in a transactional database with support for
+ *   create, read, write, insert, remove operations using stride-based access patterns.
+ *   Supports both implicit and explicit transaction management.
  */
 
 #ifndef NSFSLITE

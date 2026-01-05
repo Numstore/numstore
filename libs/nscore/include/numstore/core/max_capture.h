@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for max_capture.h
+ *   Transaction ID maximum tracking utility for updating the highest observed
+ *   transaction ID from candidate values.
  */
 
 #include <numstore/core/signatures.h>

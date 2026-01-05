@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for node_updates.c
+ *   Implements node_updates.h. Provides functions for managing node update
+ *   structures during tree modifications, tracking changes to be propagated
+ *   up the tree during rebalancing.
  */
 
 #include <numstore/rptree/node_updates.h>

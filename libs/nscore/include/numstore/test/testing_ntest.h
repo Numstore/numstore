@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for testing_ntest.h
+ *   No-op testing macros that compile to nothing, allowing test code to remain
+ *   in source files while being completely eliminated when NTEST is defined.
  */
 
 #define TEST_INIT_FOR_DLL(dll_name)

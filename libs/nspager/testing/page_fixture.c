@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page_fixture.c
+ *   Implements page_fixture.h. Test fixture setup and teardown for page-related tests.
  */
 
 #include <numstore/test/page_fixture.h>

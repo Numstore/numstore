@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_page.c
+ *   Implements var_page.h. Variable page management including creation, lookup, and metadata operations.
  */
 
 #include <numstore/pager/var_page.h>

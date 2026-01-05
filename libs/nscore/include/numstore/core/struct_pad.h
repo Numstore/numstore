@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for struct_pad.h
+ *   Commented-out experimental utilities for struct padding and memory layout
+ *   conversions between packed and unpacked representations (not currently active).
  */
 
 /**

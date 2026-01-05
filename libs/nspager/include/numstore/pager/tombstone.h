@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for tombstone.h
+ *   Tombstone page for marking deleted data with transaction tracking for proper cleanup and space reclamation.
  */
 
 #include <numstore/pager/page.h>

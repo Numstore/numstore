@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for close.h
+ *   Network close query data structure. Defines the query type for closing
+ *   network connections to variables on specified ports.
  */
 
 // numstore

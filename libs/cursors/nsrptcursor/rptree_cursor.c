@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rptree_cursor.c
+ *   Implements rptree_cursor.h. Provides core cursor management functions including
+ *   initialization, cleanup, transaction handling, tree balancing, and validation.
  */
 
 #include <numstore/rptree/rptree_cursor.h>

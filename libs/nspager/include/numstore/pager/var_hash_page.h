@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_hash_page.h
+ *   Variable hash page for hash-based indexing of variable-length data with collision handling.
  */
 
 #include <numstore/core/hashing.h>

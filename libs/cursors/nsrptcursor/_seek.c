@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _seek.c
+ *   Implements _seek.h. Provides seek operations to navigate to a specific
+ *   byte offset within the R+ tree, traversing inner nodes to locate the
+ *   target data list page.
  */
 
 #include <numstore/core/error.h>

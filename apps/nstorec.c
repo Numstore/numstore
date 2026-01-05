@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nstorec.c
+ *   NumStore client (nstorec) - Command-line REPL client for connecting to NumStore database servers.
  */
 
 // other libraries

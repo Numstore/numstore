@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _write.h
+ *   Internal header defining write operation structures and functions for
+ *   overwriting existing data in the R+ tree with strided write support.
  */
 
 // system

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for llist.h
+ *   Singly linked list data structure and operations. Provides push, append, pop,
+ *   remove, and iteration utilities for intrusive list nodes.
  */
 
 // core

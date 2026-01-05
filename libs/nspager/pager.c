@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for pager.c
+ *   Implements pager.h. Main pager implementation with transaction support, page cache, and WAL integration.
  */
 
 #include "numstore/pager/lt_lock.h"

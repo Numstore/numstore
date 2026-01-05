@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for filenames.h
+ *   Filename manipulation utilities for extracting basename from file paths.
  */
 
 const char *basename (const char *path);

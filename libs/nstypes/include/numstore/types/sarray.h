@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for sarray.h
+ *   Static array type definition with rank, dimensions, and element type, providing
+ *   serialization, validation, byte size calculations, and builder pattern.
  */
 
 // system

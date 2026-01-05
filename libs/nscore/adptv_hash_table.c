@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for adptv_hash_table.c
+ *   Implements adptv_hash_table.h. Adaptive hash table with dynamic resizing.
  */
 
 #include <numstore/core/adptv_hash_table.h>

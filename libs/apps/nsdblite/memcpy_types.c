@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for memcpy_types.c
+ *   Implements memcpy_types.h. Provides resumable memory copy operations with
+ *   complex access patterns including stride-based and jump-based copying for
+ *   efficient data serialization and deserialization.
  */
 
 #include <memcpy_types.h>

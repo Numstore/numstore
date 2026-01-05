@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dirty_page_table.h
+ *   Dirty page table for tracking modified pages during transactions, supporting write-ahead logging and recovery operations.
  */
 
 #include <numstore/core/bytes.h>

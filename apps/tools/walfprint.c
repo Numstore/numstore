@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for walfprint.c
+ *   Command-line tool to print write-ahead log records from NumStore WAL files for debugging.
  */
 
 // system

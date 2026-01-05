@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal.c
+ *   Implements wal.h. Core write-ahead log implementation with log record creation and recovery logic.
  */
 
 #include <wal.h>

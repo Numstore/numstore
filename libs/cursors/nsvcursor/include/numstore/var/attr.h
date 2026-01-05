@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for attr.h
+ *   Defines attribute structures for variable cursor operations, specifying
+ *   parameters for creating and retrieving named variables with type information.
  */
 
 #include <numstore/core/string.h>

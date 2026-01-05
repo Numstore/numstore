@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for statement.c
+ *   Implements statement.h. Provides statement memory allocation and
+ *   deallocation functions for managing statement lifecycle.
  */
 
 #include <numstore/compiler/statement.h>

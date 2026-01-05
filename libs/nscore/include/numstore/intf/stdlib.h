@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for stdlib.h
+ *   Wrapped standard library functions (memcpy, memset, strlen, etc.) with
+ *   consistent naming convention and interface for numstore internal use.
  */
 
 #include <numstore/core/signatures.h>

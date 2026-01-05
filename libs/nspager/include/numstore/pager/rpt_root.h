@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rpt_root.h
+ *   R+ tree root page structure managing the root of the index tree with overflow handling.
  */
 
 #include <numstore/core/error.h>

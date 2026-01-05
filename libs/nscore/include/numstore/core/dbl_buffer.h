@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for dbl_buffer.h
+ *   Dynamic double buffer with automatic growth support. Thread-safe append
+ *   operations for accumulating variable-sized data.
  */
 
 // Core
