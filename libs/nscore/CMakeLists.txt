@@ -2,13 +2,14 @@ file(GLOB NSCORE_SRC CONFIGURE_DEPENDS *.c)
 file(GLOB NSCORE_TESTING_SRC CONFIGURE_DEPENDS *.c)
 
 if(WIN32)
-  list(APPEND NSCORE_SRC ./intf/os_windows.c)
+  message("TODO")
 elseif(APPLE)
-  list(APPEND NSCORE_SRC ./intf/os_darwin.c)
+  message("TODO")
 elseif(EMSCRIPTEN)
-  list(APPEND NSCORE_SRC ./intf/os_emscripten.c)
+  message("TODO")
 else()
-  list(APPEND NSCORE_SRC ./intf/os_posix.c)
+  file(GLOB OS_SRC CONFIGURE_DEPENDS ./intf/os_posix/*.c)
+  list(APPEND NSCORE_SRC ${OS_SRC})
 endif()
 
 add_ns_library(nscore

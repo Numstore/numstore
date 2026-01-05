@@ -14,18 +14,17 @@
  * limitations under the License.
  *
  * Description:
- *   Implements os.h for Emscripten/WebAssembly platform-specific OS operations.
+ *   POSIX timer operations implementation
  */
 
-// core
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/intf/os.h>
 
-#include <emscripten.h>
+#include <errno.h>
+#include <string.h>
+#include <time.h>
 
-// os
-// system
 ////////////////////////////////////////////////////////////
 // TIMING
 
@@ -35,8 +34,10 @@ i_timer_create (i_timer *timer, error *e)
 {
   ASSERT (timer);
 
-  // emscripten_get_now() returns milliseconds as double
-  timer->start = emscripten_get_now ();
+  if (clock_gettime (CLOCK_MONOTONIC, &timer->start) != 0)
+    {
+      return error_causef (e, ERR_IO, "clock_gettime: %s", strerror (errno));
+    }
 
   return SUCCESS;
 }
@@ -45,7 +46,7 @@ void
 i_timer_free (i_timer *timer)
 {
   ASSERT (timer);
-  // No cleanup needed for Emscripten timers
+  // No cleanup needed for POSIX timers
 }
 
 u64
@@ -53,11 +54,14 @@ i_timer_now_ns (i_timer *timer)
 {
   ASSERT (timer);
 
-  f64 now = emscripten_get_now ();
-  f64 elapsed_ms = now - timer->start;
+  struct timespec now;
+  clock_gettime (CLOCK_MONOTONIC, &now);
 
-  // Convert milliseconds to nanoseconds
-  return (u64) (elapsed_ms * 1000000.0);
+  // Calculate elapsed time in nanoseconds
+  i64 sec_diff = (i64)now.tv_sec - (i64)timer->start.tv_sec;
+  i64 nsec_diff = (i64)now.tv_nsec - (i64)timer->start.tv_nsec;
+
+  return (u64) (sec_diff * 1000000000LL + nsec_diff);
 }
 
 u64
@@ -82,9 +86,5 @@ i_timer_now_s (i_timer *timer)
 void
 i_get_monotonic_time (struct timespec *ts)
 {
-  f64 now_ms = emscripten_get_now ();
-  f64 now_s = now_ms / 1000.0;
-
-  ts->tv_sec = (long)now_s;
-  ts->tv_nsec = (long)((now_s - (f64)ts->tv_sec) * 1000000000.0);
+  clock_gettime (CLOCK_MONOTONIC, ts);
 }
