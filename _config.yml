@@ -1,7 +1,0 @@
-title: Numstore
-description: High-performance database for machine learning workloads
-baseurl: "" # Leave empty if using custom domain
-url: "https://yourusername.gitlab.io"
-
-markdown: kramdown
-theme: minima  # or another Jekyll theme
