@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for enum.h
+ *   Enumeration type definition with named keys, providing serialization, validation,
+ *   and builder pattern for constructing enumeration types.
  */
 
 #include <numstore/core/deserializer.h>

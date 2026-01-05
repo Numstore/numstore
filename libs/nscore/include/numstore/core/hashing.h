@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for hashing.h
+ *   Hash function implementations. Provides FNV-1a hashing for strings.
  */
 
 // core

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for system.h
+ *   Platform detection macros for identifying operating systems (Windows, Linux,
+ *   macOS, iOS, Android, BSD, Emscripten) with convenience grouping macros.
  */
 
 /*

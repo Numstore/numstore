@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for enum.c
+ *   Implements enum.h. Provides enumeration type operations including validation,
+ *   serialization, deserialization, random generation, and builder functions.
  */
 
 #include <numstore/types/enum.h>

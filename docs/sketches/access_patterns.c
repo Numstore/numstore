@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for access_patterns.c
+ *   Sketch code demonstrating various data access patterns for design exploration.
  */
 
 #include "memcpy_types.h"

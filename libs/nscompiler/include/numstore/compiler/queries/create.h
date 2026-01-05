@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for create.h
+ *   CREATE query structures and builder pattern. Defines query type for
+ *   creating variables with specified names and types, including builder
+ *   functions for constructing queries.
  */
 
 // numstore

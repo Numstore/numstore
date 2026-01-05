@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page_fixture.h
+ *   Test fixture utilities for setting up page-related test environments and mock structures.
  */
 
 // core

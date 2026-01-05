@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for lalloc.h
+ *   Linear allocator (bump allocator) with state checkpoint and rollback support.
+ *   Efficient for temporary allocations that can be reset in bulk.
  */
 
 // core

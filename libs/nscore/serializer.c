@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for serializer.c
+ *   Implements serializer.h. Binary data serialization into fixed buffers.
  */
 
 #include <numstore/core/serializer.h>

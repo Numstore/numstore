@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for data_list.c
+ *   Implements data_list.h. Provides data list page operations including read, write, navigation, and linked list management.
  */
 
 #include <numstore/pager/data_list.h>

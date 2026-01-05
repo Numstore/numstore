@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for os_emscripten.c
+ *   Implements os.h for Emscripten/WebAssembly platform-specific OS operations.
  */
 
 // core

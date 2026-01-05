@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for types.c
+ *   Implements types.h. Provides unified type system operations including validation,
+ *   serialization, deserialization, byte size calculations, and type equality checks.
  */
 
 #include <numstore/types/types.h>

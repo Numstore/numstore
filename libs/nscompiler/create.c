@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for create.c
+ *   Implements queries/create.h. Provides builder pattern implementation for
+ *   constructing CREATE queries that define new variables with types.
  */
 
 #include <numstore/compiler/queries/create.h>

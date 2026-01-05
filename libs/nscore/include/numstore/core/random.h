@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for random.h
+ *   Random number generation utilities for all integer types (u8-u64, i8-i64),
+ *   including range-based generation, random strings, byte arrays, and shuffling.
  */
 
 // core

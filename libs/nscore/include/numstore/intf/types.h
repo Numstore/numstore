@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for types.h
+ *   Core type definitions for integer (u8-u64, i8-i64) and floating-point types,
+ *   complex numbers, domain-specific types (page numbers, LSN, etc.), and limits.
  */
 
 /*//////////////////////////////// CORE TYPES */

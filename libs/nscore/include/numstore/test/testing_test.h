@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for testing_test.h
+ *   Full testing framework with test registration, assertions, coverage tracking,
+ *   random testing support, and detailed failure reporting for unit and profile tests.
  */
 
 // core

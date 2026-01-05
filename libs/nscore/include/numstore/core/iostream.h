@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for iostream.h
+ *   Input/output stream abstraction layer combining circular buffers with file I/O.
  */
 
 // core

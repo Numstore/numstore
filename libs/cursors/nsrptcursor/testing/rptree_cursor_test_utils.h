@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rptree_cursor_test_utils.h
+ *   Defines test utility structures and functions for creating synthetic R+ tree
+ *   cursor states, facilitating isolated testing of cursor operations.
  */
 
 // Core

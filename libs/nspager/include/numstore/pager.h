@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for pager.h
+ *   Main pager interface providing page management, transaction support, and database file operations with write-ahead logging for crash recovery.
  */
 
 #include <numstore/core/threadpool.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rpt_root.c
+ *   Implements rpt_root.h. R+ tree root page operations including tree initialization and root management.
  */
 
 #include <numstore/pager/rpt_root.h>

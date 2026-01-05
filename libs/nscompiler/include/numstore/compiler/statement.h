@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for statement.h
+ *   Statement structure and management. Defines the statement type that
+ *   contains a query and associated memory space for query variables,
+ *   including creation and destruction functions.
  */
 
 // compiler

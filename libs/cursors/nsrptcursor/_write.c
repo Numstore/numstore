@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _write.c
+ *   Implements _write.h. Provides write operations to overwrite existing data
+ *   in the R+ tree at the current cursor position, supporting strided writes
+ *   and block specifications.
  */
 
 #include <numstore/pager/pager_routines.h>

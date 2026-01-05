@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_stream.h
+ *   Write-ahead log streaming interface for reading and writing log records with buffering.
  */
 
 #include <numstore/core/cbuffer.h>

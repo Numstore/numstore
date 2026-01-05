@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for assert_release.h
+ *   Release-mode assertion stubs that compile to no-ops. Used in production
+ *   builds to eliminate assertion overhead.
  */
 
 // core

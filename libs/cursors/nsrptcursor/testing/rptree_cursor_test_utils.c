@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for rptree_cursor_test_utils.c
+ *   Implements rptree_cursor_test_utils.h. Provides utility functions for
+ *   constructing R+ tree cursor test states, enabling unit testing of
+ *   rebalancing and other cursor operations.
  */
 
 #include "rptree_cursor_test_utils.h"

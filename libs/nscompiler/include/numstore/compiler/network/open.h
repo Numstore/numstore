@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for open.h
+ *   Network open query data structure. Defines the query type for opening
+ *   network connections to variables on specified ports.
  */
 
 // numstore

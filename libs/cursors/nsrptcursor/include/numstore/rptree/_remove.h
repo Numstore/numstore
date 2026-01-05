@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _remove.h
+ *   Internal header defining removal operation structures and functions for the
+ *   R+ tree cursor, supporting element deletion with optional output buffering.
  */
 
 #include <numstore/rptree/node_updates.h>

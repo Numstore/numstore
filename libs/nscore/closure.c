@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for closure.c
+ *   Implements closure.h. Function closures with context for callback patterns.
  */
 
 #include <numstore/core/closure.h>

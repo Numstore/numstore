@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for insert.h
+ *   Network insert query structures and builder pattern. Defines query type
+ *   for inserting data to variables over network connections, including port,
+ *   variable name, start offset, and length.
  */
 
 // numstore

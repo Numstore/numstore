@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for root_node.h
+ *   Root node page structure holding metadata about the database including file structure and top-level pointers.
  */
 
 #include <numstore/core/string.h>

@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_tail.h
+ *   Variable tail structure for managing the end of variable-length data sequences.
  */
 
 // numstore

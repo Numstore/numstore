@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for chunk_alloc.c
+ *   Implements chunk_alloc.h. Fixed-size chunk allocator for efficient memory pooling.
  */
 
 #include <numstore/core/chunk_alloc.h>

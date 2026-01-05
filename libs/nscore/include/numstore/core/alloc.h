@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for alloc.h
+ *   Unified allocator interface that abstracts over multiple allocation strategies
+ *   (linear, chunk-based, clock, and standard malloc).
  */
 
 #include <numstore/core/chunk_alloc.h>

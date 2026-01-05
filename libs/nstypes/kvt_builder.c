@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for kvt_builder.c
+ *   Implements kvt_builder.h. Provides builder pattern implementation for constructing
+ *   struct and union types by accepting keys and types incrementally.
  */
 
 #include <numstore/types/kvt_builder.h>

@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for prim.h
+ *   Primitive type definitions including unsigned/signed integers (8-64 bit),
+ *   floating point (16-128 bit), and complex floating point types with size
+ *   calculations and serialization support.
  */
 
 // core

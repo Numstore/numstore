@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for inner_node.c
+ *   Implements inner_node.h. Provides inner node operations including search, insert, split, and key management.
  */
 
 #include <numstore/pager/inner_node.h>

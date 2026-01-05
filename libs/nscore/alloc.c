@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for alloc.c
+ *   Implements alloc.h. Generic allocator abstraction supporting multiple backend
+ *   allocator types (system, chunk, linear, clock).
  */
 
 #include <numstore/core/alloc.h>

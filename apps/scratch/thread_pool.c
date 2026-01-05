@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for thread_pool.c
+ *   Scratch/example program demonstrating thread pool usage.
  */
 
 #include <numstore/core/threadpool.h>

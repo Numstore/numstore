@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for testing.c
+ *   Implements testing.h. Global test infrastructure and coverage tracking state.
  */
 
 #include <numstore/test/testing.h>

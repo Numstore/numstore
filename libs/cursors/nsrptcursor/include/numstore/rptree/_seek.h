@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _seek.h
+ *   Internal header defining seek operation structures and functions for navigating
+ *   to specific byte offsets within the R+ tree structure.
  */
 
 // numstore

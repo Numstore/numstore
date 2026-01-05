@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for wal_print.c
+ *   Implements usecases.h. Prints write-ahead log (WAL) records from WAL files
+ *   for debugging transaction and recovery operations.
  */
 
 #include <numstore/core/error.h>

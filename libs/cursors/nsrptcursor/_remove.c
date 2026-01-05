@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _remove.c
+ *   Implements _remove.h. Provides removal operations for the R+ tree cursor,
+ *   handling data deletion with optional output to a destination buffer and
+ *   automatic tree rebalancing.
  */
 
 #include <numstore/core/assert.h>

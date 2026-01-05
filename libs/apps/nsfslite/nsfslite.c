@@ -14,7 +14,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nsfslite.c
+ *   Implements nsfslite.h. Core implementation of NumStore File System Lite, providing
+ *   simplified database operations for managing named variables with transaction support.
+ *   Handles cursor management, pager integration, and implements all CRUD operations
+ *   with automatic or explicit transaction handling.
  */
 
 #include <nsfslite.h>

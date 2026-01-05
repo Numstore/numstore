@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for lalloc.c
+ *   Implements lalloc.h. Linear allocator for fast sequential allocations.
  */
 
 #include <numstore/core/lalloc.h>

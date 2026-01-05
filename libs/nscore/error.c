@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for error.c
+ *   Implements error.h. Error handling and propagation with stack traces.
  */
 
 #include <numstore/core/error.h>

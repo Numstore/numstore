@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for root_node.c
+ *   Implements root_node.h. Root node management including database initialization and metadata operations.
  */
 
 #include <numstore/pager/root_node.h>

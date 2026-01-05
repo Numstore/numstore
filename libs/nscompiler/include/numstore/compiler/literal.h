@@ -16,7 +16,10 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for literal.h
+ *   Literal types and operations. Defines structures for primitive, string,
+ *   array, and object literals with builder patterns for complex types.
+ *   Provides operators for arithmetic, logical, and bitwise operations on
+ *   literals.
  */
 
 // core

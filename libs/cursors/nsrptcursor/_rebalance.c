@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for _rebalance.c
+ *   Implements _rebalance.h. Provides tree rebalancing operations after
+ *   modifications, handling node redistribution and merging to maintain
+ *   tree structure invariants.
  */
 
 #include <numstore/core/random.h>

@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for assert_debug.h
+ *   Debug-mode assertion macros with detailed error reporting, stack traces,
+ *   and formatted assertion messages. Active only in debug builds.
  */
 
 // core

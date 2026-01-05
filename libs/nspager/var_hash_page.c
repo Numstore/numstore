@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_hash_page.c
+ *   Implements var_hash_page.h. Hash page operations for variable indexing with collision resolution.
  */
 
 #include <numstore/pager/var_hash_page.h>

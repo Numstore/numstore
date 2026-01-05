@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for page_delegate.h
+ *   Page delegate pattern providing polymorphic operations on different page types through function pointers.
  */
 
 #include <numstore/pager/data_list.h>

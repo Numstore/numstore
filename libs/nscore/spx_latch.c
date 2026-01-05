@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for spx_latch.c
+ *   Implements spx_latch.h. Lock-free shared/exclusive latch operations.
  */
 
 #include <numstore/core/spx_latch.h>

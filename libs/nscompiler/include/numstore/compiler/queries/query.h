@@ -16,7 +16,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for query.h
+ *   Top-level query types and structures. Defines the query union that
+ *   encompasses all query types (CREATE, DELETE, shell INSERT, network
+ *   operations) with logging and equality functions.
  */
 
 // numstore

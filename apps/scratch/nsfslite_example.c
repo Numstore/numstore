@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for nsfslite_example.c
+ *   Scratch/example program demonstrating nsfslite API usage.
  */
 
 #include <numstore/core/error.h>

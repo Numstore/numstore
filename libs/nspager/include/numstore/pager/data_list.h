@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for data_list.h
+ *   Data list page structure for storing variable-length data in linked list pages with forward/backward pointers and variable-sized data sections.
  */
 
 #include <numstore/core/cbuffer.h>

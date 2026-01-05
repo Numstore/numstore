@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for os_posix.c
+ *   Implements os.h for POSIX-compliant platforms (Linux, BSD, etc.).
  */
 
 // core

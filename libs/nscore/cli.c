@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for cli.c
+ *   Implements cli.h. Command-line interface argument parsing utilities.
  */
 
 #include <numstore/core/cli.h>

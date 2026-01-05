@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for timer_example.c
+ *   Scratch/example program demonstrating timer and performance measurement utilities.
  */
 
 // Example demonstrating the cross-platform timer interface

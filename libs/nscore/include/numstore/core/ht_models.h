@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for ht_models.h
+ *   Hash table operation result types and enumerations. Defines return codes
+ *   for insert (success, exists, full) and access (success, doesn't exist) operations.
  */
 
 /* Hash table insert result */

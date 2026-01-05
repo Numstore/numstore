@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for threadpool.h
+ *   Fixed-size thread pool with work queue for parallel task execution, supporting
+ *   task scheduling, execution-until-done, and continuous spinning modes.
  */
 
 #include <numstore/core/assert.h>

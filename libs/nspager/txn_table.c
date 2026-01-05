@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for txn_table.c
+ *   Implements txn_table.h. Transaction table management with concurrency control and lock tracking.
  */
 
 #include <numstore/pager/txn_table.h>

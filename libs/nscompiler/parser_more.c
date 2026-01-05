@@ -14,7 +14,9 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for parser_more.c
+ *   Implements parser_more.h. Provides parser logic that integrates with
+ *   lemon-generated parsers to transform token streams into statement
+ *   structures with error handling and state management.
  */
 
 #include <numstore/compiler/parser_more.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for strings_utils.c
+ *   Implements strings_utils.h. String comparison, concatenation, and utilities.
  */
 
 #include <numstore/core/strings_utils.h>

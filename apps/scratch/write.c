@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for write.c
+ *   Scratch/example program demonstrating write operations.
  */
 
 // core

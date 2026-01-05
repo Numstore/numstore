@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for prim.c
+ *   Implements prim.h. Provides primitive type operations including size calculations,
+ *   serialization, deserialization, validation, and type conversion utilities.
  */
 
 #include <numstore/types/prim.h>

@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   TODO: Add description for var_page.h
+ *   Variable page structure for storing metadata about variables including type information and root page references.
  */
 
 #include <numstore/core/error.h>
