@@ -22,7 +22,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/hash_table.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 
 DEFINE_DBG_ASSERT (
     struct adptv_htable_settings, adptv_htable_settings, t,
@@ -62,7 +62,7 @@ adptv_htable_init (struct adptv_htable *dest, struct adptv_htable_settings setti
 
   dest->settings = settings;
   dest->migrate_pos = 0;
-  spx_latch_init (&dest->latch);
+  latch_init (&dest->latch);
 
   DBG_ASSERT (adptv_htable, dest);
 
@@ -126,7 +126,7 @@ adptv_htable_lookup (
     const struct hnode *key,
     bool (*eq) (const struct hnode *, const struct hnode *))
 {
-  spx_latch_lock_s (&t->latch);
+  latch_lock (&t->latch);
 
   DBG_ASSERT (adptv_htable, t);
 
@@ -141,13 +141,13 @@ adptv_htable_lookup (
   // Doesn't exist
   if (!from)
     {
-      spx_latch_unlock_s (&t->latch);
+      latch_unlock (&t->latch);
       return NULL;
     }
 
   struct hnode *result = *from;
 
-  spx_latch_unlock_s (&t->latch);
+  latch_unlock (&t->latch);
 
   return result;
 }
@@ -177,7 +177,7 @@ adptv_htable_trigger_rehashing (struct adptv_htable *t, u32 newcap, error *e)
 err_t
 adptv_htable_insert (struct adptv_htable *t, struct hnode *node, error *e)
 {
-  spx_latch_lock_x (&t->latch);
+  latch_lock (&t->latch);
 
   DBG_ASSERT (adptv_htable, t);
 
@@ -188,7 +188,7 @@ adptv_htable_insert (struct adptv_htable *t, struct hnode *node, error *e)
       u32 newcap = t->current->cap * 2;
       if (newcap <= t->settings.max_size && adptv_htable_trigger_rehashing (t, t->current->cap * 2, e))
         {
-          spx_latch_unlock_x (&t->latch);
+          latch_unlock (&t->latch);
           return e->cause_code;
         }
     }
@@ -197,7 +197,7 @@ adptv_htable_insert (struct adptv_htable *t, struct hnode *node, error *e)
 
   adptv_htable_help_rehashing (t);
 
-  spx_latch_unlock_x (&t->latch);
+  latch_unlock (&t->latch);
 
   return SUCCESS;
 }
@@ -209,7 +209,7 @@ adptv_htable_delete (
     const struct hnode *key, bool (*eq) (const struct hnode *, const struct hnode *),
     error *e)
 {
-  spx_latch_lock_x (&t->latch);
+  latch_lock (&t->latch);
 
   DBG_ASSERT (adptv_htable, t);
   struct hnode **from;
@@ -221,7 +221,7 @@ adptv_htable_delete (
       u32 newcap = t->current->cap / 2;
       if (newcap >= t->settings.min_size && adptv_htable_trigger_rehashing (t, newcap, e))
         {
-          spx_latch_unlock_x (&t->latch);
+          latch_unlock (&t->latch);
           return e->cause_code;
         }
     }
@@ -234,7 +234,7 @@ adptv_htable_delete (
         {
           *dest = _dest;
         }
-      spx_latch_unlock_x (&t->latch);
+      latch_unlock (&t->latch);
       return SUCCESS;
     }
 
@@ -246,13 +246,13 @@ adptv_htable_delete (
         {
           *dest = _dest;
         }
-      spx_latch_unlock_x (&t->latch);
+      latch_unlock (&t->latch);
       return SUCCESS;
     }
 
   *dest = NULL;
 
-  spx_latch_unlock_x (&t->latch);
+  latch_unlock (&t->latch);
 
   return SUCCESS;
 }
@@ -260,10 +260,10 @@ adptv_htable_delete (
 void
 adptv_htable_foreach (const struct adptv_htable *t, void (*action) (struct hnode *v, void *ctx), void *ctx)
 {
-  spx_latch_lock_s (&((struct adptv_htable *)t)->latch);
+  latch_lock (&((struct adptv_htable *)t)->latch);
 
   htable_foreach (t->prev, action, ctx);
   htable_foreach (t->current, action, ctx);
 
-  spx_latch_unlock_s (&((struct adptv_htable *)t)->latch);
+  latch_unlock (&((struct adptv_htable *)t)->latch);
 }

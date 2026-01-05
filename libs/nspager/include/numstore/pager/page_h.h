@@ -19,7 +19,7 @@
  *   TODO: Add description for page_h.h
  */
 
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/pager/page.h>
 #include <numstore/pager/page_delegate.h>
 
@@ -29,7 +29,7 @@ struct page_frame
   u32 pin;
   u32 flags;
   i32 wsibling;
-  struct spx_latch latch;
+  struct latch latch;
 };
 
 typedef struct

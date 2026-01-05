@@ -1734,7 +1734,7 @@ i_rwlock_free (i_rwlock *m)
 }
 
 void
-i_rwlock_s_lock (i_rwlock *m)
+i_rwlock_rdlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1764,7 +1764,7 @@ i_rwlock_s_lock (i_rwlock *m)
 }
 
 void
-i_rwlock_x_lock (i_rwlock *m)
+i_rwlock_wrlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1788,7 +1788,7 @@ i_rwlock_x_lock (i_rwlock *m)
 }
 
 bool
-i_rwlock_s_try_lock (i_rwlock *m)
+i_rwlock_try_rdlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1817,7 +1817,7 @@ i_rwlock_s_try_lock (i_rwlock *m)
 }
 
 bool
-i_rwlock_x_try_lock (i_rwlock *m)
+i_rwlock_try_wrlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1846,7 +1846,7 @@ i_rwlock_x_try_lock (i_rwlock *m)
 }
 
 void
-i_rwlock_s_unlock (i_rwlock *m)
+i_rwlock_unlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1869,37 +1869,6 @@ i_rwlock_s_unlock (i_rwlock *m)
         default:
           {
             i_log_error ("s_unlock: Unknown error detected! %s\n",
-                         strerror (errno));
-            UNREACHABLE ();
-          }
-        }
-    }
-}
-
-void
-i_rwlock_x_unlock (i_rwlock *m)
-{
-  ASSERT (m);
-  errno = 0;
-  if (pthread_rwlock_unlock (&m->lock))
-    {
-      switch (errno)
-        {
-        case EINVAL:
-          {
-            i_log_error ("x_unlock: Failed to unlock rwlock! %s\n",
-                         strerror (errno));
-            UNREACHABLE ();
-          }
-        case EPERM:
-          {
-            i_log_error ("x_unlock: current thread doesn't own this lock: %s\n",
-                         strerror (errno));
-            UNREACHABLE ();
-          }
-        default:
-          {
-            i_log_error ("x_unlock: Unknown error detected! %s\n",
                          strerror (errno));
             UNREACHABLE ();
           }

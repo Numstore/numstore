@@ -68,12 +68,10 @@ void i_rwlock_free (i_rwlock *rw);
 void i_rwlock_rdlock (i_rwlock *rw);
 void i_rwlock_wrlock (i_rwlock *rw);
 void i_rwlock_unlock (i_rwlock *rw);
-void i_rwlock_lock (i_rwlock *m);
-void i_rwlock_lock (i_rwlock *m);
-bool i_rwlock_try_lock (i_rwlock *m);
-bool i_rwlock_try_lock (i_rwlock *m);
-void i_rwlock_unlock (i_rwlock *m);
-void i_rwlock_unlock (i_rwlock *m);
+void i_rwlock_rdlock (i_rwlock *m);
+void i_rwlock_wrlock (i_rwlock *m);
+bool i_rwlock_try_rdlock (i_rwlock *m);
+bool i_rwlock_try_wrlock (i_rwlock *m);
 
 ////////////////////////////////////////////////////////////
 // Thread

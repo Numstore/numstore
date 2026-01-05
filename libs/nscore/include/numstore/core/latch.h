@@ -28,10 +28,11 @@ struct latch
   i_spinlock lock;
 };
 
-HEADER_FUNC err_t
-latch_init (struct latch *latch, error *e)
+HEADER_FUNC void
+latch_init (struct latch *latch)
 {
-  return i_spinlock_create (&latch->lock, e);
+  // TODO - error handle existing latches
+  i_spinlock_create (&latch->lock, NULL);
 }
 
 HEADER_FUNC void

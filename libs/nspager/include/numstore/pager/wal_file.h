@@ -19,7 +19,7 @@
  *   TODO: Add description for wal_file.h
  */
 
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/os.h>
 #include <numstore/pager/dirty_page_table.h>
 #include <numstore/pager/page.h>
@@ -35,7 +35,7 @@ struct wal_file
   bool istream_open;
   const char *fname;
 
-  struct spx_latch l;
+  struct latch l;
 };
 
 err_t walf_open (struct wal_file *dest, const char *fname, error *e);

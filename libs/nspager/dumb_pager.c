@@ -26,7 +26,7 @@ alloc_page_frame (error *e)
       pf->pin = 0;
       pf->flags = 0;
       pf->wsibling = -1;
-      spx_latch_init (&pf->latch);
+      latch_init (&pf->latch);
     }
   return pf;
 }

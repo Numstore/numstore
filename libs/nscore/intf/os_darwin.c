@@ -1411,7 +1411,7 @@ i_rwlock_free (i_rwlock *m)
 }
 
 void
-i_rwlock_s_lock (i_rwlock *m)
+i_rwlock_lock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1441,7 +1441,7 @@ i_rwlock_s_lock (i_rwlock *m)
 }
 
 void
-i_rwlock_x_lock (i_rwlock *m)
+i_rwlock_lock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1465,7 +1465,7 @@ i_rwlock_x_lock (i_rwlock *m)
 }
 
 bool
-i_rwlock_s_try_lock (i_rwlock *m)
+i_rwlock_try_lock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1494,7 +1494,7 @@ i_rwlock_s_try_lock (i_rwlock *m)
 }
 
 bool
-i_rwlock_x_try_lock (i_rwlock *m)
+i_rwlock_try_lock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1523,7 +1523,7 @@ i_rwlock_x_try_lock (i_rwlock *m)
 }
 
 void
-i_rwlock_s_unlock (i_rwlock *m)
+i_rwlock_unlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;
@@ -1554,7 +1554,7 @@ i_rwlock_s_unlock (i_rwlock *m)
 }
 
 void
-i_rwlock_x_unlock (i_rwlock *m)
+i_rwlock_unlock (i_rwlock *m)
 {
   ASSERT (m);
   errno = 0;

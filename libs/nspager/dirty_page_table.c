@@ -25,9 +25,9 @@
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
 #include <numstore/core/ht_models.h>
+#include <numstore/core/latch.h>
 #include <numstore/core/random.h>
 #include <numstore/core/serializer.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/types.h>
 #include <numstore/test/testing.h>
@@ -58,7 +58,7 @@ dpgt_open (error *e)
       return NULL;
     }
 
-  spx_latch_init (&ret->l);
+  latch_init (&ret->l);
 
   return ret;
 }
@@ -77,8 +77,8 @@ dpgt_equal (struct dpg_table *left, struct dpg_table *right)
   u32 left_len = 0;
   bool ret = false;
 
-  spx_latch_lock_s (&left->l);
-  spx_latch_lock_s (&right->l);
+  latch_lock (&left->l);
+  latch_lock (&right->l);
 
   for (u32 i = 0; i < arrlen (left->_table); ++i)
     {
@@ -125,8 +125,8 @@ dpgt_equal (struct dpg_table *left, struct dpg_table *right)
   ret = left_len == right_len;
 
 theend:
-  spx_latch_unlock_s (&left->l);
-  spx_latch_unlock_s (&right->l);
+  latch_unlock (&left->l);
+  latch_unlock (&right->l);
 
   return ret;
 }
@@ -158,7 +158,7 @@ dpgt_rand_populate (struct dpg_table *dpt)
 void
 i_log_dpgt (int log_level, struct dpg_table *dpt)
 {
-  spx_latch_lock_s (&dpt->l);
+  latch_lock (&dpt->l);
 
   i_log (log_level, "================ Dirty Page Table START ================\n");
   i_printf (log_level, "txid recLSN\n");
@@ -168,16 +168,16 @@ i_log_dpgt (int log_level, struct dpg_table *dpt)
 
       if (e.present)
         {
-          spx_latch_lock_s (&e.data.value->l);
+          latch_lock (&e.data.value->l);
 
           i_printf (log_level, "%" PRpgno " %" PRspgno "\n", e.data.value->pg, e.data.value->rec_lsn);
 
-          spx_latch_unlock_s (&e.data.value->l);
+          latch_unlock (&e.data.value->l);
         }
     }
   i_log (log_level, "================ Dirty Page Table END ================\n");
 
-  spx_latch_unlock_s (&dpt->l);
+  latch_unlock (&dpt->l);
 }
 
 // Methods
@@ -186,12 +186,12 @@ dpgt_add (struct dpg_table *t, pgno pg, lsn rec_lsn, error *e)
 {
   DBG_ASSERT (dirty_pg_table, t);
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   struct dpg_entry *v = clck_alloc_alloc (&t->alloc, e);
   if (v == NULL)
     {
-      spx_latch_unlock_x (&t->l);
+      latch_unlock (&t->l);
       return error_change_causef (e, ERR_DPGT_FULL, "Not enough space in the dirty page table");
     }
 
@@ -208,8 +208,8 @@ dpgt_add (struct dpg_table *t, pgno pg, lsn rec_lsn, error *e)
     .rec_lsn = rec_lsn,
     .pg = pg,
   };
-  spx_latch_init (&v->l);
-  spx_latch_unlock_x (&t->l);
+  latch_init (&v->l);
+  latch_unlock (&t->l);
 
   return SUCCESS;
 }
@@ -221,7 +221,7 @@ dpe_get (struct dpg_entry *dest, struct dpg_table *t, pgno pg)
 
   hdata_dpt _dest;
 
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
 
   hta_res res = ht_get_dpt (&t->table, &_dest, pg);
 
@@ -229,16 +229,16 @@ dpe_get (struct dpg_entry *dest, struct dpg_table *t, pgno pg)
     {
     case HTAR_DOESNT_EXIST:
       {
-        spx_latch_unlock_s (&t->l);
+        latch_unlock (&t->l);
         return false;
       }
     case HTAR_SUCCESS:
       {
-        spx_latch_lock_s (&_dest.value->l);
+        latch_lock (&_dest.value->l);
         *dest = *_dest.value;
-        spx_latch_unlock_s (&_dest.value->l);
+        latch_unlock (&_dest.value->l);
 
-        spx_latch_unlock_s (&t->l);
+        latch_unlock (&t->l);
         return true;
       }
     }
@@ -250,16 +250,16 @@ dpgt_get_expect (struct dpg_table *t, pgno pg)
 {
   DBG_ASSERT (dirty_pg_table, t);
 
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
 
   hdata_dpt dest;
   ht_get_expect_dpt (&t->table, &dest, pg);
 
-  spx_latch_lock_s (&dest.value->l);
+  latch_lock (&dest.value->l);
   struct dpg_entry ret = *dest.value;
-  spx_latch_unlock_s (&dest.value->l);
+  latch_unlock (&dest.value->l);
 
-  spx_latch_unlock_s (&t->l);
+  latch_unlock (&t->l);
 
   return ret;
 }
@@ -267,16 +267,16 @@ dpgt_get_expect (struct dpg_table *t, pgno pg)
 void
 dpgt_update (struct dpg_table *d, pgno pg, lsn new_rec_lsn)
 {
-  spx_latch_lock_s (&d->l);
+  latch_lock (&d->l);
 
   hdata_dpt dest;
   ht_get_expect_dpt (&d->table, &dest, pg);
 
-  spx_latch_lock_x (&dest.value->l);
+  latch_lock (&dest.value->l);
   dest.value->rec_lsn = new_rec_lsn;
-  spx_latch_unlock_x (&dest.value->l);
+  latch_unlock (&dest.value->l);
 
-  spx_latch_unlock_s (&d->l);
+  latch_unlock (&d->l);
 }
 
 bool
@@ -284,7 +284,7 @@ dpgt_remove (struct dpg_table *t, pgno pg)
 {
   DBG_ASSERT (dirty_pg_table, t);
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   hdata_dpt dest;
   hta_res res = ht_delete_dpt (&t->table, &dest, pg);
@@ -293,12 +293,12 @@ dpgt_remove (struct dpg_table *t, pgno pg)
     case HTAR_SUCCESS:
       {
         clck_alloc_free (&t->alloc, dest.value);
-        spx_latch_unlock_x (&t->l);
+        latch_unlock (&t->l);
         return true;
       }
     case HTAR_DOESNT_EXIST:
       {
-        spx_latch_unlock_x (&t->l);
+        latch_unlock (&t->l);
         return false;
       }
     }
@@ -309,16 +309,16 @@ void
 dpgt_remove_expect (struct dpg_table *t, pgno pg)
 {
   hdata_dpt dest;
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
   ht_delete_expect_dpt (&t->table, &dest, pg);
   clck_alloc_free (&t->alloc, dest.value);
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
 }
 
 lsn
 dpgt_min_rec_lsn (struct dpg_table *d)
 {
-  spx_latch_lock_s (&d->l);
+  latch_lock (&d->l);
 
   lsn ret = (lsn)-1;
   for (p_size i = 0; i < arrlen (d->_table); ++i)
@@ -326,9 +326,9 @@ dpgt_min_rec_lsn (struct dpg_table *d)
       hentry_dpt *entry = &d->_table[i];
       if (entry->present)
         {
-          spx_latch_lock_s (&entry->data.value->l);
+          latch_lock (&entry->data.value->l);
           lsn rec_lsn = entry->data.value->rec_lsn;
-          spx_latch_unlock_s (&entry->data.value->l);
+          latch_unlock (&entry->data.value->l);
 
           if (rec_lsn < ret)
             {
@@ -337,7 +337,7 @@ dpgt_min_rec_lsn (struct dpg_table *d)
         }
     }
 
-  spx_latch_unlock_s (&d->l);
+  latch_unlock (&d->l);
 
   return ret;
 }
@@ -345,8 +345,8 @@ dpgt_min_rec_lsn (struct dpg_table *d)
 void
 dpgt_merge_into (struct dpg_table *dest, struct dpg_table *src)
 {
-  spx_latch_lock_s (&src->l);
-  spx_latch_lock_x (&dest->l);
+  latch_lock (&src->l);
+  latch_lock (&dest->l);
 
   for (p_size i = 0; i < arrlen (src->_table); ++i)
     {
@@ -370,15 +370,15 @@ dpgt_merge_into (struct dpg_table *dest, struct dpg_table *src)
         }
     }
 
-  spx_latch_unlock_x (&dest->l);
-  spx_latch_unlock_s (&src->l);
+  latch_unlock (&dest->l);
+  latch_unlock (&src->l);
 }
 
 u32
 dpgt_get_size (struct dpg_table *d)
 {
   u32 ret = 0;
-  spx_latch_lock_s (&d->l);
+  latch_lock (&d->l);
   for (u32 i = 0; i < arrlen (d->_table); ++i)
     {
       if (d->_table[i].present)
@@ -386,7 +386,7 @@ dpgt_get_size (struct dpg_table *d)
           ret++;
         }
     }
-  spx_latch_unlock_s (&d->l);
+  latch_unlock (&d->l);
   return ret;
 }
 
@@ -398,7 +398,7 @@ dpgt_serialize (u8 dest[MAX_DPGT_SRL_SIZE], struct dpg_table *t)
 {
   struct serializer s = srlizr_create (dest, MAX_DPGT_SRL_SIZE);
 
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
 
   for (u32 i = 0; i < arrlen (t->_table); ++i)
     {
@@ -406,10 +406,10 @@ dpgt_serialize (u8 dest[MAX_DPGT_SRL_SIZE], struct dpg_table *t)
         {
           hdata_dpt e = t->_table[i].data;
 
-          spx_latch_lock_s (&e.value->l);
+          latch_lock (&e.value->l);
           pgno pg = e.value->pg;
           lsn l = e.value->rec_lsn;
-          spx_latch_unlock_s (&e.value->l);
+          latch_unlock (&e.value->l);
 
           // Page
           srlizr_write_expect (&s, (u8 *)&pg, sizeof (pg));
@@ -419,7 +419,7 @@ dpgt_serialize (u8 dest[MAX_DPGT_SRL_SIZE], struct dpg_table *t)
         }
     }
 
-  spx_latch_unlock_s (&t->l);
+  latch_unlock (&t->l);
 
   return s.dlen;
 }

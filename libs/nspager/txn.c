@@ -21,7 +21,7 @@
 #include <numstore/pager/txn.h>
 
 #include <numstore/core/hash_table.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 
 void txn_key_init (struct txn *dest, txid tid);
 
@@ -31,15 +31,15 @@ txn_init (struct txn *dest, txid tid, struct txn_data data)
   dest->data = data;
   dest->tid = tid;
   hnode_init (&dest->node, tid);
-  spx_latch_init (&dest->l);
+  latch_init (&dest->l);
 }
 
 void
 txn_update (struct txn *t, struct txn_data data)
 {
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
   t->data = data;
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
 }
 
 bool
@@ -59,7 +59,7 @@ txn_key_init (struct txn *dest, txid tid)
 {
   dest->tid = tid;
   hnode_init (&dest->node, tid);
-  spx_latch_init (&dest->l);
+  latch_init (&dest->l);
 }
 
 struct lt_lock *
@@ -74,12 +74,12 @@ txn_newlock (struct txn *t, enum lt_lock_type type, union lt_lock_data data, enu
   lock->mode = mode;
   lock->data = data;
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   lock->next = t->locks;
   t->locks = lock;
 
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
 
   return lock;
 }
@@ -107,14 +107,14 @@ txn_freelock (struct txn *t, struct lt_lock *lock)
 void
 txn_free_all_locks (struct txn *t)
 {
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
   struct lt_lock *cur = t->locks;
   t->locks = NULL;
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   while (cur)
     {
-      spx_latch_lock_x (&cur->l); // TODO - do I need to do this?
+      latch_lock (&cur->l); // TODO - do I need to do this?
 
       ASSERT (cur->lock == NULL);
       struct lt_lock *next = cur->next;

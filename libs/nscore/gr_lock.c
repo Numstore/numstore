@@ -523,7 +523,7 @@ TEST (TT_UNIT, gr_lock_ix_s_blocks)
 }
 
 // Test S + S (compatible)
-TEST (TT_UNIT, gr_lock_s_s_compatible)
+TEST (TT_UNIT, gr_lock_s_compatible)
 {
   struct gr_lock lock;
   error e = error_create ();
@@ -547,7 +547,7 @@ TEST (TT_UNIT, gr_lock_s_s_compatible)
 }
 
 // Test S + X (blocks)
-TEST (TT_UNIT, gr_lock_s_x_blocks)
+TEST (TT_UNIT, gr_lock_x_blocks)
 {
   struct gr_lock lock;
   error e = error_create ();
@@ -574,7 +574,7 @@ TEST (TT_UNIT, gr_lock_s_x_blocks)
 }
 
 // Test SIX + IS (compatible - only compatible pair for SIX)
-TEST (TT_UNIT, gr_lock_six_is_compatible)
+TEST (TT_UNIT, gr_lockix_is_compatible)
 {
   struct gr_lock lock;
   error e = error_create ();
@@ -598,7 +598,7 @@ TEST (TT_UNIT, gr_lock_six_is_compatible)
 }
 
 // Test SIX + IX (blocks)
-TEST (TT_UNIT, gr_lock_six_ix_blocks)
+TEST (TT_UNIT, gr_lockix_ix_blocks)
 {
   struct gr_lock lock;
   error e = error_create ();
@@ -625,7 +625,7 @@ TEST (TT_UNIT, gr_lock_six_ix_blocks)
 }
 
 // Test SIX + S (blocks)
-TEST (TT_UNIT, gr_lock_six_s_blocks)
+TEST (TT_UNIT, gr_lockix_s_blocks)
 {
   struct gr_lock lock;
   error e = error_create ();
@@ -652,7 +652,7 @@ TEST (TT_UNIT, gr_lock_six_s_blocks)
 }
 
 // Test X + X (blocks)
-TEST (TT_UNIT, gr_lock_x_x_blocks)
+TEST (TT_UNIT, gr_lock_sx_blocks)
 {
   struct gr_lock lock;
   error e = error_create ();

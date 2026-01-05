@@ -27,7 +27,7 @@
 #include <numstore/core/hash_table.h>
 #include <numstore/core/hashing.h>
 #include <numstore/core/ht_models.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/pager/lt_lock.h>
 #include <numstore/pager/txn.h>
 
@@ -173,7 +173,7 @@ lockt_init (struct lockt *t, error *e)
       return e->cause_code;
     }
 
-  spx_latch_init (&t->l);
+  latch_init (&t->l);
 
   return SUCCESS;
 }

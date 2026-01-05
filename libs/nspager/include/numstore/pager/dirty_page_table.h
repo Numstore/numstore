@@ -30,7 +30,7 @@ struct dpg_entry
 {
   lsn rec_lsn;
   pgno pg;
-  struct spx_latch l;
+  struct latch l;
 };
 
 #define VTYPE struct dpg_entry *
@@ -46,7 +46,7 @@ struct dpg_table
   hash_table_dpt table;
   struct clck_alloc alloc;
   hentry_dpt _table[100000];
-  struct spx_latch l;
+  struct latch l;
 };
 
 // LIFECYCLE

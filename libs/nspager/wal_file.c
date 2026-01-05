@@ -22,7 +22,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/checksums.h>
 #include <numstore/core/error.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 #include <numstore/pager/dirty_page_table.h>
@@ -93,7 +93,7 @@ walf_open (struct wal_file *dest, const char *fname, error *e)
   dest->istream_open = false;
   dest->fname = fname;
 
-  spx_latch_init (&dest->l);
+  latch_init (&dest->l);
 
   DBG_ASSERT (wal_file, dest);
 
@@ -136,7 +136,7 @@ walf_write_update (struct wal_file *w, const struct wal_rec_hdr_write *r, error 
 {
   DBG_ASSERT (wal_file, w);
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   err_t_wrap_goto (walf_lazy_ostream_init (w, e), theend, e);
 
@@ -151,7 +151,7 @@ walf_write_update (struct wal_file *w, const struct wal_rec_hdr_write *r, error 
   err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), theend, e);
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -162,7 +162,7 @@ walf_write_clr (struct wal_file *w, const struct wal_rec_hdr_write *r, error *e)
   ASSERT (r->type == WL_CLR);
   ASSERT (r->clr.undo_next != 0);
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   err_t_wrap_goto (walf_lazy_ostream_init (w, e), theend, e);
 
@@ -177,7 +177,7 @@ walf_write_clr (struct wal_file *w, const struct wal_rec_hdr_write *r, error *e)
   err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), theend, e);
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -187,7 +187,7 @@ walf_write_begin (struct wal_file *w, const struct wal_rec_hdr_write *r, error *
   DBG_ASSERT (wal_file, w);
   ASSERT (r->type == WL_BEGIN);
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   err_t_wrap_goto (walf_lazy_ostream_init (w, e), theend, e);
 
@@ -198,7 +198,7 @@ walf_write_begin (struct wal_file *w, const struct wal_rec_hdr_write *r, error *
   err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), theend, e);
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -208,7 +208,7 @@ walf_write_commit (struct wal_file *w, const struct wal_rec_hdr_write *r, error 
   DBG_ASSERT (wal_file, w);
   ASSERT (r->type == WL_COMMIT);
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   err_t_wrap_goto (walf_lazy_ostream_init (w, e), theend, e);
 
@@ -223,7 +223,7 @@ walf_write_commit (struct wal_file *w, const struct wal_rec_hdr_write *r, error 
   err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), theend, e);
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -233,7 +233,7 @@ walf_write_end (struct wal_file *w, const struct wal_rec_hdr_write *r, error *e)
   DBG_ASSERT (wal_file, w);
   ASSERT (r->type == WL_END);
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   err_t_wrap_goto (walf_lazy_ostream_init (w, e), theend, e);
 
@@ -248,7 +248,7 @@ walf_write_end (struct wal_file *w, const struct wal_rec_hdr_write *r, error *e)
   err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), theend, e);
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -258,7 +258,7 @@ walf_write_ckpt_begin (struct wal_file *w, const struct wal_rec_hdr_write *r, er
   DBG_ASSERT (wal_file, w);
   ASSERT (r->type == WL_CKPT_BEGIN);
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   err_t_wrap_goto (walf_lazy_ostream_init (w, e), theend, e);
 
@@ -268,7 +268,7 @@ walf_write_ckpt_begin (struct wal_file *w, const struct wal_rec_hdr_write *r, er
   err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), theend, e);
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -285,8 +285,8 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
 
   // Capture ATT / DPT state and serialize
   {
-    spx_latch_lock_s (&r->ckpt_end.att->l);
-    spx_latch_lock_s (&r->ckpt_end.dpt->l);
+    latch_lock (&r->ckpt_end.att->l);
+    latch_lock (&r->ckpt_end.dpt->l);
 
     // ATT
     attsize = txnt_get_serialize_size (r->ckpt_end.att);
@@ -295,8 +295,8 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
         att_serialized = i_malloc (attsize, 1, e);
         if (att_serialized == NULL)
           {
-            spx_latch_unlock_s (&r->ckpt_end.dpt->l);
-            spx_latch_unlock_s (&r->ckpt_end.att->l);
+            latch_unlock (&r->ckpt_end.dpt->l);
+            latch_unlock (&r->ckpt_end.att->l);
             return e->cause_code;
           }
         txnt_serialize (att_serialized, attsize, r->ckpt_end.att);
@@ -305,13 +305,13 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
     // DPT
     dptsize = dpgt_serialize (dpgt_serialized, r->ckpt_end.dpt);
 
-    spx_latch_unlock_s (&r->ckpt_end.dpt->l);
-    spx_latch_unlock_s (&r->ckpt_end.att->l);
+    latch_unlock (&r->ckpt_end.dpt->l);
+    latch_unlock (&r->ckpt_end.att->l);
   }
 
   // Write WAL
   {
-    spx_latch_lock_x (&w->l);
+    latch_lock (&w->l);
     err_t_wrap_goto (walf_lazy_ostream_init (w, e), cleanup, e);
 
     u32 checksum = checksum_init ();
@@ -336,7 +336,7 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
     err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), cleanup, e);
 
   cleanup:
-    spx_latch_unlock_x (&w->l);
+    latch_unlock (&w->l);
     if (att_serialized)
       {
         i_free (att_serialized);

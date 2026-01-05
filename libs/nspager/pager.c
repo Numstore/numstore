@@ -24,9 +24,9 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/dbl_buffer.h>
 #include <numstore/core/error.h>
+#include <numstore/core/latch.h>
 #include <numstore/core/max_capture.h>
 #include <numstore/core/random.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
@@ -109,7 +109,7 @@ struct pager
   u32 clock;
   bool wal_enabled;
 
-  struct spx_latch l;
+  struct latch l;
 
   // CACHE
   lsn master_lsn;
@@ -358,12 +358,12 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
   err_t ret = SUCCESS;
 
   // Reserve the read page spot
-  spx_latch_lock_x (&p->l);
+  latch_lock (&p->l);
   {
     ret = pgr_reserve_at_clock_thread_unsafe (p, e);
     if (ret)
       {
-        spx_latch_unlock_x (&p->l);
+        latch_unlock (&p->l);
         goto theend;
       }
     pgrloc = p->clock;
@@ -375,7 +375,7 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
     pf_set (pgr, PW_ACCESS);
     pf_set (pgr, PW_PRESENT);
   }
-  spx_latch_unlock_x (&p->l);
+  latch_unlock (&p->l);
 
   page_init_empty (&pgr->page, PG_TOMBSTONE);
   tmbst_set_next (&pgr->page, fpgr_get_npages (&p->fp) + 1);
@@ -383,14 +383,14 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
   i_printf_trace ("Read buffer pool location: %d\n", pgrloc);
 
   // Reserve the write page spot
-  spx_latch_lock_x (&p->l);
+  latch_lock (&p->l);
   {
     ret = pgr_reserve_at_clock_thread_unsafe (p, e);
     if (ret)
       {
         pgr->pin = 0;
         pgr->flags = 0;
-        spx_latch_unlock_x (&p->l);
+        latch_unlock (&p->l);
         goto theend;
       }
 
@@ -403,7 +403,7 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
     pf_set (pgw, PW_PRESENT);
     pf_set (pgw, PW_X);
   }
-  spx_latch_unlock_x (&p->l);
+  latch_unlock (&p->l);
 
   i_printf_trace ("Write buffer pool location: %d\n", pgr->wsibling);
 
@@ -416,12 +416,12 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
   ret = fpgr_new (&p->fp, &pg, e);
   if (ret)
     {
-      spx_latch_lock_x (&p->l);
+      latch_lock (&p->l);
       pgr->pin = 0;
       pgr->flags = 0;
       pgw->pin = 0;
       pgw->flags = 0;
-      spx_latch_unlock_x (&p->l);
+      latch_unlock (&p->l);
       goto theend;
     }
 
@@ -624,12 +624,12 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
     ht_init_idx (&ret->pgno_to_value, ret->_hdata, MEMORY_PAGE_LEN);
 
     // Initialize internal latch
-    spx_latch_init (&ret->l);
+    latch_init (&ret->l);
 
     // Initialize page frame latches
     for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
       {
-        spx_latch_init (&ret->pages[i].latch);
+        latch_init (&ret->pages[i].latch);
       }
 
     // Simple variables
@@ -654,7 +654,7 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
 
 failed:
   ASSERT (e->cause_code);
-  // spx_latch doesn't need cleanup
+  // latch doesn't need cleanup
   if (dpt)
     {
       dpgt_close (dpt);
@@ -853,11 +853,11 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
   if (p->wal_enabled)
     {
-      spx_latch_lock_s (&tx->l);
+      latch_lock (&tx->l);
 
       if (tx->data.state != TX_RUNNING)
         {
-          spx_latch_unlock_s (&tx->l);
+          latch_unlock (&tx->l);
           return error_causef (e, ERR_DUPLICATE_COMMIT, "Committing a transaction that is already committed\n");
         }
 
@@ -865,7 +865,7 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
       slsn l = wal_append_commit_log (&p->ww, tx->tid, tx->data.last_lsn, e);
       if (l < 0)
         {
-          spx_latch_unlock_s (&tx->l);
+          latch_unlock (&tx->l);
           return e->cause_code;
         }
 
@@ -876,17 +876,17 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
       l = wal_append_end_log (&p->ww, tx->tid, l, e);
       if (l < 0)
         {
-          spx_latch_unlock_x (&tx->l);
+          latch_unlock (&tx->l);
           return e->cause_code;
         }
 
       err_t_wrap (txnt_remove_txn_expect (&p->tnxt, tx, e), e);
 
-      spx_latch_upgrade_s_x (&tx->l);
+      latch_upgrade_s_x (&tx->l);
 
       tx->data.state = TX_DONE;
 
-      spx_latch_unlock_x (&tx->l);
+      latch_unlock (&tx->l);
 
       return SUCCESS;
     }
@@ -1271,7 +1271,7 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
   // Save log
   if (p->wal_enabled)
     {
-      spx_latch_lock_x (&h->tx->l);
+      latch_lock (&h->tx->l);
 
       // Construct an update log record
       struct wal_update_write update = {
@@ -1286,7 +1286,7 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
       slsn page_lsn = wal_append_update_log (&p->ww, update, e);
       if (page_lsn < 0)
         {
-          spx_latch_unlock_x (&h->tx->l);
+          latch_unlock (&h->tx->l);
           return e->cause_code;
         }
 
@@ -1302,12 +1302,12 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
         {
           if (dpgt_add (p->dpt, page_h_pgno (h), (lsn)page_lsn, e))
             {
-              spx_latch_unlock_x (&h->tx->l);
+              latch_unlock (&h->tx->l);
               return e->cause_code;
             }
         }
 
-      spx_latch_unlock_x (&h->tx->l);
+      latch_unlock (&h->tx->l);
     }
 
   i_memcpy (&h->pgr->page.raw, h->pgw->page.raw, PAGE_SIZE);
@@ -1724,7 +1724,7 @@ i_log_page_table (int log_level, struct pager *p)
 err_t
 pgr_rollback (struct pager *p, struct txn *tx, lsn save_lsn, error *e)
 {
-  spx_latch_lock_x (&tx->l);
+  latch_lock (&tx->l);
 
   struct wal_rec_hdr_read *log_rec = NULL;
   struct wal_clr_write clr;
@@ -1858,7 +1858,7 @@ pgr_rollback (struct pager *p, struct txn *tx, lsn save_lsn, error *e)
 
 theend:
 
-  spx_latch_unlock_x (&tx->l);
+  latch_unlock (&tx->l);
 
   return SUCCESS;
 }

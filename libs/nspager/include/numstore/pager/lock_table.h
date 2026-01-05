@@ -23,7 +23,7 @@
 #include <numstore/core/clock_allocator.h>
 #include <numstore/core/gr_lock.h>
 #include <numstore/core/hash_table.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/pager/lt_lock.h>
 #include <numstore/pager/txn.h>
 
@@ -33,7 +33,7 @@ struct lockt
 {
   struct clck_alloc gr_lock_alloc; // Allocate gr locks
   struct adptv_htable table;       // The table of locks
-  struct spx_latch l;              // Thread safety
+  struct latch l;                  // Thread safety
 };
 
 err_t lockt_init (struct lockt *t, error *e);

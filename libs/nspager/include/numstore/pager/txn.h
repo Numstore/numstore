@@ -20,7 +20,7 @@
  */
 
 #include <numstore/core/hash_table.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/types.h>
 #include <numstore/pager/lt_lock.h>
 
@@ -75,7 +75,7 @@ struct txn
   struct txn_data data;  // The transaction data
   struct hnode node;     // The node that indicates where this txn is in the att
   struct lt_lock *locks; // All held locks for this transaction
-  struct spx_latch l;    // Thread safety
+  struct latch l;        // Thread safety
 };
 
 void txn_init (struct txn *dest, txid tid, struct txn_data data);

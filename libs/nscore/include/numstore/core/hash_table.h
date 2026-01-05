@@ -21,8 +21,8 @@
 
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
-#include <numstore/core/llist.h>
 #include <numstore/core/latch.h>
+#include <numstore/core/llist.h>
 
 struct hnode
 {

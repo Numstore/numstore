@@ -21,7 +21,6 @@
 
 #include <numstore/core/cbuffer.h>
 #include <numstore/core/latch.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/intf/os.h>
 
 #include "config.h"
@@ -29,7 +28,7 @@
 struct wal_ostream
 {
   i_file fd;
-  struct spx_latch l;
+  struct latch l;
   lsn flushed_lsn;
 
   struct cbuffer buffer;
