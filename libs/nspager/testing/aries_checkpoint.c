@@ -17,6 +17,8 @@
  *   Test implementation for ARIES checkpoint recovery protocol validation.
  */
 
+#include "numstore/pager/lock_table.h"
+#include "numstore/pager/txn.h"
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
@@ -47,11 +49,14 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
 
   struct lockt lt;
   test_err_t_wrap (lockt_init (&lt, &e), &e);
+  i_log_lockt (LOG_INFO, &lt);
 
   struct thread_pool *tp = tp_open (&e);
   test_fail_if_null (tp);
 
   struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
+  i_log_lockt (LOG_INFO, &lt);
+
   test_fail_if_null (p);
 
   u8 data[5][DL_DATA_SIZE];
@@ -64,6 +69,8 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
 
     for (int i = 0; i < 5; ++i)
       {
+        i_log_lockt (LOG_INFO, &lt);
+        i_log_txn (LOG_INFO, &tx);
         page_h dl_page = page_h_create ();
         test_fail_if (pgr_new (&dl_page, p, &tx, PG_DATA_LIST, &e));
         dl_set_data (page_h_w (&dl_page), (struct dl_data){ .data = data[i], .blen = DL_DATA_SIZE });

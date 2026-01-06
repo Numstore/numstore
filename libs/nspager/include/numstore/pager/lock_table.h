@@ -52,3 +52,5 @@ struct lt_lock *lockt_lock (
 err_t lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode mode, error *e);
 
 err_t lockt_unlock (struct lockt *t, struct txn *tx, error *e);
+
+void i_log_lockt (int log_level, struct lockt *t);

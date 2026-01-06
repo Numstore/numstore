@@ -398,8 +398,6 @@ dpgt_serialize (u8 dest[MAX_DPGT_SRL_SIZE], struct dpg_table *t)
 {
   struct serializer s = srlizr_create (dest, MAX_DPGT_SRL_SIZE);
 
-  latch_lock (&t->l);
-
   for (u32 i = 0; i < arrlen (t->_table); ++i)
     {
       if (t->_table[i].present)
@@ -418,8 +416,6 @@ dpgt_serialize (u8 dest[MAX_DPGT_SRL_SIZE], struct dpg_table *t)
           srlizr_write_expect (&s, (u8 *)&l, sizeof (l));
         }
     }
-
-  latch_unlock (&t->l);
 
   return s.dlen;
 }

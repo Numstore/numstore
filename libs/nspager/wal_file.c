@@ -348,7 +348,6 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
 slsn
 walf_write (struct wal_file *w, const struct wal_rec_hdr_write *r, error *e)
 {
-  /**
   DBG_ASSERT (wal_file, w);
   err_t_wrap (walf_lazy_ostream_init (w, e), e);
 
@@ -404,8 +403,6 @@ walf_write (struct wal_file *w, const struct wal_rec_hdr_write *r, error *e)
     }
 
   return ret;
-*/
-  return SUCCESS;
 }
 
 /////////////////////////////////////////////

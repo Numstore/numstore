@@ -85,3 +85,4 @@ void txn_key_init (struct txn *dest, txid tid);
 struct lt_lock *txn_newlock (struct txn *t, enum lt_lock_type type, union lt_lock_data data, enum lock_mode mode, error *e);
 void txn_freelock (struct txn *t, struct lt_lock *lock);
 void txn_free_all_locks (struct txn *t);
+void i_log_txn (int log_level, struct txn *tx);

@@ -301,7 +301,7 @@ txnt_max_u_undo_lsn (struct txn_table *t)
 }
 
 static void
-i_log_txn (struct hnode *node, void *_log_level)
+i_log_txn_in_txnt (struct hnode *node, void *_log_level)
 {
   int *log_level = _log_level;
   struct txn *tx = container_of (node, struct txn, node);
@@ -322,7 +322,7 @@ i_log_txnt (int log_level, struct txn_table *t)
   latch_lock (&t->l);
 
   i_log (log_level, "============ TXN TABLE START ===============\n");
-  adptv_htable_foreach (&t->t, i_log_txn, &log_level);
+  adptv_htable_foreach (&t->t, i_log_txn_in_txnt, &log_level);
   i_log (log_level, "============ TXN TABLE END   ===============\n");
 
   latch_unlock (&t->l);
@@ -457,11 +457,7 @@ txnt_serialize (u8 *dest, u32 dlen, struct txn_table *t)
     .s = srlizr_create (dest, dlen),
   };
 
-  latch_lock (&t->l);
-
   adptv_htable_foreach (&t->t, hnode_foreach_serialize, &ctx);
-
-  latch_unlock (&t->l);
 
   return ctx.s.dlen;
 }

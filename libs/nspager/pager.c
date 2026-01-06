@@ -17,7 +17,6 @@
  *   Implements pager.h. Main pager implementation with transaction support, page cache, and WAL integration.
  */
 
-#include "numstore/pager/lt_lock.h"
 #include <file_pager.h>
 
 #include <numstore/core/adptv_hash_table.h>
@@ -35,6 +34,7 @@
 #include <numstore/pager/data_list.h>
 #include <numstore/pager/dirty_page_table.h>
 #include <numstore/pager/lock_table.h>
+#include <numstore/pager/lt_lock.h>
 #include <numstore/pager/page.h>
 #include <numstore/pager/page_h.h>
 #include <numstore/pager/root_node.h>

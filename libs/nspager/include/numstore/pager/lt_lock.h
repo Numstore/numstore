@@ -79,3 +79,5 @@ struct lt_lock
   struct latch l;              // For thread safety
   txid tid;                    // Parent transaction id
 };
+
+void i_print_lt_lock (int log_level, struct lt_lock *l);

@@ -17,7 +17,6 @@
  *   Implements txn.h. Transaction lifecycle management including begin, commit, abort, and rollback.
  */
 
-#include "numstore/intf/os.h"
 #include <numstore/pager/txn.h>
 
 #include <numstore/core/hash_table.h>
@@ -126,4 +125,47 @@ txn_free_all_locks (struct txn *t)
 
       cur = next;
     }
+}
+
+void
+i_log_txn (int log_level, struct txn *tx)
+{
+  i_log_info ("===================== TXN BEGIN ===================== \n");
+  i_printf (log_level, "|%" PRtxid "| ", tx->tid);
+
+  switch (tx->data.state)
+    {
+    case TX_RUNNING:
+      {
+        i_printf (log_level, "TX_RUNNING ");
+        break;
+      }
+    case TX_CANDIDATE_FOR_UNDO:
+      {
+        i_printf (log_level, "TX_CANDIDATE_FOR_UNDO ");
+        break;
+      }
+    case TX_COMMITTED:
+      {
+        i_printf (log_level, "TX_COMMITTED ");
+        break;
+      }
+    case TX_DONE:
+      {
+        i_printf (log_level, "TX_DONE ");
+        break;
+      }
+    }
+
+  i_printf (log_level, "|last_lsn = %" PRtxid " undo_next_lsn = %" PRtxid "|\n", tx->data.last_lsn, tx->data.undo_next_lsn);
+
+  struct lt_lock *cur = tx->locks;
+  while (cur)
+    {
+      i_printf (log_level, "     ");
+      i_print_lt_lock (log_level, cur);
+      cur = cur->next;
+    }
+
+  i_log_info ("===================== TXN END ===================== \n");
 }

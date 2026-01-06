@@ -17,6 +17,10 @@
  *   TODO: Add description for lock_table.c
  */
 
+#include "numstore/core/threadpool.h"
+#include "numstore/intf/os/file_system.h"
+#include "numstore/pager.h"
+#include "numstore/test/testing_test.h"
 #include <numstore/pager/lock_table.h>
 
 #include <numstore/core/adptv_hash_table.h>
@@ -192,32 +196,34 @@ lockt_lock_once (
     struct txn *tx,
     error *e)
 {
-  // Create the new lock
-  struct lt_lock *lock = txn_newlock (tx, type, data, mode, e);
-  if (lock == NULL)
-    {
-      return NULL;
-    }
-
-  // Initialize it as a key
-  lt_lock_init_key_from_txn (lock);
-
-  // Try to find the gr_lock if it exists
-  struct hnode *node = adptv_htable_lookup (&t->table, &lock->lock_type_node, lt_lock_eq);
+  // Fetch this lock type
+  struct lt_lock key;
+  lt_lock_init_key (&key, type, data);
+  struct hnode *node = adptv_htable_lookup (&t->table, &key.lock_type_node, lt_lock_eq);
 
   // FOUND
   if (node != NULL)
     {
-      // LOCK
       struct lt_lock *existing = container_of (node, struct lt_lock, lock_type_node);
 
+      // If this is the same lock to the same tx, do nothing
       if (existing->tid == tx->tid)
         {
-          ASSERT (existing->mode == mode);
-          txn_freelock (tx, lock);
+          ASSERTF (
+              existing->mode == mode,
+              "Only duplicate or smaller modes are allowed on multiple locks in a txn, "
+              "otherwise call upgrade");
           return existing;
         }
 
+      // Create a new lock wrapper to this txn
+      struct lt_lock *lock = txn_newlock (tx, type, data, mode, e);
+      if (lock == NULL)
+        {
+          return NULL;
+        }
+
+      // LOCK
       struct gr_lock *_gr_lock = existing->lock;
       if (gr_lock (_gr_lock, mode, e))
         {
@@ -235,11 +241,20 @@ lockt_lock_once (
           txn_freelock (tx, lock);
           return NULL;
         }
+
+      return lock;
     }
 
   // NOT FOUND
   else
     {
+      // Create a new lock wrapper to this txn
+      struct lt_lock *lock = txn_newlock (tx, type, data, mode, e);
+      if (lock == NULL)
+        {
+          return NULL;
+        }
+
       // ALLOC
       struct gr_lock *_gr_lock = clck_alloc_alloc (&t->gr_lock_alloc, e);
       if (_gr_lock == NULL)
@@ -275,9 +290,9 @@ lockt_lock_once (
           txn_freelock (tx, lock);
           return NULL;
         }
-    }
 
-  return lock;
+      return lock;
+    }
 }
 
 static const int parent_lock[] = {
@@ -344,6 +359,462 @@ lockt_lock (
   // Then lock this node
   return lockt_lock_once (t, type, data, mode, tx, e);
 }
+
+#ifndef NTEST
+
+struct lt_lock_parent
+{
+  enum lt_lock_type type;
+  union lt_lock_data data;
+  enum lock_mode mode;
+};
+
+// Helper function to verify lock hierarchy
+static void
+verify_lock_and_commit (
+    struct lockt *lt,
+    struct pager *p,
+    enum lt_lock_type lock_type,
+    union lt_lock_data lock_data,
+    enum lock_mode mode,
+    struct lt_lock_parent *expected_parents,
+    size_t num_parents,
+    error *e)
+{
+  struct txn tx;
+  struct lt_lock key;
+  struct hnode *node;
+  struct lt_lock *lock;
+
+  test_err_t_wrap (pgr_begin_txn (&tx, p, e), e);
+
+  lock = lockt_lock (lt, lock_type, lock_data, mode, &tx, e);
+  test_fail_if_null (lock);
+
+  // Verify all expected locks exist
+  {
+    // This lock
+    lt_lock_init_key (&key, lock_type, lock_data);
+    node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+    test_fail_if_null (node);
+    lock = container_of (node, struct lt_lock, lock_type_node);
+    test_assert_int_equal (lock->mode, mode);
+
+    // Parent locks
+    for (size_t i = 0; i < num_parents; i++)
+      {
+        lt_lock_init_key (&key, expected_parents[i].type, expected_parents[i].data);
+        node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+        test_fail_if_null (node);
+        lock = container_of (node, struct lt_lock, lock_type_node);
+        test_assert_int_equal (lock->mode, expected_parents[i].mode);
+      }
+
+    // Verify ONLY these locks
+    test_assert_int_equal (adptv_htable_size (&lt->table), num_parents + 1);
+  }
+
+  test_err_t_wrap (pgr_commit (p, &tx, e), e);
+
+  {
+    // This lock
+    lt_lock_init_key (&key, lock_type, lock_data);
+    node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+    test_assert_equal (node, NULL);
+
+    // Parent locks
+    for (size_t i = 0; i < num_parents; i++)
+      {
+        lt_lock_init_key (&key, expected_parents[i].type, expected_parents[i].data);
+        node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+        test_assert_equal (node, NULL);
+      }
+
+    // Verify all locks removed
+    test_assert_int_equal (adptv_htable_size (&lt->table), 0);
+  }
+}
+
+TEST (TT_UNIT, lockt_lock)
+{
+  error e = error_create ();
+
+  test_err_t_wrap (i_remove_quiet ("test.db", &e), &e);
+  test_err_t_wrap (i_remove_quiet ("test.wal", &e), &e);
+
+  struct lockt lt;
+  struct thread_pool *tp = tp_open (&e);
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
+  test_fail_if_null (p);
+
+  // LOCK_DB
+  TEST_CASE ("DB LM_IS")
+  {
+    verify_lock_and_commit (&lt, p, LOCK_DB, (union lt_lock_data){ 0 }, LM_IS, NULL, 0, &e);
+  }
+
+  TEST_CASE ("DB LM_IX")
+  {
+    verify_lock_and_commit (&lt, p, LOCK_DB, (union lt_lock_data){ 0 }, LM_IX, NULL, 0, &e);
+  }
+
+  TEST_CASE ("DB LM_S")
+  {
+    verify_lock_and_commit (&lt, p, LOCK_DB, (union lt_lock_data){ 0 }, LM_S, NULL, 0, &e);
+  }
+
+  TEST_CASE ("DB LM_SIX")
+  {
+    verify_lock_and_commit (&lt, p, LOCK_DB, (union lt_lock_data){ 0 }, LM_SIX, NULL, 0, &e);
+  }
+
+  TEST_CASE ("DB LM_X")
+  {
+    verify_lock_and_commit (&lt, p, LOCK_DB, (union lt_lock_data){ 0 }, LM_X, NULL, 0, &e);
+  }
+
+  // LOCK_ROOT
+  TEST_CASE ("ROOT LM_IS")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_ROOT, (union lt_lock_data){ 0 }, LM_IS, parents, 1, &e);
+  }
+
+  TEST_CASE ("ROOT LM_IX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_ROOT, (union lt_lock_data){ 0 }, LM_IX, parents, 1, &e);
+  }
+
+  TEST_CASE ("ROOT LM_S")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_ROOT, (union lt_lock_data){ 0 }, LM_S, parents, 1, &e);
+  }
+
+  TEST_CASE ("ROOT LM_SIX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_ROOT, (union lt_lock_data){ 0 }, LM_SIX, parents, 1, &e);
+  }
+
+  TEST_CASE ("ROOT LM_X")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_ROOT, (union lt_lock_data){ 0 }, LM_X, parents, 1, &e);
+  }
+
+  // LOCK_FSTMBST
+  TEST_CASE ("FSTMBST LM_IS")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_IS, parents, 2, &e);
+  }
+
+  TEST_CASE ("FSTMBST LM_IX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_IX, parents, 2, &e);
+  }
+
+  TEST_CASE ("FSTMBST LM_S")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_S, parents, 2, &e);
+  }
+
+  TEST_CASE ("FSTMBST LM_SIX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_SIX, parents, 2, &e);
+  }
+
+  TEST_CASE ("FSTMBST LM_X")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_X, parents, 2, &e);
+  }
+
+  // LOCK_MSLSN
+  TEST_CASE ("MSLSN LM_IS")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_IS, parents, 2, &e);
+  }
+
+  TEST_CASE ("MSLSN LM_IX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_IX, parents, 2, &e);
+  }
+
+  TEST_CASE ("MSLSN LM_S")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_S, parents, 2, &e);
+  }
+
+  TEST_CASE ("MSLSN LM_SIX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_SIX, parents, 2, &e);
+  }
+
+  TEST_CASE ("MSLSN LM_X")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_ROOT, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_X, parents, 2, &e);
+  }
+
+  // LOCK_VHP
+  TEST_CASE ("VHP LM_IS")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_VHP, (union lt_lock_data){ 0 }, LM_IS, parents, 1, &e);
+  }
+
+  TEST_CASE ("VHP LM_IX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_VHP, (union lt_lock_data){ 0 }, LM_IX, parents, 1, &e);
+  }
+
+  TEST_CASE ("VHP LM_S")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_VHP, (union lt_lock_data){ 0 }, LM_S, parents, 1, &e);
+  }
+
+  TEST_CASE ("VHP LM_SIX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_VHP, (union lt_lock_data){ 0 }, LM_SIX, parents, 1, &e);
+  }
+
+  TEST_CASE ("VHP LM_X")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_VHP, (union lt_lock_data){ 0 }, LM_X, parents, 1, &e);
+  }
+
+  // LOCK_VHPOS
+  TEST_CASE ("VHPOS LM_IS")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VHP, { 0 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VHPOS, (union lt_lock_data){ .vhpos = 5 }, LM_IS, parents, 2, &e);
+  }
+
+  TEST_CASE ("VHPOS LM_IX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VHP, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VHPOS, (union lt_lock_data){ .vhpos = 5 }, LM_IX, parents, 2, &e);
+  }
+
+  TEST_CASE ("VHPOS LM_S")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VHP, { 0 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VHPOS, (union lt_lock_data){ .vhpos = 5 }, LM_S, parents, 2, &e);
+  }
+
+  TEST_CASE ("VHPOS LM_SIX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VHP, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VHPOS, (union lt_lock_data){ .vhpos = 5 }, LM_SIX, parents, 2, &e);
+  }
+
+  TEST_CASE ("VHPOS LM_X")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VHP, { 0 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VHPOS, (union lt_lock_data){ .vhpos = 5 }, LM_X, parents, 2, &e);
+  }
+
+  // LOCK_VAR
+  TEST_CASE ("VAR LM_IS")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_VAR, (union lt_lock_data){ .var_root = 42 }, LM_IS, parents, 1, &e);
+  }
+
+  TEST_CASE ("VAR LM_IX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_VAR, (union lt_lock_data){ .var_root = 42 }, LM_IX, parents, 1, &e);
+  }
+
+  TEST_CASE ("VAR LM_S")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_VAR, (union lt_lock_data){ .var_root = 42 }, LM_S, parents, 1, &e);
+  }
+
+  TEST_CASE ("VAR LM_SIX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_VAR, (union lt_lock_data){ .var_root = 42 }, LM_SIX, parents, 1, &e);
+  }
+
+  TEST_CASE ("VAR LM_X")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_VAR, (union lt_lock_data){ .var_root = 42 }, LM_X, parents, 1, &e);
+  }
+
+  // LOCK_VAR_NEXT
+  TEST_CASE ("VAR_NEXT LM_IS")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VAR, { .var_root = 42 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VAR_NEXT, (union lt_lock_data){ .var_root_next = 42 }, LM_IS, parents, 2, &e);
+  }
+
+  TEST_CASE ("VAR_NEXT LM_IX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VAR, { .var_root = 42 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VAR_NEXT, (union lt_lock_data){ .var_root_next = 42 }, LM_IX, parents, 2, &e);
+  }
+
+  TEST_CASE ("VAR_NEXT LM_S")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VAR, { .var_root = 42 }, LM_IS },
+      { LOCK_DB, { 0 }, LM_IS }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VAR_NEXT, (union lt_lock_data){ .var_root_next = 42 }, LM_S, parents, 2, &e);
+  }
+
+  TEST_CASE ("VAR_NEXT LM_SIX")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VAR, { .var_root = 42 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VAR_NEXT, (union lt_lock_data){ .var_root_next = 42 }, LM_SIX, parents, 2, &e);
+  }
+
+  TEST_CASE ("VAR_NEXT LM_X")
+  {
+    struct lt_lock_parent parents[] = {
+      { LOCK_VAR, { .var_root = 42 }, LM_IX },
+      { LOCK_DB, { 0 }, LM_IX }
+    };
+    verify_lock_and_commit (&lt, p, LOCK_VAR_NEXT, (union lt_lock_data){ .var_root_next = 42 }, LM_X, parents, 2, &e);
+  }
+
+  // LOCK_RPTREE
+  TEST_CASE ("RPTREE LM_IS")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_RPTREE, (union lt_lock_data){ .rptree_root = 100 }, LM_IS, parents, 1, &e);
+  }
+
+  TEST_CASE ("RPTREE LM_IX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_RPTREE, (union lt_lock_data){ .rptree_root = 100 }, LM_IX, parents, 1, &e);
+  }
+
+  TEST_CASE ("RPTREE LM_S")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_RPTREE, (union lt_lock_data){ .rptree_root = 100 }, LM_S, parents, 1, &e);
+  }
+
+  TEST_CASE ("RPTREE LM_SIX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_RPTREE, (union lt_lock_data){ .rptree_root = 100 }, LM_SIX, parents, 1, &e);
+  }
+
+  TEST_CASE ("RPTREE LM_X")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_RPTREE, (union lt_lock_data){ .rptree_root = 100 }, LM_X, parents, 1, &e);
+  }
+
+  // LOCK_TMBST
+  TEST_CASE ("TMBST LM_IS")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = 200 }, LM_IS, parents, 1, &e);
+  }
+
+  TEST_CASE ("TMBST LM_IX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = 200 }, LM_IX, parents, 1, &e);
+  }
+
+  TEST_CASE ("TMBST LM_S")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IS } };
+    verify_lock_and_commit (&lt, p, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = 200 }, LM_S, parents, 1, &e);
+  }
+
+  TEST_CASE ("TMBST LM_SIX")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = 200 }, LM_SIX, parents, 1, &e);
+  }
+
+  TEST_CASE ("TMBST LM_X")
+  {
+    struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
+    verify_lock_and_commit (&lt, p, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = 200 }, LM_X, parents, 1, &e);
+  }
+}
+
+#endif
 
 err_t
 lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, error *e)
@@ -420,4 +891,20 @@ lockt_unlock (struct lockt *t, struct txn *tx, error *e)
   txn_free_all_locks (tx);
 
   return SUCCESS;
+}
+
+static void
+consume_node (struct hnode *node, void *ctx)
+{
+  int *log_level = ctx;
+  struct lt_lock *lock = container_of (node, struct lt_lock, lock_type_node);
+  i_print_lt_lock (*log_level, lock);
+}
+
+void
+i_log_lockt (int log_level, struct lockt *t)
+{
+  i_log (log_level, "================== LOCK TABLE START ==================\n");
+  adptv_htable_foreach (&t->table, consume_node, &log_level);
+  i_log (log_level, "================== LOCK TABLE END ==================\n");
 }
