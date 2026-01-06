@@ -81,3 +81,7 @@ struct lt_lock
 };
 
 void i_print_lt_lock (int log_level, struct lt_lock *l);
+
+void lt_lock_init_key_from_txn (struct lt_lock *dest);
+void lt_lock_init_key (struct lt_lock *dest, enum lt_lock_type type, union lt_lock_data data);
+bool lt_lock_eq (const struct hnode *left, const struct hnode *right);

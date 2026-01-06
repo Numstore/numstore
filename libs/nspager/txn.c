@@ -17,6 +17,7 @@
  *   Implements txn.h. Transaction lifecycle management including begin, commit, abort, and rollback.
  */
 
+#include "numstore/pager/lt_lock.h"
 #include <numstore/pager/txn.h>
 
 #include <numstore/core/hash_table.h>
@@ -74,6 +75,7 @@ txn_newlock (struct txn *t, enum lt_lock_type type, union lt_lock_data data, enu
   lock->mode = mode;
   lock->data = data;
   lock->tid = t->tid;
+  lt_lock_init_key_from_txn (lock);
 
   latch_lock (&t->l);
 
