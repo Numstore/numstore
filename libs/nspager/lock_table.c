@@ -17,10 +17,6 @@
  *   TODO: Add description for lock_table.c
  */
 
-#include "numstore/core/threadpool.h"
-#include "numstore/intf/os/file_system.h"
-#include "numstore/pager.h"
-#include "numstore/test/testing_test.h"
 #include <numstore/pager/lock_table.h>
 
 #include <numstore/core/adptv_hash_table.h>
@@ -31,8 +27,12 @@
 #include <numstore/core/hash_table.h>
 #include <numstore/core/hashing.h>
 #include <numstore/core/ht_models.h>
+#include <numstore/core/threadpool.h>
+#include <numstore/intf/os/file_system.h>
+#include <numstore/pager.h>
 #include <numstore/pager/lt_lock.h>
 #include <numstore/pager/txn.h>
+#include <numstore/test/testing_test.h>
 
 err_t
 lockt_init (struct lockt *t, error *e)
@@ -174,20 +174,6 @@ lockt_lock_once (
       return lock;
     }
 }
-
-static const int parent_lock[] = {
-  [LOCK_DB] = -1,
-  [LOCK_ROOT] = LOCK_DB,
-  [LOCK_FSTMBST] = LOCK_ROOT,
-  [LOCK_MSLSN] = LOCK_ROOT,
-  [LOCK_VHP] = LOCK_DB,
-  [LOCK_VHPOS] = LOCK_VHP,
-  [LOCK_VAR] = LOCK_DB,
-  [LOCK_VAR_NEXT] = LOCK_VAR,
-  [LOCK_RPTREE] = LOCK_DB,
-  [LOCK_TMBST] = LOCK_DB,
-};
-
 static inline enum lock_mode
 get_parent_mode (enum lock_mode child_mode)
 {
@@ -212,6 +198,73 @@ get_parent_mode (enum lock_mode child_mode)
   UNREACHABLE ();
 }
 
+static void
+get_parent (int *parent_type, union lt_lock_data *parent_data, enum lt_lock_type child_type, union lt_lock_data child_data)
+{
+  switch (child_type)
+    {
+    case LOCK_DB:
+      {
+        *parent_type = -1;
+        break;
+      }
+    case LOCK_ROOT:
+      {
+        *parent_type = LOCK_DB;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_FSTMBST:
+      {
+        *parent_type = LOCK_ROOT;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_MSLSN:
+      {
+        *parent_type = LOCK_ROOT;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_VHP:
+      {
+        *parent_type = LOCK_DB;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_VHPOS:
+      {
+        *parent_type = LOCK_VHP;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_VAR:
+      {
+        *parent_type = LOCK_DB;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_VAR_NEXT:
+      {
+        *parent_type = LOCK_VAR;
+        *parent_data = (union lt_lock_data){ .var_root = child_data.var_root_next };
+        break;
+      }
+    case LOCK_RPTREE:
+      {
+        *parent_type = LOCK_DB;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    case LOCK_TMBST:
+      {
+        *parent_type = LOCK_DB;
+        *parent_data = (union lt_lock_data){ 0 };
+        break;
+      }
+    }
+}
+
 struct lt_lock *
 lockt_lock (
     struct lockt *t,
@@ -222,7 +275,9 @@ lockt_lock (
     error *e)
 {
   // First you need to obtain a lock on the parent
-  int ptype = parent_lock[type];
+  int ptype;
+  union lt_lock_data pdata;
+  get_parent (&ptype, &pdata, type, data);
 
   if (ptype != -1)
     {
@@ -238,6 +293,101 @@ lockt_lock (
 
   // Then lock this node
   return lockt_lock_once (t, type, data, mode, tx, e);
+}
+
+err_t
+lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, error *e)
+{
+  if (new_mode <= lock->mode)
+    {
+      return SUCCESS;
+    }
+
+  int ptype;
+  union lt_lock_data pdata;
+  get_parent (&ptype, &pdata, lock->type, lock->data);
+
+  if (ptype != -1)
+    {
+      enum lock_mode new_parent_mode = get_parent_mode (new_mode);
+      enum lock_mode old_parent_mode = get_parent_mode (lock->mode);
+
+      // UPGRADE PARENT
+      if (new_parent_mode > old_parent_mode)
+        {
+          struct lt_lock key;
+          lt_lock_init_key (&key, ptype, pdata);
+
+          // FIND PARENT
+          struct hnode *_found = adptv_htable_lookup (&t->table, &key.lock_type_node, lt_lock_eq);
+          ASSERT (_found);
+          struct lt_lock *found = container_of (_found, struct lt_lock, lock_type_node);
+
+          // UPGRADE
+          err_t_wrap (lockt_upgrade (t, found, new_parent_mode, e), e);
+        }
+    }
+
+  if (gr_upgrade (lock->lock, lock->mode, new_mode, e))
+    {
+      return e->cause_code;
+    }
+
+  lock->mode = new_mode;
+
+  return SUCCESS;
+}
+
+err_t
+lockt_unlock (struct lockt *t, struct txn *tx, error *e)
+{
+  ASSERT (t);
+  ASSERT (tx);
+
+  struct lt_lock *curr = tx->locks;
+
+  while (curr != NULL)
+    {
+      struct lt_lock *next = curr->next;
+
+      // REMOVE
+      err_t_wrap (adptv_htable_delete (NULL, &t->table, &curr->lock_type_node, lt_lock_eq, e), e);
+
+      // UNLOCK
+      struct gr_lock *gr_lock_ptr = curr->lock;
+      bool is_free = gr_unlock (gr_lock_ptr, curr->mode);
+
+      // DELETE GR_LOCK IF LAST
+      if (is_free)
+        {
+          gr_lock_destroy (gr_lock_ptr);
+          clck_alloc_free (&t->gr_lock_alloc, gr_lock_ptr);
+        }
+
+      curr->lock = NULL;
+      curr = next;
+    }
+
+  // FREE LOCKS
+  txn_free_all_locks (tx);
+
+  return SUCCESS;
+}
+
+static void
+consume_node (struct hnode *node, void *ctx)
+{
+  int *log_level = ctx;
+  struct lt_lock *lock = container_of (node, struct lt_lock, lock_type_node);
+  i_print_lt_lock (*log_level, lock);
+}
+
+void
+i_log_lockt (int log_level, struct lockt *t)
+{
+  i_log (log_level, "================== LOCK TABLE START ==================\n");
+  adptv_htable_foreach (&t->table, consume_node, &log_level);
+  i_log (log_level, "================== LOCK TABLE END ==================\n");
 }
 
 #ifndef NTEST
@@ -512,7 +662,7 @@ TEST (TT_UNIT, lockt_lock)
   TEST_CASE ("VHPOS LM_IS")
   {
     struct lt_lock_parent parents[] = {
-      { LOCK_VHP, { 0 }, LM_IS },
+      { LOCK_VHP, { .var_root = 5 }, LM_IS },
       { LOCK_DB, { 0 }, LM_IS }
     };
     verify_lock_and_commit (&lt, p, LOCK_VHPOS, (union lt_lock_data){ .vhpos = 5 }, LM_IS, parents, 2, &e);
@@ -695,96 +845,3 @@ TEST (TT_UNIT, lockt_lock)
 }
 
 #endif
-
-err_t
-lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, error *e)
-{
-  if (new_mode <= lock->mode)
-    {
-      return SUCCESS;
-    }
-
-  int ptype = parent_lock[lock->type];
-
-  if (ptype != -1)
-    {
-      enum lock_mode new_parent_mode = get_parent_mode (new_mode);
-      enum lock_mode old_parent_mode = get_parent_mode (lock->mode);
-
-      // UPGRADE PARENT
-      if (new_parent_mode > old_parent_mode)
-        {
-          struct lt_lock key;
-          lt_lock_init_key (&key, ptype, lock->data);
-
-          // FIND PARENT
-          struct hnode *_found = adptv_htable_lookup (&t->table, &key.lock_type_node, lt_lock_eq);
-          ASSERT (_found);
-          struct lt_lock *found = container_of (_found, struct lt_lock, lock_type_node);
-
-          // UPGRADE
-          err_t_wrap (lockt_upgrade (t, found, new_parent_mode, e), e);
-        }
-    }
-
-  if (gr_upgrade (lock->lock, lock->mode, new_mode, e))
-    {
-      return e->cause_code;
-    }
-
-  lock->mode = new_mode;
-
-  return SUCCESS;
-}
-
-err_t
-lockt_unlock (struct lockt *t, struct txn *tx, error *e)
-{
-  ASSERT (t);
-  ASSERT (tx);
-
-  struct lt_lock *curr = tx->locks;
-
-  while (curr != NULL)
-    {
-      struct lt_lock *next = curr->next;
-
-      // REMOVE
-      err_t_wrap (adptv_htable_delete (NULL, &t->table, &curr->lock_type_node, lt_lock_eq, e), e);
-
-      // UNLOCK
-      struct gr_lock *gr_lock_ptr = curr->lock;
-      bool is_free = gr_unlock (gr_lock_ptr, curr->mode);
-
-      // DELETE GR_LOCK IF LAST
-      if (is_free)
-        {
-          gr_lock_destroy (gr_lock_ptr);
-          clck_alloc_free (&t->gr_lock_alloc, gr_lock_ptr);
-        }
-
-      curr->lock = NULL;
-      curr = next;
-    }
-
-  // FREE LOCKS
-  txn_free_all_locks (tx);
-
-  return SUCCESS;
-}
-
-static void
-consume_node (struct hnode *node, void *ctx)
-{
-  int *log_level = ctx;
-  struct lt_lock *lock = container_of (node, struct lt_lock, lock_type_node);
-  i_print_lt_lock (*log_level, lock);
-}
-
-void
-i_log_lockt (int log_level, struct lockt *t)
-{
-  i_log (log_level, "================== LOCK TABLE START ==================\n");
-  adptv_htable_foreach (&t->table, consume_node, &log_level);
-  i_log (log_level, "================== LOCK TABLE END ==================\n");
-}
