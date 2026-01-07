@@ -17,7 +17,6 @@
  *   Implements pager.h. Main pager implementation with transaction support, page cache, and WAL integration.
  */
 
-#include "numstore/test/testing_test.h"
 #include <file_pager.h>
 
 #include <numstore/core/adptv_hash_table.h>

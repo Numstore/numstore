@@ -34,7 +34,6 @@
 #include <numstore/pager.h>
 #include <numstore/pager/lt_lock.h>
 #include <numstore/pager/txn.h>
-#include <numstore/test/testing_test.h>
 
 struct lockt_frame
 {
