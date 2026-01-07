@@ -23,7 +23,7 @@ include_directories(${CMAKE_SOURCE_DIR}/libs)
 option(ENABLE_NDEBUG "Enable NDEBUG flag (disable assertions)" OFF)
 option(ENABLE_NTEST "Enable NTEST flag (disable tests)" OFF)
 option(ENABLE_NLOG "Enable NLOG flag (disable logging)" OFF)
-option(ENABLE_GPROF "Enable gprof profiling support" ON)
+option(ENABLE_GPROF "Enable gprof profiling support" OFF)
 
 ##################### Debug / Release
 

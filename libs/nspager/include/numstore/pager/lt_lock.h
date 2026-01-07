@@ -37,12 +37,8 @@
  *
  * database: LOCK_DB
  *   root page (page 0) LOCK_ROOT
- *     first tombstone LOCK_FSTMBST
- *     master lsn LOCK_MLSN
  *   var_hash_page (page 1) LOCK_VHP
- *     hash_n LOCK_VHPOS
  *   variable (pgno) LOCK_VAR
- *     next LOCK_VAR_NEXT
  *   rptree (pgno) LOCK_RPTREE
  *   tmbst (pgno) LOCK_TMBST
  */
@@ -52,36 +48,22 @@ struct lt_lock
   {
     LOCK_DB,
     LOCK_ROOT,
-    LOCK_FSTMBST,
-    LOCK_MSLSN,
     LOCK_VHP,
-    LOCK_VHPOS,
     LOCK_VAR,
-    LOCK_VAR_NEXT,
     LOCK_RPTREE,
     LOCK_TMBST,
   } type;
 
   union lt_lock_data
   {
-    p_size vhpos;
     pgno var_root;
-    pgno var_root_next;
     pgno rptree_root;
     pgno tmbst_pg;
   } data;
-
-  struct gr_lock *lock;        // The actual lock (shared between the lock key)
-  enum lock_mode mode;         // Lock mode locked under (S, X, SI, etc)
-  struct hnode lock_type_node; // Node for the lock type in the table
-  struct lt_lock *next;        // Next lock in this transaction id
-  struct lt_lock *prev;        // Previous lock in this transaction id
-  struct latch l;              // For thread safety
-  txid tid;                    // Parent transaction id
 };
 
-void i_print_lt_lock (int log_level, struct lt_lock *l);
+u32 lt_lock_key (struct lt_lock lock);
+bool lt_lock_equal (const struct lt_lock left, const struct lt_lock right);
+void i_print_lt_lock (int log_level, struct lt_lock l);
 
-void lt_lock_init_key_from_txn (struct lt_lock *dest);
-void lt_lock_init_key (struct lt_lock *dest, enum lt_lock_type type, union lt_lock_data data);
-bool lt_lock_eq (const struct hnode *left, const struct hnode *right);
+bool get_parent (struct lt_lock *parent, struct lt_lock lock);

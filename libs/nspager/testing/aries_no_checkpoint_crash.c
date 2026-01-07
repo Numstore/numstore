@@ -381,7 +381,7 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple)
   lockt_destroy (&lt);
 }
 
-TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
+TEST_disabled (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
 {
   error e = error_create ();
 

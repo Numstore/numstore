@@ -900,9 +900,8 @@ pgr_update_master_lsn (struct pager *p, lsn mlsn, error *e)
   struct txn tx;
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
 
-  // X(db.root.mlsn)
-  struct lt_lock *mlsn_lock = lockt_lock (p->lt, LOCK_MSLSN, (union lt_lock_data){ 0 }, LM_X, &tx, e);
-  if (mlsn_lock == NULL)
+  // X(root)
+  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, &tx, e))
     {
       goto theend;
     }
@@ -1350,9 +1349,8 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
   err_t ret = SUCCESS;
   page_h root_node = page_h_create ();
 
-  // S(fstmbst)
-  struct lt_lock *root_lock = lockt_lock (p->lt, LOCK_FSTMBST, (union lt_lock_data){ 0 }, LM_X, tx, e);
-  if (root_lock == NULL)
+  // S(root)
+  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, tx, e))
     {
       return e->cause_code;
     }
@@ -1372,8 +1370,7 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
     }
 
   // X(tombstone)
-  struct lt_lock *tmbst_lock = lockt_lock (p->lt, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = ftpg }, LM_X, tx, e);
-  if (tmbst_lock == NULL)
+  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_TMBST, .data = { .tmbst_pg = ftpg } }, LM_X, tx, e))
     {
       return e->cause_code;
     }
@@ -1434,6 +1431,8 @@ TEST (TT_UNIT, pgr_new_get_save)
 
   // Make it valid
   dl_set_used (page_h_w (&h), DL_DATA_SIZE);
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_release (f.p, &h, PG_DATA_LIST, &f.e), &f.e);
 
@@ -1563,6 +1562,8 @@ TEST (TT_UNIT, pgr_delete)
   test_err_t_wrap (pgr_delete_and_release (f.p, &tx, &c, e), e);
   test_err_t_wrap (pgr_release (f.p, &d, PG_DATA_LIST, e), e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
@@ -1666,6 +1667,8 @@ TEST (TT_UNIT, pager_fill_ht)
         test_err_t_wrap (pgr_release (f.p, &pgs[i], PG_DATA_LIST, &f.e), &f.e);
       }
   }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_close (f.p, &f.e), &f.e);
 }

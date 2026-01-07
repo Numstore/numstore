@@ -46,13 +46,19 @@ struct gr_lock
   i_mutex mutex;
   int holder_counts[LM_COUNT];
   struct gr_lock_waiter *waiters;
+  atomic_int refcount;
 };
 
 err_t gr_lock_init (struct gr_lock *l, error *e);
 void gr_lock_destroy (struct gr_lock *l);
 
+void gr_lock_incref (struct gr_lock *l);
+bool gr_lock_decref (struct gr_lock *l);
+
 err_t gr_lock (struct gr_lock *l, enum lock_mode mode, error *e);
 bool gr_trylock (struct gr_lock *l, enum lock_mode mode);
-bool gr_unlock (struct gr_lock *l, enum lock_mode mode);
+void gr_unlock (struct gr_lock *l, enum lock_mode mode);
 err_t gr_upgrade (struct gr_lock *l, enum lock_mode old_mode, enum lock_mode new_mode, error *e);
+
 const char *gr_lock_mode_name (enum lock_mode mode);
+enum lock_mode get_parent_mode (enum lock_mode child_mode);

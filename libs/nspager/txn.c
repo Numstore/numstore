@@ -17,6 +17,7 @@
  *   Implements txn.h. Transaction lifecycle management including begin, commit, abort, and rollback.
  */
 
+#include "numstore/core/error.h"
 #include "numstore/pager/lt_lock.h"
 #include <numstore/pager/txn.h>
 
@@ -31,6 +32,14 @@ txn_init (struct txn *dest, txid tid, struct txn_data data)
   dest->data = data;
   dest->tid = tid;
   dest->locks = NULL;
+  hnode_init (&dest->node, tid);
+  latch_init (&dest->l);
+}
+
+void
+txn_key_init (struct txn *dest, txid tid)
+{
+  dest->tid = tid;
   hnode_init (&dest->node, tid);
   latch_init (&dest->l);
 }
@@ -55,78 +64,75 @@ txn_data_equal (struct txn_data *left, struct txn_data *right)
   return equal;
 }
 
-void
-txn_key_init (struct txn *dest, txid tid)
+err_t
+txn_newlock (struct txn *t, struct lt_lock lock, enum lock_mode mode, error *e)
 {
-  dest->tid = tid;
-  hnode_init (&dest->node, tid);
-  latch_init (&dest->l);
-}
-
-struct lt_lock *
-txn_newlock (struct txn *t, enum lt_lock_type type, union lt_lock_data data, enum lock_mode mode, error *e)
-{
-  struct lt_lock *lock = i_malloc (1, sizeof *lock, e);
-  if (lock == NULL)
+  struct txn_lock *next = i_malloc (1, sizeof *next, e);
+  if (next == NULL)
     {
-      return NULL;
+      return e->cause_code;
     }
-  lock->type = type;
-  lock->mode = mode;
-  lock->data = data;
-  lock->tid = t->tid;
-  lt_lock_init_key_from_txn (lock);
+
+  next->lock = lock;
+  next->mode = mode;
 
   latch_lock (&t->l);
 
-  lock->prev = NULL;
-  lock->next = t->locks;
-  t->locks = lock;
+  next->next = t->locks;
+  t->locks = next;
 
   latch_unlock (&t->l);
 
-  return lock;
+  return SUCCESS;
 }
 
-void
-txn_freelock (struct txn *t, struct lt_lock *lock)
+bool
+txn_haslock (struct txn *t, struct lt_lock lock)
 {
-  if (lock->prev != NULL)
+
+  struct txn_lock *curr = t->locks;
+  while (curr != NULL)
     {
-      lock->prev->next = lock->next;
-    }
-  if (lock->next != NULL)
-    {
-      lock->next->prev = lock->prev;
+      if (lt_lock_equal (curr->lock, lock))
+        {
+          latch_unlock (&t->l);
+          return true;
+        }
+      curr = curr->next;
     }
 
-  if (t->locks == lock)
-    {
-      t->locks = lock->next;
-    }
-
-  i_free (lock);
+  return false;
 }
 
 void
 txn_free_all_locks (struct txn *t)
 {
-  //latch_lock (&t->l);
-  struct lt_lock *cur = t->locks;
-  t->locks = NULL;
-  //latch_unlock (&t->l);
-
-  while (cur)
+  struct txn_lock *curr = t->locks;
+  while (curr != NULL)
     {
-      // latch_lock (&cur->l); // TODO - do I need to do this?
+      struct txn_lock *next = curr->next;
 
-      ASSERT (cur->lock == NULL);
-      struct lt_lock *next = cur->next;
-      // gr_unlock (cur->lock, cur->mode);
-      //i_free (cur);
+      i_free (curr);
 
-      cur = next;
+      curr = next;
     }
+}
+
+err_t
+txn_foreach_lock (
+    struct txn *t,
+    err_t (*func) (struct lt_lock lock, enum lock_mode mode, void *ctx, error *e),
+    void *ctx,
+    error *e)
+{
+  struct txn_lock *curr = t->locks;
+  while (curr != NULL)
+    {
+      err_t_wrap (func (curr->lock, curr->mode, ctx, e), e);
+      curr = curr->next;
+    }
+
+  return SUCCESS;
 }
 
 void
@@ -161,12 +167,12 @@ i_log_txn (int log_level, struct txn *tx)
 
   i_printf (log_level, "|last_lsn = %" PRtxid " undo_next_lsn = %" PRtxid "|\n", tx->data.last_lsn, tx->data.undo_next_lsn);
 
-  struct lt_lock *cur = tx->locks;
-  while (cur)
+  struct txn_lock *curr = tx->locks;
+  while (curr)
     {
-      i_printf (log_level, "     ");
-      i_print_lt_lock (log_level, cur);
-      cur = cur->next;
+      i_printf (log_level, "     |%3s| ", gr_lock_mode_name (curr->mode));
+      i_print_lt_lock (log_level, curr->lock);
+      curr = curr->next;
     }
 
   i_log_info ("===================== TXN END ===================== \n");

@@ -25,8 +25,8 @@
 
 struct adptv_htable_settings
 {
-  u32 max_load_factor;
-  u32 min_load_factor;
+  f32 max_load_factor; // Trigger rehash if size > capacity * max_load_factor
+  f32 min_load_factor; // Trigger rehash if size < capacity * min_load_factor
   u32 rehashing_work;
   u32 max_size;
   u32 min_size;

@@ -33,6 +33,12 @@ DEFINE_DBG_ASSERT (
       ASSERT (t->table);
     })
 
+static bool
+default_equals (const struct hnode *left, const struct hnode *right)
+{
+  return left->hcode == right->hcode;
+}
+
 struct htable *
 htable_create (u32 n, error *e)
 {
@@ -84,6 +90,11 @@ htable_lookup (
     const struct hnode *key,
     bool (*eq) (const struct hnode *, const struct hnode *))
 {
+  if (eq == NULL)
+    {
+      eq = default_equals;
+    }
+
   latch_lock (&t->latch);
 
   DBG_ASSERT (htable, t);

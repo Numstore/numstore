@@ -3,140 +3,57 @@
 #include <numstore/core/string.h>
 #include <numstore/pager/lt_lock.h>
 
-void
-i_print_lt_lock (int log_level, struct lt_lock *l)
+u32
+lt_lock_key (struct lt_lock lock)
 {
-  switch (l->type)
-    {
-    case LOCK_DB:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_DB\n", gr_lock_mode_name (l->mode), l->tid);
-        return;
-      }
-    case LOCK_ROOT:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_ROOT\n", gr_lock_mode_name (l->mode), l->tid);
-        return;
-      }
-    case LOCK_FSTMBST:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_FSTMBST\n", gr_lock_mode_name (l->mode), l->tid);
-        return;
-      }
-    case LOCK_MSLSN:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_MSLSN\n", gr_lock_mode_name (l->mode), l->tid);
-        return;
-      }
-    case LOCK_VHP:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_VHP\n", gr_lock_mode_name (l->mode), l->tid);
-        return;
-      }
-    case LOCK_VHPOS:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_VHPOS(%" PRp_size ")\n", gr_lock_mode_name (l->mode), l->tid, l->data.vhpos);
-        return;
-      }
-    case LOCK_VAR:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_VAR(%" PRpgno ")\n", gr_lock_mode_name (l->mode), l->tid, l->data.var_root);
-        return;
-      }
-    case LOCK_VAR_NEXT:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_VAR_NEXT(%" PRpgno ")\n", gr_lock_mode_name (l->mode), l->tid, l->data.var_root_next);
-        return;
-      }
-    case LOCK_RPTREE:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_RPTREE(%" PRpgno ")\n", gr_lock_mode_name (l->mode), l->tid, l->data.rptree_root);
-        return;
-      }
-    case LOCK_TMBST:
-      {
-        i_printf (log_level, "|%3s - %" PRtxid "| LOCK_TMBST(%" PRpgno ")\n", gr_lock_mode_name (l->mode), l->tid, l->data.tmbst_pg);
-        return;
-      }
-    }
-  UNREACHABLE ();
-}
+  char hcode[sizeof (union lt_lock_data) + sizeof (u8)];
+  u32 hcodelen = 0;
+  u8 _type = lock.type;
 
-void
-lt_lock_init_key_from_txn (struct lt_lock *dest)
-{
-  ASSERT (dest);
+  hcodelen += i_memcpy (&hcode[hcodelen], &_type, sizeof (_type));
 
-  char hcode[sizeof (dest->data) + sizeof (u8)];
-  hcode[0] = dest->type;
-  u32 hcodelen = 1;
-
-  switch (dest->type)
+  switch (lock.type)
     {
     case LOCK_DB:
     case LOCK_ROOT:
-    case LOCK_FSTMBST:
-    case LOCK_MSLSN:
     case LOCK_VHP:
-    case LOCK_VHPOS:
       {
-        hcodelen += i_memcpy (&hcode[hcodelen], &dest->data.vhpos, sizeof (dest->data.vhpos));
         break;
       }
     case LOCK_VAR:
       {
-        hcodelen += i_memcpy (&hcode[hcodelen], &dest->data.vhpos, sizeof (dest->data.vhpos));
-        break;
-      }
-    case LOCK_VAR_NEXT:
-      {
-        hcodelen += i_memcpy (&hcode[hcodelen], &dest->data.var_root_next, sizeof (dest->data.var_root_next));
+        hcodelen += i_memcpy (&hcode[hcodelen], &lock.data.var_root, sizeof (lock.data.var_root));
         break;
       }
     case LOCK_RPTREE:
       {
-        hcodelen += i_memcpy (&hcode[hcodelen], &dest->data.rptree_root, sizeof (dest->data.rptree_root));
+        hcodelen += i_memcpy (&hcode[hcodelen], &lock.data.rptree_root, sizeof (lock.data.rptree_root));
         break;
       }
     case LOCK_TMBST:
       {
-        hcodelen += i_memcpy (&hcode[hcodelen], &dest->data.tmbst_pg, sizeof (dest->data.tmbst_pg));
+        hcodelen += i_memcpy (&hcode[hcodelen], &lock.data.tmbst_pg, sizeof (lock.data.tmbst_pg));
         break;
       }
     }
-
-  dest->type = dest->type;
-  dest->data = dest->data;
 
   struct cstring lock_type_hcode = {
     .data = hcode,
     .len = hcodelen,
   };
 
-  hnode_init (&dest->lock_type_node, fnv1a_hash (lock_type_hcode));
-}
-
-void
-lt_lock_init_key (struct lt_lock *dest, enum lt_lock_type type, union lt_lock_data data)
-{
-  ASSERT (dest);
-  dest->type = type;
-  dest->data = data;
-  lt_lock_init_key_from_txn (dest);
+  return fnv1a_hash (lock_type_hcode);
 }
 
 bool
-lt_lock_eq (const struct hnode *left, const struct hnode *right)
+lt_lock_equal (const struct lt_lock left, const struct lt_lock right)
 {
-  const struct lt_lock *_left = container_of (left, struct lt_lock, lock_type_node);
-  const struct lt_lock *_right = container_of (right, struct lt_lock, lock_type_node);
-
-  if (_left->type != _right->type)
+  if (left.type != right.type)
     {
       return false;
     }
 
-  switch (_left->type)
+  switch (left.type)
     {
     case LOCK_DB:
       {
@@ -146,38 +63,105 @@ lt_lock_eq (const struct hnode *left, const struct hnode *right)
       {
         return true;
       }
-    case LOCK_FSTMBST:
-      {
-        return true;
-      }
-    case LOCK_MSLSN:
-      {
-        return true;
-      }
     case LOCK_VHP:
       {
         return true;
       }
-    case LOCK_VHPOS:
-      {
-        return _left->data.vhpos == _right->data.vhpos;
-      }
     case LOCK_VAR:
       {
-        return _left->data.var_root == _right->data.var_root;
-      }
-    case LOCK_VAR_NEXT:
-      {
-        return _left->data.var_root_next == _right->data.var_root_next;
+        return left.data.var_root == right.data.var_root;
       }
     case LOCK_RPTREE:
       {
-        return _left->data.rptree_root == _right->data.rptree_root;
+        return left.data.rptree_root == right.data.rptree_root;
       }
     case LOCK_TMBST:
       {
-        return _left->data.tmbst_pg == _right->data.tmbst_pg;
+        return left.data.tmbst_pg == right.data.tmbst_pg;
       }
     }
+  UNREACHABLE ();
+}
+
+void
+i_print_lt_lock (int log_level, struct lt_lock l)
+{
+  switch (l.type)
+    {
+    case LOCK_DB:
+      {
+        i_printf (log_level, "LOCK_DB\n");
+        return;
+      }
+    case LOCK_ROOT:
+      {
+        i_printf (log_level, "LOCK_ROOT\n");
+        return;
+      }
+    case LOCK_VHP:
+      {
+        i_printf (log_level, "LOCK_VHP\n");
+        return;
+      }
+    case LOCK_VAR:
+      {
+        i_printf (log_level, "LOCK_VAR(%" PRpgno ")\n", l.data.var_root);
+        return;
+      }
+    case LOCK_RPTREE:
+      {
+        i_printf (log_level, "LOCK_RPTREE(%" PRpgno ")\n", l.data.rptree_root);
+        return;
+      }
+    case LOCK_TMBST:
+      {
+        i_printf (log_level, "LOCK_TMBST(%" PRpgno ")\n", l.data.tmbst_pg);
+        return;
+      }
+    }
+  UNREACHABLE ();
+}
+
+bool
+get_parent (struct lt_lock *parent, struct lt_lock lock)
+{
+  switch (lock.type)
+    {
+    case LOCK_DB:
+      {
+        return false;
+      }
+    case LOCK_ROOT:
+      {
+        parent->type = LOCK_DB;
+        parent->data = (union lt_lock_data){ 0 };
+        return true;
+      }
+    case LOCK_VHP:
+      {
+        parent->type = LOCK_DB;
+        parent->data = (union lt_lock_data){ 0 };
+        return true;
+      }
+    case LOCK_VAR:
+      {
+        parent->type = LOCK_DB;
+        parent->data = (union lt_lock_data){ 0 };
+        return true;
+      }
+    case LOCK_RPTREE:
+      {
+        parent->type = LOCK_DB;
+        parent->data = (union lt_lock_data){ 0 };
+        return true;
+      }
+    case LOCK_TMBST:
+      {
+        parent->type = LOCK_DB;
+        parent->data = (union lt_lock_data){ 0 };
+        return true;
+      }
+    }
+
   UNREACHABLE ();
 }

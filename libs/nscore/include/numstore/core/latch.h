@@ -21,12 +21,15 @@
  */
 
 #include "numstore/intf/os/threading.h"
+#include <numstore/core/assert.h>
 #include <numstore/core/signatures.h>
+#include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 
 struct latch
 {
   i_spinlock lock;
+  int holder_uuid;
 };
 
 HEADER_FUNC void
@@ -34,6 +37,7 @@ latch_init (struct latch *latch)
 {
   // TODO - error handle existing latches
   i_spinlock_create (&latch->lock, NULL);
+  latch->holder_uuid = 0;
 }
 
 HEADER_FUNC void
@@ -45,5 +49,6 @@ latch_lock (struct latch *latch)
 HEADER_FUNC void
 latch_unlock (struct latch *latch)
 {
+  latch->holder_uuid++;
   i_spinlock_unlock (&latch->lock);
 }

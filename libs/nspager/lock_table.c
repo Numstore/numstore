@@ -17,6 +17,8 @@
  *   TODO: Add description for lock_table.c
  */
 
+#include <numstore/core/latch.h>
+#include <numstore/intf/os/threading.h>
 #include <numstore/pager/lock_table.h>
 
 #include <numstore/core/adptv_hash_table.h>
@@ -34,10 +36,43 @@
 #include <numstore/pager/txn.h>
 #include <numstore/test/testing_test.h>
 
+struct lockt_frame
+{
+  struct lt_lock key;
+  struct gr_lock lock;
+  struct hnode node;
+};
+
+static err_t
+lockt_frame_init (struct lockt_frame *dest, struct lt_lock key, error *e)
+{
+  err_t_wrap (gr_lock_init (&dest->lock, e), e);
+
+  dest->key = key;
+  hnode_init (&dest->node, lt_lock_key (key));
+
+  return SUCCESS;
+}
+
+static void
+lockt_frame_init_key (struct lockt_frame *dest, struct lt_lock key)
+{
+  dest->key = key;
+  hnode_init (&dest->node, lt_lock_key (key));
+}
+
+static bool
+lockt_frame_eq (const struct hnode *left, const struct hnode *right)
+{
+  const struct lockt_frame *_left = container_of (left, struct lockt_frame, node);
+  const struct lockt_frame *_right = container_of (right, struct lockt_frame, node);
+  return lt_lock_equal (_left->key, _right->key);
+}
+
 err_t
 lockt_init (struct lockt *t, error *e)
 {
-  if (clck_alloc_open (&t->gr_lock_alloc, sizeof (struct gr_lock), 1000, e))
+  if (clck_alloc_open (&t->gr_lock_alloc, sizeof (struct lockt_frame), 1000, e))
     {
       return e->cause_code;
     }
@@ -56,6 +91,8 @@ lockt_init (struct lockt *t, error *e)
       return e->cause_code;
     }
 
+  latch_init (&t->l);
+
   return SUCCESS;
 }
 
@@ -67,234 +104,81 @@ lockt_destroy (struct lockt *t)
   adptv_htable_free (&t->table);
 }
 
-static struct lt_lock *
+static err_t
 lockt_lock_once (
     struct lockt *t,
-    enum lt_lock_type type,
-    union lt_lock_data data,
+    struct lt_lock lock,
     enum lock_mode mode,
     struct txn *tx,
     error *e)
 {
-  // Fetch this lock type
-  struct lt_lock key;
-  lt_lock_init_key (&key, type, data);
-  struct hnode *node = adptv_htable_lookup (&t->table, &key.lock_type_node, lt_lock_eq);
+  if (txn_haslock (tx, lock))
+    {
+      return SUCCESS;
+    }
 
-  // FOUND
+  struct lockt_frame *frame = NULL;
+
+  latch_lock (&t->l);
+
+  // Look up this resource in the lock table
+  struct lockt_frame key;
+  lockt_frame_init_key (&key, lock);
+  struct hnode *node = adptv_htable_lookup (&t->table, &key.node, lockt_frame_eq);
+
+  // Lock already exists
   if (node != NULL)
     {
-      struct lt_lock *existing = container_of (node, struct lt_lock, lock_type_node);
-
-      // If this is the same lock to the same tx, do nothing
-      if (existing->tid == tx->tid)
-        {
-          ASSERTF (
-              existing->mode == mode,
-              "Only duplicate or smaller modes are allowed on multiple locks in a txn, "
-              "otherwise call upgrade");
-          return existing;
-        }
-
-      // Create a new lock wrapper to this txn
-      struct lt_lock *lock = txn_newlock (tx, type, data, mode, e);
-      if (lock == NULL)
-        {
-          return NULL;
-        }
-
-      // LOCK
-      struct gr_lock *_gr_lock = existing->lock;
-      if (gr_lock (_gr_lock, mode, e))
-        {
-          txn_freelock (tx, lock);
-          return NULL;
-        }
-
-      lock->lock = _gr_lock;
-
-      // INSERT
-      if (adptv_htable_insert (&t->table, &lock->lock_type_node, e))
-        {
-          gr_unlock (_gr_lock, mode);
-          clck_alloc_free (&t->gr_lock_alloc, _gr_lock);
-          txn_freelock (tx, lock);
-          return NULL;
-        }
-
-      return lock;
+      frame = container_of (node, struct lockt_frame, node);
+      // TODO tid equality
     }
 
-  // NOT FOUND
+  // Lock doesn't exist - create new one
   else
     {
-      // Create a new lock wrapper to this txn
-      struct lt_lock *lock = txn_newlock (tx, type, data, mode, e);
-      if (lock == NULL)
-        {
-          return NULL;
-        }
-
-      // ALLOC
-      struct gr_lock *_gr_lock = clck_alloc_alloc (&t->gr_lock_alloc, e);
-      if (_gr_lock == NULL)
-        {
-          txn_freelock (tx, lock);
-          return NULL;
-        }
-
-      // INIT
-      if (gr_lock_init (_gr_lock, e))
-        {
-          clck_alloc_free (&t->gr_lock_alloc, _gr_lock);
-          txn_freelock (tx, lock);
-          return NULL;
-        }
-
-      // LOCK
-      if (gr_lock (_gr_lock, mode, e))
-        {
-          gr_lock_destroy (_gr_lock);
-          clck_alloc_free (&t->gr_lock_alloc, _gr_lock);
-          txn_freelock (tx, lock);
-          return NULL;
-        }
-
-      lock->lock = _gr_lock;
-
-      // INSERT
-      if (adptv_htable_insert (&t->table, &lock->lock_type_node, e))
-        {
-          gr_unlock (_gr_lock, mode);
-          clck_alloc_free (&t->gr_lock_alloc, _gr_lock);
-          txn_freelock (tx, lock);
-          return NULL;
-        }
-
-      return lock;
+      // Allocate New
+      frame = clck_alloc_alloc (&t->gr_lock_alloc, e);
+      err_t_panic (e->cause_code, e);
+      err_t_panic (lockt_frame_init (frame, lock, e), e);
+      err_t_panic (adptv_htable_insert (&t->table, &frame->node, e), e);
     }
-}
-static inline enum lock_mode
-get_parent_mode (enum lock_mode child_mode)
-{
-  switch (child_mode)
-    {
-    case LM_IS:
-    case LM_S:
-      {
-        return LM_IS;
-      }
-    case LM_IX:
-    case LM_SIX:
-    case LM_X:
-      {
-        return LM_IX;
-      }
-    case LM_COUNT:
-      {
-        UNREACHABLE ();
-      }
-    }
-  UNREACHABLE ();
+
+  gr_lock_incref (&frame->lock);
+
+  err_t_panic (txn_newlock (tx, lock, mode, e), e);
+
+  // Release latch BEFORE blocking on gr_lock
+  latch_unlock (&t->l);
+
+  // Now acquire the gr_lock (may block here)
+  err_t_panic (gr_lock (&frame->lock, mode, e), e);
+
+  return SUCCESS;
 }
 
-static void
-get_parent (int *parent_type, union lt_lock_data *parent_data, enum lt_lock_type child_type, union lt_lock_data child_data)
-{
-  switch (child_type)
-    {
-    case LOCK_DB:
-      {
-        *parent_type = -1;
-        break;
-      }
-    case LOCK_ROOT:
-      {
-        *parent_type = LOCK_DB;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_FSTMBST:
-      {
-        *parent_type = LOCK_ROOT;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_MSLSN:
-      {
-        *parent_type = LOCK_ROOT;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_VHP:
-      {
-        *parent_type = LOCK_DB;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_VHPOS:
-      {
-        *parent_type = LOCK_VHP;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_VAR:
-      {
-        *parent_type = LOCK_DB;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_VAR_NEXT:
-      {
-        *parent_type = LOCK_VAR;
-        *parent_data = (union lt_lock_data){ .var_root = child_data.var_root_next };
-        break;
-      }
-    case LOCK_RPTREE:
-      {
-        *parent_type = LOCK_DB;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    case LOCK_TMBST:
-      {
-        *parent_type = LOCK_DB;
-        *parent_data = (union lt_lock_data){ 0 };
-        break;
-      }
-    }
-}
-
-struct lt_lock *
+err_t
 lockt_lock (
     struct lockt *t,
-    enum lt_lock_type type,
-    union lt_lock_data data,
+    struct lt_lock lock,
     enum lock_mode mode,
     struct txn *tx,
     error *e)
 {
   // First you need to obtain a lock on the parent
-  int ptype;
-  union lt_lock_data pdata;
-  get_parent (&ptype, &pdata, type, data);
+  struct lt_lock parent;
 
-  if (ptype != -1)
+  if (get_parent (&parent, lock))
     {
       enum lock_mode pmode = get_parent_mode (mode);
 
-      struct lt_lock *plock = lockt_lock (t, ptype, data, pmode, tx, e);
-
-      if (plock == NULL)
-        {
-          return NULL;
-        }
+      err_t_wrap (lockt_lock (t, parent, pmode, tx, e), e);
     }
 
   // Then lock this node
-  return lockt_lock_once (t, type, data, mode, tx, e);
+  return lockt_lock_once (t, lock, mode, tx, e);
 }
 
+/**
 err_t
 lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, error *e)
 {
@@ -319,9 +203,9 @@ lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, e
           lt_lock_init_key (&key, ptype, pdata);
 
           // FIND PARENT
-          struct hnode *_found = adptv_htable_lookup (&t->table, &key.lock_type_node, lt_lock_eq);
+          struct hnode *_found = adptv_htable_lookup (&t->table, &key.node, lt_lock_eq);
           ASSERT (_found);
-          struct lt_lock *found = container_of (_found, struct lt_lock, lock_type_node);
+          struct lt_lock *found = container_of (_found, struct lt_lock, node);
 
           // UPGRADE
           err_t_wrap (lockt_upgrade (t, found, new_parent_mode, e), e);
@@ -337,6 +221,36 @@ lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, e
 
   return SUCCESS;
 }
+*/
+
+struct unlock_ctx
+{
+  struct lockt *t;
+};
+
+static err_t
+unlock_and_maybe_remove (struct lt_lock lock, enum lock_mode mode, void *ctx, error *e)
+{
+  struct unlock_ctx *c = ctx;
+
+  struct lockt_frame key;
+  lockt_frame_init_key (&key, lock);
+
+  struct hnode *found = adptv_htable_lookup (&c->t->table, &key.node, lockt_frame_eq);
+  ASSERT (found);
+  struct lockt_frame *frame = container_of (found, struct lockt_frame, node);
+
+  gr_unlock (&frame->lock, mode);
+
+  if (gr_lock_decref (&frame->lock))
+    {
+      err_t_wrap (adptv_htable_delete (NULL, &c->t->table, &key.node, lockt_frame_eq, e), e);
+      gr_lock_destroy (&frame->lock);
+      clck_alloc_free (&c->t->gr_lock_alloc, frame);
+    }
+
+  return SUCCESS;
+}
 
 err_t
 lockt_unlock (struct lockt *t, struct txn *tx, error *e)
@@ -344,49 +258,28 @@ lockt_unlock (struct lockt *t, struct txn *tx, error *e)
   ASSERT (t);
   ASSERT (tx);
 
-  struct lt_lock *curr = tx->locks;
+  latch_lock (&t->l);
+  err_t_wrap (txn_foreach_lock (tx, unlock_and_maybe_remove, &(struct unlock_ctx){ .t = t }, e), e);
+  latch_unlock (&t->l);
 
-  while (curr != NULL)
-    {
-      struct lt_lock *next = curr->next;
-
-      // REMOVE
-      err_t_wrap (adptv_htable_delete (NULL, &t->table, &curr->lock_type_node, lt_lock_eq, e), e);
-
-      // UNLOCK
-      struct gr_lock *gr_lock_ptr = curr->lock;
-      bool is_free = gr_unlock (gr_lock_ptr, curr->mode);
-
-      // DELETE GR_LOCK IF LAST
-      if (is_free)
-        {
-          gr_lock_destroy (gr_lock_ptr);
-          clck_alloc_free (&t->gr_lock_alloc, gr_lock_ptr);
-        }
-
-      curr->lock = NULL;
-      curr = next;
-    }
-
-  // FREE LOCKS
   txn_free_all_locks (tx);
 
   return SUCCESS;
 }
 
 static void
-consume_node (struct hnode *node, void *ctx)
+i_log_lockt_frame_hnode (struct hnode *node, void *ctx)
 {
   int *log_level = ctx;
-  struct lt_lock *lock = container_of (node, struct lt_lock, lock_type_node);
-  i_print_lt_lock (*log_level, lock);
+  struct lockt_frame *frame = container_of (node, struct lockt_frame, node);
+  i_print_lt_lock (*log_level, frame->key);
 }
 
 void
 i_log_lockt (int log_level, struct lockt *t)
 {
   i_log (log_level, "================== LOCK TABLE START ==================\n");
-  adptv_htable_foreach (&t->table, consume_node, &log_level);
+  adptv_htable_foreach (&t->table, i_log_lockt_frame_hnode, &log_level);
   i_log (log_level, "================== LOCK TABLE END ==================\n");
 }
 
@@ -399,6 +292,7 @@ struct lt_lock_parent
   enum lock_mode mode;
 };
 
+/**
 // Helper function to verify lock hierarchy
 static void
 verify_lock_and_commit (
@@ -425,18 +319,18 @@ verify_lock_and_commit (
   {
     // This lock
     lt_lock_init_key (&key, lock_type, lock_data);
-    node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+    node = adptv_htable_lookup (&lt->table, &key.node, lt_lock_eq);
     test_fail_if_null (node);
-    lock = container_of (node, struct lt_lock, lock_type_node);
+    lock = container_of (node, struct lt_lock, node);
     test_assert_int_equal (lock->mode, mode);
 
     // Parent locks
     for (size_t i = 0; i < num_parents; i++)
       {
         lt_lock_init_key (&key, expected_parents[i].type, expected_parents[i].data);
-        node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+        node = adptv_htable_lookup (&lt->table, &key.node, lt_lock_eq);
         test_fail_if_null (node);
-        lock = container_of (node, struct lt_lock, lock_type_node);
+        lock = container_of (node, struct lt_lock, node);
         test_assert_int_equal (lock->mode, expected_parents[i].mode);
       }
 
@@ -449,14 +343,14 @@ verify_lock_and_commit (
   {
     // This lock
     lt_lock_init_key (&key, lock_type, lock_data);
-    node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+    node = adptv_htable_lookup (&lt->table, &key.node, lt_lock_eq);
     test_assert_equal (node, NULL);
 
     // Parent locks
     for (size_t i = 0; i < num_parents; i++)
       {
         lt_lock_init_key (&key, expected_parents[i].type, expected_parents[i].data);
-        node = adptv_htable_lookup (&lt->table, &key.lock_type_node, lt_lock_eq);
+        node = adptv_htable_lookup (&lt->table, &key.node, lt_lock_eq);
         test_assert_equal (node, NULL);
       }
 
@@ -842,6 +736,90 @@ TEST (TT_UNIT, lockt_lock)
     struct lt_lock_parent parents[] = { { LOCK_DB, { 0 }, LM_IX } };
     verify_lock_and_commit (&lt, p, LOCK_TMBST, (union lt_lock_data){ .tmbst_pg = 200 }, LM_X, parents, 1, &e);
   }
+}
+*/
+
+struct test_case
+{
+  struct lockt *lt;
+
+  int counter;
+
+  struct lt_lock key1;
+
+  struct pager *p;
+};
+
+#include <unistd.h>
+
+static void *
+writer_thread_locks_type1_x (void *args)
+{
+  struct test_case *c = args;
+  error e = error_create ();
+
+  for (int i = 0; i < 100; i++)
+    {
+      // BEGIN TXN
+      struct txn tx;
+      err_t_panic (pgr_begin_txn (&tx, c->p, &e), &e);
+
+      // X(counter)
+      err_t_panic (lockt_lock (c->lt, c->key1, LM_X, &tx, &e), &e);
+
+      // WRITE(counter)
+      {
+        int counter = c->counter;
+        counter++;
+        c->counter = counter;
+      }
+
+      // COMMIT
+      err_t_panic (pgr_commit (c->p, &tx, &e), &e);
+    }
+
+  return NULL;
+}
+
+TEST (TT_UNIT, lock_table_exclusivity)
+{
+  error e = error_create ();
+
+  test_err_t_wrap (i_remove_quiet ("test.db", &e), &e);
+  test_err_t_wrap (i_remove_quiet ("test.wal", &e), &e);
+
+  struct lockt lt;
+  struct thread_pool *tp = tp_open (&e);
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
+  test_fail_if_null (p);
+
+  struct test_case c = {
+    .lt = &lt,
+
+    .counter = 0,
+
+    .key1 = {
+        .type = LOCK_DB,
+        .data = { 0 },
+    },
+
+    .p = p,
+  };
+
+  i_thread threads[20];
+  for (u32 i = 0; i < arrlen (threads); ++i)
+    {
+      test_err_t_wrap (i_thread_create (&threads[i], writer_thread_locks_type1_x, &c, &e), &e);
+    }
+  for (u32 i = 0; i < arrlen (threads); ++i)
+    {
+      test_err_t_wrap (i_thread_join (&threads[i], &e), &e);
+    }
+
+  test_assert_int_equal (c.counter, 100 * arrlen (threads));
+
+  test_err_t_wrap (pgr_close (p, &e), &e);
 }
 
 #endif

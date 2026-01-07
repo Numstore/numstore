@@ -50,8 +50,23 @@ gr_lock_init (struct gr_lock *l, error *e)
 
   i_memset (l->holder_counts, 0, sizeof (l->holder_counts));
   l->waiters = NULL;
+  l->refcount = 0;
 
   return SUCCESS;
+}
+
+void
+gr_lock_incref (struct gr_lock *l)
+{
+  atomic_fetch_add (&l->refcount, 1);
+}
+
+bool
+gr_lock_decref (struct gr_lock *l)
+{
+  int old = atomic_fetch_sub (&l->refcount, 1);
+  ASSERT (old >= 1);
+  return old == 1;
 }
 
 void
@@ -100,7 +115,6 @@ gr_lock (struct gr_lock *l, enum lock_mode mode, error *e)
 {
   i_mutex_lock (&l->mutex);
 
-  // Fast path: lock is available
   if (is_compatible (l, mode))
     {
       l->holder_counts[mode]++;
@@ -108,29 +122,30 @@ gr_lock (struct gr_lock *l, enum lock_mode mode, error *e)
       return SUCCESS;
     }
 
-  // Slow path: need to wait
+  // SLOW PATH: Need to wait
+  // Increment refcount BEFORE releasing mutex
+  l->refcount++;
+
   struct gr_lock_waiter waiter = {
     .mode = mode,
-    .next = NULL,
+    .next = l->waiters,
   };
 
   if (i_cond_create (&waiter.cond, e))
     {
+      l->refcount--; // Failed to create condition
       i_mutex_unlock (&l->mutex);
       return e->cause_code;
     }
 
-  // Add to waiters list
-  waiter.next = l->waiters;
   l->waiters = &waiter;
 
-  // Wait until compatible
   while (!is_compatible (l, mode))
     {
       i_cond_wait (&waiter.cond, &l->mutex);
     }
 
-  // Remove from waiters list - TODO - this remove is ugly
+  // Remove from waiters list
   struct gr_lock_waiter **ptr = &l->waiters;
   while (*ptr)
     {
@@ -142,13 +157,15 @@ gr_lock (struct gr_lock *l, enum lock_mode mode, error *e)
       ptr = &(*ptr)->next;
     }
 
-  // Now safe to free - we're no longer in the list
   i_cond_free (&waiter.cond);
 
   // Acquire the lock
   l->holder_counts[mode]++;
-  i_mutex_unlock (&l->mutex);
 
+  // Decrement refcount now that we're done waiting
+  l->refcount--;
+
+  i_mutex_unlock (&l->mutex);
   return SUCCESS;
 }
 
@@ -174,29 +191,14 @@ gr_trylock (struct gr_lock *l, enum lock_mode mode)
   return true;
 }
 
-bool
+void
 gr_unlock (struct gr_lock *l, enum lock_mode mode)
 {
   i_mutex_lock (&l->mutex);
 
-  bool is_last = false;
-
   if (l->holder_counts[mode] > 0)
     {
       l->holder_counts[mode]--;
-
-      // Check if this was the last holder
-      bool any_holders = false;
-      for (int i = 0; i < LM_COUNT; i++)
-        {
-          if (l->holder_counts[i] > 0)
-            {
-              any_holders = true;
-              break;
-            }
-        }
-
-      is_last = !any_holders && (l->waiters == NULL);
 
       // Wake any compatible waiters
       if (l->waiters)
@@ -206,8 +208,6 @@ gr_unlock (struct gr_lock *l, enum lock_mode mode)
     }
 
   i_mutex_unlock (&l->mutex);
-
-  return is_last;
 }
 
 err_t
@@ -285,6 +285,30 @@ gr_lock_mode_name (enum lock_mode mode)
       return mode_names[mode];
     }
   return "INVALID";
+}
+
+enum lock_mode
+get_parent_mode (enum lock_mode child_mode)
+{
+  switch (child_mode)
+    {
+    case LM_IS:
+    case LM_S:
+      {
+        return LM_IS;
+      }
+    case LM_IX:
+    case LM_SIX:
+    case LM_X:
+      {
+        return LM_IX;
+      }
+    case LM_COUNT:
+      {
+        UNREACHABLE ();
+      }
+    }
+  UNREACHABLE ();
 }
 
 #ifndef NTEST

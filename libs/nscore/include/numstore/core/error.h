@@ -131,6 +131,30 @@ bool error_equal (const error *left, const error *right);
     }                                 \
   while (0)
 
+#define err_t_panic(expr, e)           \
+  do                                   \
+    {                                  \
+      err_t __ret = (err_t)expr;       \
+      if (unlikely (__ret < SUCCESS))  \
+        {                              \
+          error_log_consume (e);       \
+          panic ("Panicing on error"); \
+        }                              \
+    }                                  \
+  while (0)
+
+#define err_t_panic(expr, e)           \
+  do                                   \
+    {                                  \
+      err_t __ret = (err_t)expr;       \
+      if (unlikely (__ret < SUCCESS))  \
+        {                              \
+          error_log_consume (e);       \
+          panic ("Panicing on error"); \
+        }                              \
+    }                                  \
+  while (0)
+
 #define err_t_wrap_goto(expr, label, e) \
   do                                    \
     {                                   \

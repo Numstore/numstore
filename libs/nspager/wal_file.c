@@ -114,8 +114,8 @@ walf_close (struct wal_file *w, error *e)
 {
   DBG_ASSERT (wal_file, w);
 
-  err_t_wrap (walf_lazy_istream_close (w, e), e);
-  err_t_wrap (walf_lazy_ostream_close (w, e), e);
+  walf_lazy_istream_close (w, e);
+  walf_lazy_ostream_close (w, e);
 
   return e->cause_code;
 }

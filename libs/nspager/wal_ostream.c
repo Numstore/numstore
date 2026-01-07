@@ -74,9 +74,11 @@ walos_close (struct wal_ostream *w, error *e)
 {
   DBG_ASSERT (wal_ostream, w);
 
-  err_t_wrap (walos_flush_to (w, w->flushed_lsn + cbuffer_len (&w->buffer), e), e);
+  walos_flush_to (w, w->flushed_lsn + cbuffer_len (&w->buffer), e);
+  i_close (&w->fd, e);
+  i_free (w);
 
-  return i_close (&w->fd, e);
+  return e->cause_code;
 }
 
 ///////////////////////////////////////////////////////
@@ -103,11 +105,11 @@ walos_flush_to_impl (struct wal_ostream *w, lsn l, bool lock, error *e)
       u32 towrite = cbuffer_len (&w->buffer);
 
       // Flush out the entire file to disk
-      //if (cbuffer_write_to_file_1_expect (&w->fd, &w->buffer, towrite, e))
-      // {
-      //  goto theend;
-      //}
-      //cbuffer_write_to_file_2 (&w->buffer, towrite);
+      if (cbuffer_write_to_file_1_expect (&w->fd, &w->buffer, towrite, e))
+        {
+          goto theend;
+        }
+      cbuffer_write_to_file_2 (&w->buffer, towrite);
 
       w->flushed_lsn += towrite;
     }
@@ -180,6 +182,8 @@ err_t
 walos_crash (struct wal_ostream *w, error *e)
 {
   DBG_ASSERT (wal_ostream, w);
-  return i_close (&w->fd, e);
+  i_close (&w->fd, e);
+  i_free (w);
+  return e->cause_code;
 }
 #endif
