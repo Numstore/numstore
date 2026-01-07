@@ -820,6 +820,8 @@ TEST (TT_UNIT, lock_table_exclusivity)
   test_assert_int_equal (c.counter, 100 * arrlen (threads));
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+  lockt_destroy (&lt);
+  test_err_t_wrap (tp_free (tp, &e), &e);
 }
 
 #endif

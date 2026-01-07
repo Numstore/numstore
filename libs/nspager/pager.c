@@ -17,6 +17,7 @@
  *   Implements pager.h. Main pager implementation with transaction support, page cache, and WAL integration.
  */
 
+#include "numstore/test/testing_test.h"
 #include <file_pager.h>
 
 #include <numstore/core/adptv_hash_table.h>
@@ -1670,7 +1671,7 @@ TEST (TT_UNIT, pager_fill_ht)
 
   test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
-  test_err_t_wrap (pgr_close (f.p, &f.e), &f.e);
+  test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
 
