@@ -823,7 +823,9 @@ pgr_begin_txn (struct txn *tx, struct pager *p, error *e)
   if (p->wal_enabled)
     {
       // Generate a new transaction ID
+      latch_lock (&p->l);
       txid tid = p->next_tid++;
+      latch_unlock (&p->l);
 
       // Append begin record
       slsn l = wal_append_begin_log (&p->ww, tid, e);
