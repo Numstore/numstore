@@ -98,6 +98,8 @@ TEST (TT_UNIT, rptc_load_new_root)
 
   test_err_t_wrap (pgr_delete_and_release (f.p, r.tx, &r.cur, &f.e), &f.e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
@@ -717,6 +719,8 @@ TEST (TT_UNIT, rptc_balance_and_release)
     });
   }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -823,6 +827,8 @@ TEST (TT_UNIT, rptree_cursor_init_teardown)
   test_err_t_wrap (pgr_begin_txn (&tx, pf.p, &pf.e), &pf.e);
   test_err_t_wrap (rptc_new (&r, &tx, pf.p, &pf.e), &pf.e);
   test_err_t_wrap (rptc_cleanup (&r, &pf.e), &pf.e);
+
+  test_err_t_wrap (pgr_commit (pf.p, &tx, &pf.e), &pf.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&pf), &pf.e);
 }
@@ -1061,6 +1067,8 @@ TEST (TT_UNIT, rptc_validate)
 
     test_err_t_wrap (rptc_validate (&r, &f.e), &f.e);
   }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }

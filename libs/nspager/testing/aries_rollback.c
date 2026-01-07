@@ -82,6 +82,8 @@ TEST (TT_UNIT, aries_rollback_basic)
       pgr_release (p, &pg, PG_TOMBSTONE, &e);
     }
 
+  test_err_t_wrap (pgr_commit (p, &tx, &e), &e);
+
   test_err_t_wrap (pgr_close (p, &e), &e);
 
   test_err_t_wrap (tp_free (tp, &e), &e);

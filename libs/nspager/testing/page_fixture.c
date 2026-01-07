@@ -364,6 +364,8 @@ TEST (TT_UNIT, build_page_tree)
   test_err_t_wrap (pgr_release (f.p, dll1, PG_DATA_LIST, &f.e), &f.e);
   test_err_t_wrap (pgr_release (f.p, dll2, PG_DATA_LIST, &f.e), &f.e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif

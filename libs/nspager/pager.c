@@ -1689,6 +1689,8 @@ TEST (TT_UNIT, wal_int)
   dl_set_used (page_h_w (&h), DL_DATA_SIZE);
   test_err_t_wrap (pgr_release (f.p, &h, PG_DATA_LIST, &f.e), &f.e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
