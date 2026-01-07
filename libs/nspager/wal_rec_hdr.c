@@ -466,50 +466,53 @@ i_log_wal_rec_hdr_read (int log_level, struct wal_rec_hdr_read *r)
 }
 
 void
-i_print_wal_rec_hdr_read_light (int log_level, const struct wal_rec_hdr_read *r, lsn l)
+i_print_wal_rec_hdr_read_light (int log_level, struct wal_rec_hdr_read *r, lsn l)
 {
   switch (r->type)
     {
     case WL_UPDATE:
       {
-        i_printf (log_level, "%15" PRlsn "      UPDATE     [ txid = %8" PRtxid ", pg = %8" PRpgno "                      ] --> %" PRlsn "\n",
+        i_printf (log_level, "%15" PRlsn "      UPDATE     [ txid = %8" PRtxid ", pg   = %8" PRpgno "                      ] --> %" PRlsn "\n",
                   l, r->update.tid, r->update.pg, r->update.prev);
         break;
       }
 
     case WL_CLR:
       {
-        i_printf (log_level, "%15" PRlsn "      CLR        [ txid = %8" PRtxid ", pg = %8" PRpgno ", undoNext = %8" PRpgno " ] --> %" PRlsn "\n",
+        i_printf (log_level, "%15" PRlsn "      CLR        [ txid = %8" PRtxid ", pg   = %8" PRpgno ", undoNext = %8" PRpgno " ] --> %" PRlsn "\n",
                   l, r->clr.tid, r->clr.pg, r->clr.undo_next, r->clr.prev);
         break;
       }
 
     case WL_BEGIN:
       {
-        i_printf (log_level, "%15" PRlsn "      BEGIN      [ txid = %8" PRtxid "                                     ]\n", l, r->begin.tid);
+        i_printf (log_level, "%15" PRlsn "      BEGIN      [ txid = %8" PRtxid "                                       ]\n", l, r->begin.tid);
         break;
       }
 
     case WL_COMMIT:
       {
-        i_printf (log_level, "%15" PRlsn "      COMMIT     [ txid = %8" PRtxid "                                     ] --> %" PRlsn "\n", l, r->commit.tid, r->commit.prev);
+        i_printf (log_level, "%15" PRlsn "      COMMIT     [ txid = %8" PRtxid "                                       ] --> %" PRlsn "\n",
+                  l, r->commit.tid, r->commit.prev);
         break;
       }
     case WL_END:
       {
-        i_printf (log_level, "%15" PRlsn "      END        [ txid = %8" PRtxid "                                     ] --> %" PRlsn "\n", l, r->end.tid, r->end.prev);
+        i_printf (log_level, "%15" PRlsn "      END        [ txid = %8" PRtxid "                                       ] --> %" PRlsn "\n",
+                  l, r->end.tid, r->end.prev);
         break;
       }
 
     case WL_CKPT_BEGIN:
       {
-        i_printf (log_level, "%15" PRlsn "      CKPT_BEGIN [                                           ]\n", l);
+        i_printf (log_level, "%15" PRlsn "      CKPT_BEGIN\n", l);
         break;
       }
 
     case WL_CKPT_END:
       {
-        i_printf (log_level, "%15" PRlsn "      CKPT_END   [                                           ]\n", l);
+        i_printf (log_level, "%15" PRlsn "      CKPT_END   [ natt = %8d, ndpt = %8d                      ]\n",
+                  l, txnt_get_size (&r->ckpt_end.att), dpgt_get_size (r->ckpt_end.dpt));
         break;
       }
     case WL_EOF:

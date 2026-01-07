@@ -22,20 +22,18 @@
 
 #include <nsfslite.h>
 
+#include "numstore/rptree/oneoff.h"
 #include <numstore/core/clock_allocator.h>
 #include <numstore/core/error.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 #include <numstore/pager.h>
+#include <numstore/pager/lock_table.h>
 #include <numstore/rptree/_rebalance.h>
 #include <numstore/rptree/rptree_cursor.h>
 #include <numstore/var/var_cursor.h>
 
-#include "lock_table.h"
-
 #include <pthread.h>
-
-#define ENABLE_GLOBAL_DB_LOCK
 
 union cursor
 {
@@ -47,13 +45,10 @@ struct nsfslite_s
 {
   struct pager *p;
   struct clck_alloc cursors;
-  struct nsfsllt lt;
+  struct lockt lt;
+  struct thread_pool *tp;
   struct latch l;
   error e;
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex dblock;
-#endif
 };
 
 DEFINE_DBG_ASSERT (
@@ -95,10 +90,28 @@ nsfslite_open (const char *fname, const char *recovery_fname)
       goto failed;
     }
 
+  // Initialize lock table
+  if (lockt_init (&ret->lt, &e))
+    {
+      i_free (ret);
+      goto failed;
+    }
+
+  // Initialize thread pool
+  ret->tp = tp_open (&e);
+  if (ret->tp == NULL)
+    {
+      lockt_destroy (&ret->lt);
+      i_free (ret);
+      goto failed;
+    }
+
   // Create a new pager
-  ret->p = pgr_open (fname, recovery_fname, &ret->e);
+  ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, &ret->e);
   if (ret->p == NULL)
     {
+      tp_free (ret->tp, &e);
+      lockt_destroy (&ret->lt);
       i_free (ret);
       goto failed;
     }
@@ -118,29 +131,11 @@ nsfslite_open (const char *fname, const char *recovery_fname)
   if (clck_alloc_open (&ret->cursors, sizeof (union cursor), 512, &e) < 0)
     {
       pgr_close (ret->p, &e);
+      tp_free (ret->tp, &e);
+      lockt_destroy (&ret->lt);
       i_free (ret);
       goto failed;
     }
-
-  // Open the lock table for 2PL
-  if (nsfslt_init (&ret->lt, &e))
-    {
-      pgr_close (ret->p, &e);
-      i_free (ret);
-      clck_alloc_close (&ret->cursors);
-      goto failed;
-    }
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (i_mutex_create (&ret->dblock, &e) < 0)
-    {
-      pgr_close (ret->p, &e);
-      i_free (ret);
-      clck_alloc_close (&ret->cursors);
-      nsfslt_destroy (&ret->lt);
-      goto failed;
-    }
-#endif
 
   ret->e = e;
 
@@ -161,13 +156,10 @@ nsfslite_close (nsfslite *n)
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_free (&n->dblock);
-#endif
-
   pgr_close (n->p, &n->e);
   clck_alloc_close (&n->cursors);
-  nsfslt_destroy (&n->lt);
+  tp_free (n->tp, &n->e);
+  lockt_destroy (&n->lt);
 
   if (n->e.cause_code < 0)
     {
@@ -183,14 +175,6 @@ nsfslite_close (nsfslite *n)
 int64_t
 nsfslite_new (nsfslite *n, nsfslite_txn *tx, const char *name)
 {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  bool need_lock = (tx == NULL);
-  if (need_lock)
-    {
-      i_mutex_lock (&n->dblock);
-    }
-#endif
-
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
 
@@ -230,37 +214,41 @@ nsfslite_new (nsfslite *n, nsfslite_txn *tx, const char *name)
       tx = &auto_txn;
     }
 
-  varc_enter_transaction (&vc->vpc, tx);
-
-  struct var_create_params src = {
-    .vname = cstrfcstr (name),
-    .t = (struct type){
-        .type = T_PRIM,
-        .p = U8,
-    },
-  };
-
-  // CREATE VARIABLE
-  if (vpc_new (&vc->vpc, src, &n->e))
-    {
-      varc_cleanup (&vc->vpc, &n->e);
-      goto theend;
-    }
-
   // CREATE RPT ROOT
-  if (rptc_new (&rc->rptc, tx, n->p, &n->e))
-    {
-      varc_cleanup (&vc->vpc, &n->e);
-      rptc_cleanup (&rc->rptc, &n->e);
-      goto theend;
-    }
+  {
+    if (rptc_new (&rc->rptc, tx, n->p, &n->e))
+      {
+        varc_cleanup (&vc->vpc, &n->e);
+        rptc_cleanup (&rc->rptc, &n->e);
+        goto theend;
+      }
 
-  // TODO - update variable
+    ret = rc->rptc.meta_root;
+  }
 
-  ret = rc->rptc.meta_root;
+  {
+    varc_enter_transaction (&vc->vpc, tx);
+
+    struct var_create_params src = {
+      .vname = cstrfcstr (name),
+      .t = (struct type){
+          .type = T_PRIM,
+          .p = U8,
+      },
+      .root = ret,
+    };
+
+    // CREATE VARIABLE
+    if (vpc_new (&vc->vpc, src, &n->e))
+      {
+        varc_cleanup (&vc->vpc, &n->e);
+        goto theend;
+      }
+
+    varc_leave_transaction (&vc->vpc);
+  }
 
   // COMMIT
-  varc_leave_transaction (&vc->vpc);
   if (auto_txn_started)
     {
       if (pgr_commit (n->p, tx, &n->e))
@@ -295,22 +283,12 @@ theend:
       ret = n->e.cause_code;
     }
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
-
   return ret;
 }
 
 int64_t
 nsfslite_get_id (nsfslite *n, const char *name)
 {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_lock (&n->dblock);
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -347,10 +325,6 @@ nsfslite_get_id (nsfslite *n, const char *name)
 
   clck_alloc_free (&n->cursors, c);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
-
   return id;
 
 failed:
@@ -359,23 +333,12 @@ failed:
       clck_alloc_free (&n->cursors, c);
     }
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
-
   return n->e.cause_code;
 }
 
 int
 nsfslite_delete (nsfslite *n, nsfslite_txn *tx, const char *name)
 {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  bool need_lock = (tx == NULL);
-  if (need_lock)
-    {
-      i_mutex_lock (&n->dblock);
-    }
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -432,22 +395,9 @@ nsfslite_delete (nsfslite *n, nsfslite_txn *tx, const char *name)
 
   clck_alloc_free (&n->cursors, &c->vpc);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
-
   return SUCCESS;
 
 failed:
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
   if (c)
     {
       clck_alloc_free (&n->cursors, c);
@@ -458,9 +408,6 @@ failed:
 size_t
 nsfslite_fsize (nsfslite *n, uint64_t id)
 {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_lock (&n->dblock);
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -488,10 +435,6 @@ nsfslite_fsize (nsfslite *n, uint64_t id)
 
   clck_alloc_free (&n->cursors, c);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
-
   return length;
 
 failed:
@@ -500,10 +443,6 @@ failed:
       clck_alloc_free (&n->cursors, c);
     }
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
-
   return n->e.cause_code;
 }
 
@@ -511,6 +450,7 @@ nsfslite_txn *
 nsfslite_begin_txn (nsfslite *n)
 {
   error e = error_create ();
+
   struct txn *tx = i_malloc (1, sizeof *tx, &e);
   if (tx == NULL)
     {
@@ -518,15 +458,8 @@ nsfslite_begin_txn (nsfslite *n)
       return NULL;
     }
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_lock (&n->dblock);
-#endif
-
   if (pgr_begin_txn (tx, n->p, &n->e))
     {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-      i_mutex_unlock (&n->dblock);
-#endif
       error_log_consume (&e);
       return NULL;
     }
@@ -538,10 +471,6 @@ int
 nsfslite_commit (nsfslite *n, nsfslite_txn *tx)
 {
   int ret = pgr_commit (n->p, tx, &n->e);
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
 
   return ret;
 }
@@ -556,13 +485,6 @@ nsfslite_insert (
     size_t size,
     size_t nelem)
 {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  bool need_lock = (tx == NULL);
-  if (need_lock)
-    {
-      i_mutex_lock (&n->dblock);
-    }
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -599,44 +521,10 @@ nsfslite_insert (
 
   rptc_enter_transaction (&c->rptc, tx);
 
-  // SEEK to byte offset
-  if (rptc_start_seek (&c->rptc, bofst, true, &n->e))
+  // DO INSERT
+  if (rptof_insert (&c->rptc, src, bofst, size, nelem, &n->e))
     {
       goto failed;
-    }
-
-  while (c->rptc.state == RPTS_SEEKING)
-    {
-      if (rptc_seeking_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  // INSERT
-  u32 nbytes = nelem * size;
-  struct cbuffer srcbuf = cbuffer_create_with ((void *)src, nbytes, nbytes);
-
-  if (rptc_seeked_to_insert (&c->rptc, &srcbuf, nbytes, &n->e))
-    {
-      goto failed;
-    }
-
-  while (c->rptc.state == RPTS_DL_INSERTING)
-    {
-      if (rptc_insert_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  // REBALANCE if needed
-  while (c->rptc.state == RPTS_IN_REBALANCING)
-    {
-      if (rptc_rebalance_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
     }
 
   // COMMIT
@@ -657,13 +545,6 @@ nsfslite_insert (
 
   clck_alloc_free (&n->cursors, c);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
-
   i_log_trace ("nsfslite_insert: success id=%" PRIu64 " tx=%" PRIu64 " inserted=%zu\n", id, tx->tid, nelem);
   return nelem;
 
@@ -674,13 +555,6 @@ failed:
     }
 
   pgr_rollback (n->p, tx, 0, &n->e);
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
 
   return n->e.cause_code;
 }
@@ -695,13 +569,6 @@ nsfslite_write (
     struct nsfslite_stride stride)
 {
   bool need_lock = (tx == NULL);
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_lock (&n->dblock);
-    }
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -735,39 +602,7 @@ nsfslite_write (
 
   rptc_enter_transaction (&c->rptc, tx);
 
-  // SEEK to byte offset
-  if (rptc_start_seek (&c->rptc, stride.bstart, false, &n->e))
-    {
-      goto failed;
-    }
-
-  while (c->rptc.state == RPTS_SEEKING)
-    {
-      if (rptc_seeking_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  // WRITE with stride
-  u32 nbytes = stride.nelems * size;
-  struct cbuffer srcbuf = cbuffer_create_with ((void *)src, nbytes, nbytes);
-
-  rptc_seeked_to_write (&c->rptc, &srcbuf, size, stride.stride);
-
-  while (c->rptc.state == RPTS_DL_WRITING)
-    {
-      if (rptc_write_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  ASSERT (c->rptc.writer.total_written % size == 0);
-  ssize_t written = c->rptc.writer.total_written / size;
-
-  // Transition back to unseeked
-  if (rptc_write_to_unseeked (&c->rptc, &n->e))
+  if (rptof_write (&c->rptc, src, size, stride.bstart, stride.stride, stride.nelems, &n->e))
     {
       goto failed;
     }
@@ -790,15 +625,7 @@ nsfslite_write (
 
   clck_alloc_free (&n->cursors, c);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
-
-  i_log_trace ("nsfslite_write: success id=%" PRIu64 " tx=%" PRIu64 " written=%zd\n", id, tx->tid, written);
-  return written;
+  return stride.nelems;
 
 failed:
   if (c)
@@ -807,13 +634,6 @@ failed:
     }
 
   pgr_rollback (n->p, tx, 0, &n->e);
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
 
   return n->e.cause_code;
 }
@@ -826,10 +646,6 @@ nsfslite_read (
     size_t size,
     struct nsfslite_stride stride)
 {
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_lock (&n->dblock);
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -850,37 +666,11 @@ nsfslite_read (
       goto failed;
     }
 
-  // SEEK to byte offset
-  size_t bofst = stride.bstart;
-  if (rptc_start_seek (&c->rptc, bofst, false, &n->e))
+  ssize_t ret = rptof_read (&c->rptc, dest, size, stride.bstart, stride.stride, stride.nelems, &n->e);
+  if (ret < 0)
     {
       goto failed;
     }
-
-  while (c->rptc.state == RPTS_SEEKING)
-    {
-      if (rptc_seeking_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  // READ with stride
-  u32 nbytes = stride.nelems * size;
-  struct cbuffer destbuf = cbuffer_create (dest, nbytes);
-
-  rptc_seeked_to_read (&c->rptc, &destbuf, stride.nelems, size, stride.stride);
-
-  while (c->rptc.state == RPTS_DL_READING)
-    {
-      if (rptc_read_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  ASSERT (c->rptc.reader.total_bread % size == 0);
-  ssize_t ret = c->rptc.reader.total_bread / size;
 
   // CLEANUP
   if (rptc_cleanup (&c->rptc, &n->e))
@@ -890,10 +680,6 @@ nsfslite_read (
 
   clck_alloc_free (&n->cursors, c);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
-
   i_log_trace ("nsfslite_read: success id=%" PRIu64 " read=%zd\n", id, ret);
   return ret;
 
@@ -902,10 +688,6 @@ failed:
     {
       clck_alloc_free (&n->cursors, c);
     }
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  i_mutex_unlock (&n->dblock);
-#endif
 
   i_log_warn ("nsfslite_read failed: id=%" PRIu64 " code=%d\n", id, n->e.cause_code);
   return n->e.cause_code;
@@ -920,13 +702,6 @@ nsfslite_remove (
     size_t size,
     struct nsfslite_stride stride)
 {
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  bool need_lock = (tx == NULL);
-  if (need_lock)
-    {
-      i_mutex_lock (&n->dblock);
-    }
-#endif
 
   DBG_ASSERT (nsfslite, n);
   error_reset (&n->e);
@@ -960,60 +735,10 @@ nsfslite_remove (
 
   rptc_enter_transaction (&c->rptc, tx);
 
-  // SEEK to byte offset
-  if (rptc_start_seek (&c->rptc, stride.bstart, false, &n->e))
+  if (rptof_remove (&c->rptc, dest, size, stride.bstart, stride.stride, stride.nelems, &n->e))
     {
       goto failed;
     }
-
-  while (c->rptc.state == RPTS_SEEKING)
-    {
-      if (rptc_seeking_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  // REMOVE with stride
-  u32 nbytes = stride.nelems * size;
-  if (dest)
-    {
-      struct cbuffer destbuf = cbuffer_create (dest, nbytes);
-      if (rptc_seeked_to_remove (&c->rptc, &destbuf, stride.nelems, size, stride.stride, &n->e))
-        {
-          goto failed;
-        }
-    }
-  else
-    {
-      if (rptc_seeked_to_remove (&c->rptc, NULL, stride.nelems, size, stride.stride, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  while (c->rptc.state == RPTS_DL_REMOVING)
-    {
-      if (rptc_remove_execute (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  ASSERT (c->rptc.remover.total_removed % size == 0);
-  ssize_t removed = c->rptc.remover.total_removed / size;
-
-  // REBALANCE if needed
-  if (c->rptc.state == RPTS_IN_REBALANCING)
-    {
-      if (rptc_remove_to_rebalancing_or_unseeked (&c->rptc, &n->e))
-        {
-          goto failed;
-        }
-    }
-
-  // Note: rptree cursor internally updates the rpt_root page with new actual root
-  // No need to call vpc_update
 
   // COMMIT
   rptc_leave_transaction (&c->rptc);
@@ -1033,15 +758,9 @@ nsfslite_remove (
 
   clck_alloc_free (&n->cursors, c);
 
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
-
   i_log_trace ("nsfslite_remove: success id=%" PRIu64 " tx=%" PRIu64 " removed=%zd\n", id, tx->tid, removed);
-  return removed;
+
+  return stride.nelems;
 
 failed:
   if (c)
@@ -1050,13 +769,6 @@ failed:
     }
 
   pgr_rollback (n->p, tx, 0, &n->e);
-
-#ifdef ENABLE_GLOBAL_DB_LOCK
-  if (need_lock)
-    {
-      i_mutex_unlock (&n->dblock);
-    }
-#endif
 
   return n->e.cause_code;
 }

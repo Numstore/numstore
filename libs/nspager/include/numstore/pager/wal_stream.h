@@ -21,7 +21,6 @@
 
 #include <numstore/core/cbuffer.h>
 #include <numstore/core/latch.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/intf/os.h>
 
 #include "config.h"
@@ -29,7 +28,7 @@
 struct wal_ostream
 {
   i_file fd;
-  struct spx_latch l;
+  struct latch l;
   lsn flushed_lsn;
 
   struct cbuffer buffer;
@@ -42,7 +41,6 @@ err_t walos_close (struct wal_ostream *w, error *e);
 
 // Writing
 err_t walos_flush_to (struct wal_ostream *w, lsn l, error *e);
-err_t walos_flush_all (struct wal_ostream *w, error *e);
 err_t walos_write_all (struct wal_ostream *w, u32 *checksum, const void *data, u32 len, error *e);
 lsn walos_get_next_lsn (struct wal_ostream *w);
 err_t walos_truncate (struct wal_ostream *w, u64 howmuch, error *e);

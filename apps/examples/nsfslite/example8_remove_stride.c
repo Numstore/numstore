@@ -23,6 +23,7 @@
  */
 
 #include "nsfslite.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,82 +38,47 @@ main (void)
 {
   int ret = 0;
   nsfslite *n = NULL;
-  int *data = malloc (N_ELEMS * sizeof (int));
-  int *read_data = malloc (N_ELEMS * sizeof (int));
-
-  for (size_t i = 0; i < N_ELEMS; i++)
-    {
-      data[i] = i;
-    }
+  int *data = int_range (N_ELEMS);
+  int *read_data = int_random (N_ELEMS);
 
   unlink ("test8.db");
   unlink ("test8.wal");
 
-  n = nsfslite_open ("test8.db", "test8.wal");
-  if (!n)
-    {
-      fprintf (stderr, "Failed to open database\n");
-      ret = -1;
-      goto cleanup;
-    }
+  // OPEN
+  CHECKN ((n = nsfslite_open ("test8.db", "test8.wal")));
 
+  // NEW VARIABLE
   int64_t id = nsfslite_new (n, NULL, "data");
-  if (id < 0)
-    {
-      fprintf (stderr, "Failed to create variable: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  CHECK (id);
+  // INSERT
+  CHECK (nsfslite_insert (n, id, NULL, data, 0, sizeof (int), N_ELEMS));
 
-  if (nsfslite_insert (n, id, NULL, data, 0, sizeof (int), N_ELEMS) < 0)
-    {
-      fprintf (stderr, "Failed to insert: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  struct nsfslite_stride rstride_remove = { .bstart = 0, .stride = REMOVE_STRIDE, .nelems = REMOVE_COUNT };
+  // REMOVE
+  CHECK (nsfslite_remove (n, id, NULL, NULL, sizeof (int), rstride_remove));
 
-  if (nsfslite_remove (n, id, NULL, NULL, sizeof (int),
-                       (struct nsfslite_stride){ .bstart = 0, .stride = REMOVE_STRIDE, .nelems = REMOVE_COUNT })
-      < 0)
-    {
-      fprintf (stderr, "Failed to remove with stride: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
-
+  // CLOSE
   nsfslite_close (n);
 
-  n = nsfslite_open ("test8.db", "test8.wal");
-  if (!n)
-    {
-      fprintf (stderr, "Failed to reopen database\n");
-      ret = -1;
-      goto cleanup;
-    }
+  // OPEN
+  CHECKN ((n = nsfslite_open ("test8.db", "test8.wal")));
 
+  // GET ID
   id = nsfslite_get_id (n, "data");
-  if (id < 0)
-    {
-      fprintf (stderr, "Failed to get id: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  CHECK (id);
 
   size_t remaining = N_ELEMS - REMOVE_COUNT;
-  if (nsfslite_read (n, id, read_data, sizeof (int),
-                     (struct nsfslite_stride){ .bstart = 0, .stride = 1, .nelems = remaining })
-      < 0)
-    {
-      fprintf (stderr, "Failed to read: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  // READ
+  struct nsfslite_stride rstride = { .bstart = 0, .stride = 1, .nelems = remaining };
+  CHECK (nsfslite_read (n, id, read_data, sizeof (int), rstride));
 
   printf ("SUCCESS: Removed %d elements with stride=%d, %zu remaining after reopen\n", REMOVE_COUNT, REMOVE_STRIDE, remaining);
 
 cleanup:
   if (n)
-    nsfslite_close (n);
+    {
+      nsfslite_close (n);
+    }
   free (data);
   free (read_data);
   return ret;

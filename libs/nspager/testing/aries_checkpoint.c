@@ -17,6 +17,8 @@
  *   Test implementation for ARIES checkpoint recovery protocol validation.
  */
 
+#include "numstore/pager/lock_table.h"
+#include "numstore/pager/txn.h"
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
@@ -32,7 +34,10 @@
 #include <numstore/test/testing.h>
 #include <numstore/test/testing_test.h>
 
-#include "wal.h"
+#include <config.h>
+#include <wal.h>
+
+#ifndef DUMB_PAGER
 
 #ifndef NTEST
 TEST (TT_UNIT, aries_checkpoint_basic_recovery)
@@ -42,7 +47,14 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
+
   test_fail_if_null (p);
 
   u8 data[5][DL_DATA_SIZE];
@@ -55,6 +67,8 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
 
     for (int i = 0; i < 5; ++i)
       {
+        i_log_lockt (LOG_INFO, &lt);
+        i_log_txn (LOG_INFO, &tx);
         page_h dl_page = page_h_create ();
         test_fail_if (pgr_new (&dl_page, p, &tx, PG_DATA_LIST, &e));
         dl_set_data (page_h_w (&dl_page), (struct dl_data){ .data = data[i], .blen = DL_DATA_SIZE });
@@ -80,7 +94,7 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
 
   // Crash and recover
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // Verify data survived through checkpoint recovery
@@ -104,6 +118,9 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
 TEST_disabled (TT_UNIT, aries_checkpoint_with_active_transactions)
@@ -113,7 +130,13 @@ TEST_disabled (TT_UNIT, aries_checkpoint_with_active_transactions)
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   u8 data1[3][DL_DATA_SIZE];
@@ -152,19 +175,23 @@ TEST_disabled (TT_UNIT, aries_checkpoint_with_active_transactions)
     // NOTE: tx2 is NOT committed - this is a fuzzy checkpoint test
   }
 
+  i_log_lockt (LOG_INFO, &lt);
+
   // Take checkpoint while tx2 is still active
   test_fail_if (pgr_checkpoint (p, &e));
 
+  return;
+
   // Crash with uncommitted transaction
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // Verify: tx1 data should survive, tx2 should be rolled back
   {
     page_h pg = page_h_create ();
 
-    test_err_t_wrap (pgr_get (&pg, PG_ROOT_NODE, 0, p, &e), &e);
+    test_err_t_wrap (pgr_get (&pg, PG_ROOT_NODE, ROOT_PGNO, p, &e), &e);
     // Note: first_tmbst may be stale after fuzzy checkpoint recovery
     // because it's checkpointed with uncommitted allocations
     lsn master_lsn = rn_get_master_lsn (page_h_ro (&pg));
@@ -192,6 +219,9 @@ TEST_disabled (TT_UNIT, aries_checkpoint_with_active_transactions)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
 // Test multiple checkpoints and recovery from latest
@@ -202,7 +232,13 @@ TEST (TT_UNIT, aries_checkpoint_multiple_checkpoints)
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   u8 data1[2][DL_DATA_SIZE];
@@ -286,7 +322,7 @@ TEST (TT_UNIT, aries_checkpoint_multiple_checkpoints)
 
   // Crash and recover - should use latest checkpoint
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // Verify all data survived
@@ -325,6 +361,9 @@ TEST (TT_UNIT, aries_checkpoint_multiple_checkpoints)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
 // Test checkpoint followed by post-checkpoint activity before crash
@@ -335,7 +374,13 @@ TEST (TT_UNIT, aries_checkpoint_with_post_checkpoint_activity)
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   u8 data_before[3][DL_DATA_SIZE];
@@ -380,7 +425,7 @@ TEST (TT_UNIT, aries_checkpoint_with_post_checkpoint_activity)
 
   // Crash - recovery should process checkpoint + post-checkpoint log
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // Verify both before and after checkpoint data survived
@@ -409,5 +454,9 @@ TEST (TT_UNIT, aries_checkpoint_with_post_checkpoint_activity)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
+#endif
 #endif

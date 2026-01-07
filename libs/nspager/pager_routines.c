@@ -166,6 +166,9 @@ TEST (TT_UNIT, pgr_dlgt_delete_and_fill_next)
     test_err_t_wrap (pgr_release (f.p, n4, PG_TOMBSTONE, &f.e), &f.e);
     test_err_t_wrap (pgr_release (f.p, n5, PG_TOMBSTONE, &f.e), &f.e);
   }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -301,6 +304,9 @@ TEST (TT_UNIT, pgr_dlgt_delete_and_fill_prev)
     test_err_t_wrap (pgr_release (f.p, n4, PG_INNER_NODE, &f.e), &f.e);
     test_err_t_wrap (pgr_release (f.p, n5, PG_INNER_NODE, &f.e), &f.e);
   }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -512,6 +518,8 @@ TEST (TT_UNIT, pgr_dlgt_delete_chain)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -718,6 +726,8 @@ TEST (TT_UNIT, pgr_dlgt_get_next)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -890,6 +900,8 @@ TEST (TT_UNIT, pgr_dlgt_get_prev)
         test_err_t_wrap (pgr_release (f.p, &cur, PG_INNER_NODE, &f.e), &f.e);
       }
     }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
@@ -1126,6 +1138,8 @@ TEST (TT_UNIT, pgr_dlgt_get_neighbors)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -1253,6 +1267,8 @@ TEST (TT_UNIT, pgr_dlgt_new_next)
         test_err_t_wrap (pgr_release_if_exists (f.p, &next, PG_INNER_NODE, &f.e), &f.e);
       }
     }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
@@ -1382,6 +1398,8 @@ TEST (TT_UNIT, pgr_dlgt_new_prev)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -1490,6 +1508,8 @@ TEST (TT_UNIT, pgr_dlgt_new_next_no_link)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -1597,6 +1617,8 @@ TEST (TT_UNIT, pgr_dlgt_new_prev_no_link)
         test_err_t_wrap (pgr_release (f.p, &prev, PG_INNER_NODE, &f.e), &f.e);
       }
     }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
@@ -1772,6 +1794,8 @@ TEST (TT_UNIT, pgr_dlgt_advance_next)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -1933,6 +1957,8 @@ TEST (TT_UNIT, pgr_dlgt_advance_prev)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -2071,6 +2097,8 @@ TEST (TT_UNIT, pgr_dlgt_advance_new_next)
         test_err_t_wrap (pgr_release_if_exists (f.p, &c_next, PG_INNER_NODE, &f.e), &f.e);
       }
     }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
@@ -2213,6 +2241,8 @@ TEST (TT_UNIT, pgr_dlgt_advance_new_prev)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -2336,6 +2366,8 @@ TEST (TT_UNIT, pgr_dlgt_advance_new_next_no_link)
       }
     }
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -2457,6 +2489,8 @@ TEST (TT_UNIT, pgr_dlgt_advance_new_prev_no_link)
         test_err_t_wrap (pgr_release (f.p, &cnext, PG_INNER_NODE, &f.e), &f.e);
       }
     }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
@@ -2630,6 +2664,8 @@ TEST (TT_UNIT, dlgt_balance_with_prev)
   test_err_t_wrap (pgr_release (f.p, prev, PG_DATA_LIST, e), e);
   test_err_t_wrap (pgr_delete_and_release (f.p, &tx, cur, e), e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 
@@ -2798,6 +2834,8 @@ TEST (TT_UNIT, dlgt_balance_with_next)
 
   test_err_t_wrap (pgr_release (f.p, next, PG_DATA_LIST, e), e);
   test_err_t_wrap (pgr_delete_and_release (f.p, &tx, cur, e), e);
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }

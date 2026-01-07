@@ -43,6 +43,7 @@ rptc_seeked_to_insert (struct rptree_cursor *r, struct cbuffer *src, b_size max_
 {
   DBG_ASSERT (rptc_seeked, r);
   ASSERT (r->tx);
+  ASSERT (max_write <= NUPD_MAX_DATA_LENGTH);
 
   err_t_wrap (pgr_maybe_make_writable (r->pager, r->tx, &r->cur, e), e);
 

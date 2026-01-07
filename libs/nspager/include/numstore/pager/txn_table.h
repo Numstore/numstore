@@ -25,13 +25,13 @@
 #include <numstore/core/clock_allocator.h>
 #include <numstore/core/dbl_buffer.h>
 #include <numstore/core/error.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/pager/txn.h>
 
 struct txn_table
 {
   struct adptv_htable t;
-  struct spx_latch l;
+  struct latch l;
 };
 
 // Lifecycle

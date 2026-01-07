@@ -29,11 +29,17 @@ int
 main (void)
 {
   error e = error_create ();
+
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
   int src[20480];
 
   arr_range (src);
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   if (p == NULL)
     {
       return e.cause_code;

@@ -491,7 +491,7 @@ vpc_new (struct var_cursor *v, struct var_create_params params, error *e)
   vp_set_ovnext (page_h_w (&v->cur), PGNO_NULL);
   vp_set_vlen (page_h_w (&v->cur), v->vlen_input);
   vp_set_tlen (page_h_w (&v->cur), v->tlen_input);
-  vp_set_root (page_h_w (&v->cur), PGNO_NULL);
+  vp_set_root (page_h_w (&v->cur), params.root);
 
   if ((vpc_write_vstr_tstr_here (v, e)))
     {
@@ -774,6 +774,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
             .type = T_PRIM,
             .p = U32,
         },
+        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -794,7 +795,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
 
     // Validate data
     {
-      test_assert_type_equal (dest.pg0, PGNO_NULL, pgno, PRpgno);
+      test_assert_type_equal (dest.pg0, 100, pgno, PRpgno);
       test_assert_int_equal (dest.t.type, T_PRIM);
       test_assert_int_equal (dest.t.p, U32);
     }
@@ -838,6 +839,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
+        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -903,6 +905,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
+        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -948,6 +951,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
+        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);

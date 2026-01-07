@@ -19,6 +19,7 @@
  *   and block specifications.
  */
 
+#include "numstore/pager/data_list.h"
 #include <numstore/pager/pager_routines.h>
 #include <numstore/rptree/rptree_cursor.h>
 
@@ -28,79 +29,156 @@ DEFINE_DBG_ASSERT (
       ASSERT (r->root != PGNO_NULL);
       ASSERT (r->writer.stride >= 1);
       ASSERT (r->tx);
+      ASSERT (r->writer.max_bwrite == 0 || r->writer.total_bwritten <= r->writer.max_bwrite);
     })
 
 ////////////////////////
 /// WRITE
 
-void
-rptc_seeked_to_write (struct rptree_cursor *r, struct cbuffer *src, t_size bsize, u32 stride)
+err_t
+rptc_seeked_to_write (
+    struct rptree_cursor *r,
+    struct cbuffer *src,
+    b_size max_nwrite,
+    t_size bsize,
+    u32 stride,
+    error *e)
 {
   ASSERT (r->state == RPTS_SEEKED);
   ASSERT (src);
+  ASSERT (r->tx);
   ASSERT (bsize > 0);
   ASSERT (stride > 0);
 
-  r->writer.src = src;
-  r->writer.bsize = bsize;
-  r->writer.stride = stride;
-  r->writer.bstrlen = bsize * stride;
-  r->writer.bnext = bsize;
-  r->writer.total_written = 0;
-  r->writer.state = DLWRITE_ACTIVE;
+  err_t_wrap (pgr_maybe_make_writable (r->pager, r->tx, &r->cur, e), e);
+
+  r->writer = (struct rptc_write){
+    .src = src,
+    .bsize = bsize,
+    .stride = stride,
+    .bstrlen = bsize * stride,
+    .bnext = bsize,
+    .total_bwritten = 0,
+    .max_bwrite = max_nwrite * bsize,
+    .state = DLWRITE_ACTIVE,
+  };
 
   r->state = RPTS_DL_WRITING;
 
   DBG_ASSERT (rptc_writing, r);
+
+  return SUCCESS;
+}
+
+static inline p_size
+rptc_write_next (struct rptree_cursor *r)
+{
+  DBG_ASSERT (rptc_writing, r);
+
+  // Available in the buffer
+  p_size next = dl_used (page_h_ro (&r->cur)) - r->lidx;
+
+  // Available in this write state
+  next = MIN (next, r->writer.bnext);
+
+  // Available to write to (only when actively writeing)
+  if (r->writer.state == DLWRITE_ACTIVE)
+    {
+      next = MIN (next, cbuffer_len (r->writer.src));
+    }
+
+  // Available globally to write
+  if (r->writer.max_bwrite > 0 && r->writer.state == DLWRITE_ACTIVE)
+    {
+      next = MIN (next, r->writer.max_bwrite - r->writer.total_bwritten);
+    }
+
+  return next;
 }
 
 err_t
 rptc_write_execute (struct rptree_cursor *r, error *e)
 {
   DBG_ASSERT (rptc_writing, r);
-  ASSERT (r->state == RPTS_DL_WRITING);
-
   page *cur = page_h_w (&r->cur);
-
-  p_size limit = dl_used (cur);
-
-  while (r->lidx < limit)
+  while (true)
     {
-      // Get the next total we should write on
-      p_size page_avail = limit - r->lidx; // Available in this page
-      p_size next = MIN (page_avail, r->writer.bnext);
-
+      // Check if we've completed the write operation
+      if (r->writer.max_bwrite > 0 && r->writer.total_bwritten >= r->writer.max_bwrite)
+        {
+          return rptc_write_to_unseeked (r, e);
+        }
+      p_size next = rptc_write_next (r);
+      if (next == 0)
+        {
+          // Block on source backpressure
+          if (r->writer.src && cbuffer_len (r->writer.src) == 0)
+            {
+              return SUCCESS;
+            }
+          // Reached end of current page, advance to next
+          else if (r->lidx >= dl_used (cur))
+            {
+              page_h next_page = page_h_create ();
+              err_t_wrap (pgr_dlgt_get_next (&r->cur, &next_page, r->tx, r->pager, e), e);
+              // Reached EOF
+              if (next_page.mode == PHM_NONE)
+                {
+                  return SUCCESS;
+                }
+              else
+                {
+                  err_t_wrap (pgr_release (r->pager, &r->cur, PG_DATA_LIST, e), e);
+                  r->lidx = 0;
+                  r->cur = page_h_xfer_ownership (&next_page);
+                  return SUCCESS;
+                }
+            }
+          else
+            {
+              UNREACHABLE ();
+            }
+        }
       switch (r->writer.state)
         {
         case DLWRITE_ACTIVE:
           {
-            p_size written = dl_write_from_buffer (cur, r->writer.src, r->lidx, next);
-
-            r->lidx += written;
-            r->writer.total_written += written;
-            r->writer.bnext -= written;
-
+            if (next > 0)
+              {
+                if (r->writer.src)
+                  {
+                    p_size written = dl_write_from_buffer (cur, r->writer.src, r->lidx, next);
+                    ASSERT (written == next);
+                  }
+                r->lidx += next;
+                r->writer.total_bwritten += next;
+                r->writer.bnext -= next;
+              }
             if (r->writer.bnext == 0)
               {
                 r->writer.bnext = (r->writer.stride - 1) * r->writer.bsize;
                 r->writer.state = DLWRITE_SKIPPING;
+                // TODO - Optimize stride = 1
+                if (r->writer.bnext == 0)
+                  {
+                    r->writer.bnext = r->writer.bsize;
+                    r->writer.state = DLWRITE_ACTIVE;
+                  }
               }
-
             break;
           }
         case DLWRITE_SKIPPING:
           {
-            p_size written = dl_write (cur, NULL, r->lidx, next);
-
-            r->lidx += written;
-            r->writer.bnext -= written;
-
+            if (next > 0)
+              {
+                r->lidx += next;
+                r->writer.bnext -= next;
+              }
             if (r->writer.bnext == 0)
               {
                 r->writer.bnext = r->writer.bsize;
                 r->writer.state = DLWRITE_ACTIVE;
               }
-
             break;
           }
         default:
@@ -109,26 +187,6 @@ rptc_write_execute (struct rptree_cursor *r, error *e)
           }
         }
     }
-
-  // EOF
-  bool done_this_page = r->lidx == dl_used (page_h_ro (&r->cur));
-  bool last_page = dlgt_get_next (page_h_ro (&r->cur)) == PGNO_NULL;
-  if (done_this_page && last_page)
-    {
-      if (r->writer.total_written % r->writer.bsize != 0)
-        {
-          return error_causef (
-              e, ERR_CORRUPT,
-              "Wrote out %" PRb_size " bytes and reached the end of the file but data "
-              "elements are of size: %" PRt_size " which means there's some corruption",
-              r->writer.total_written, r->writer.bsize);
-        }
-      return rptc_write_to_unseeked (r, e);
-    }
-
-  err_t_wrap (pgr_dlgt_advance_next (&r->cur, r->tx, r->pager, e), e);
-
-  return SUCCESS;
 }
 
 err_t

@@ -20,6 +20,7 @@
  */
 
 #include <numstore/core/threadpool.h>
+#include <numstore/pager/lock_table.h>
 #include <numstore/pager/page_h.h>
 #include <numstore/pager/txn.h>
 
@@ -28,9 +29,8 @@
 #define VHASH_PGNO ((pgno)1) // Variable hash table page
 
 // Lifecycle
-struct pager *pgr_open (const char *fname, const char *walname, error *e);
+struct pager *pgr_open (const char *fname, const char *walname, struct lockt *lt, struct thread_pool *tp, error *e);
 err_t pgr_close (struct pager *p, error *e);
-void pgr_set_thread_pool (struct thread_pool *tp);
 
 // Utils
 p_size pgr_get_npages (const struct pager *p);

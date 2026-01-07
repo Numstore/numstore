@@ -249,10 +249,10 @@ wal_append_log (struct wal *ww, struct wal_rec_hdr_write *whdr, error *e)
 //////// Flush
 
 err_t
-wal_flush_all (struct wal *w, error *e)
+wal_flush_to (struct wal *w, lsn l, error *e)
 {
   DBG_ASSERT (wal, w);
-  return walf_flush_all (&w->wf, e);
+  return walf_flush_to (&w->wf, l, e);
 }
 
 //////////////////////////////////////////////////////////////

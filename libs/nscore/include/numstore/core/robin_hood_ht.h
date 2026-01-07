@@ -20,7 +20,7 @@
 
 #include <numstore/core/assert.h>
 #include <numstore/core/ht_models.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/os.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/intf/types.h>
@@ -68,7 +68,7 @@ typedef struct
 {
   u32 cap;
   HENTRY_T *elems;
-  struct spx_latch l;
+  struct latch l;
 } HASH_TABLE_T;
 
 HEADER_FUNC void
@@ -81,7 +81,7 @@ HT_INIT (HASH_TABLE_T *dest, HENTRY_T *arr, u32 nelem)
   dest->elems = arr;
   dest->cap = nelem;
 
-  spx_latch_init (&dest->l);
+  latch_init (&dest->l);
 }
 
 HEADER_FUNC hti_res
@@ -93,7 +93,7 @@ HT_INSERT (HASH_TABLE_T *ht, HDATA_T data)
   KTYPE dibn = 0; /* Current distance from initial bucket */
   hti_res ret = HTIR_FULL;
 
-  spx_latch_lock_x (&ht->l);
+  latch_lock (&ht->l);
   for (KTYPE i = 0; i < (KTYPE)ht->cap; ++i, ++dibn)
     {
       /* Mapped index after probing */
@@ -131,7 +131,7 @@ HT_INSERT (HASH_TABLE_T *ht, HDATA_T data)
     }
 
 theend:
-  spx_latch_unlock_x (&ht->l);
+  latch_unlock (&ht->l);
   return ret;
 }
 
@@ -152,7 +152,7 @@ HT_GET (HASH_TABLE_T *ht, HDATA_T *dest, KTYPE key)
 
   hta_res ret = HTAR_DOESNT_EXIST;
 
-  spx_latch_lock_s (&ht->l);
+  latch_lock (&ht->l);
   for (KTYPE i = 0; i < (KTYPE)ht->cap; ++i, ++dibn)
     {
       /* Mapped index after probing */
@@ -188,7 +188,7 @@ HT_GET (HASH_TABLE_T *ht, HDATA_T *dest, KTYPE key)
     }
 
 theend:
-  spx_latch_unlock_s (&ht->l);
+  latch_unlock (&ht->l);
   return ret;
 }
 
@@ -210,7 +210,7 @@ HT_DELETE (HASH_TABLE_T *ht, HDATA_T *dest, KTYPE key)
 
   hta_res ret = HTAR_DOESNT_EXIST;
 
-  spx_latch_lock_x (&ht->l);
+  latch_lock (&ht->l);
 
   for (i = 0; i < (KTYPE)ht->cap; ++i, ++dibn)
     {
@@ -265,7 +265,7 @@ HT_DELETE (HASH_TABLE_T *ht, HDATA_T *dest, KTYPE key)
     }
 
 theend:
-  spx_latch_unlock_x (&ht->l);
+  latch_unlock (&ht->l);
   return ret;
 }
 
@@ -277,7 +277,7 @@ HT_COUNT (HASH_TABLE_T *ht)
 
   u32 ret = 0;
 
-  spx_latch_lock_s (&ht->l);
+  latch_lock (&ht->l);
 
   for (u32 i = 0; i < (KTYPE)ht->cap; ++i)
     {
@@ -287,7 +287,7 @@ HT_COUNT (HASH_TABLE_T *ht)
         }
     }
 
-  spx_latch_unlock_s (&ht->l);
+  latch_unlock (&ht->l);
 
   return ret;
 }

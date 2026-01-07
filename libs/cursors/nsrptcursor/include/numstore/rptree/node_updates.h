@@ -26,12 +26,14 @@
 
 #include "config.h"
 
-// system
+#define NUPD_LENGTH (MAX_NUPD_SIZE + 5 * IN_MAX_KEYS)
+#define NUPD_MAX_DATA_LENGTH (NUPD_LENGTH * DL_DATA_SIZE)
+
 struct node_updates
 {
   struct in_pair pivot;
-  struct in_pair right[MAX_NUPD_SIZE + 5 * IN_MAX_KEYS];
-  struct in_pair left[MAX_NUPD_SIZE + 5 * IN_MAX_KEYS];
+  struct in_pair right[NUPD_LENGTH];
+  struct in_pair left[NUPD_LENGTH];
   struct in_pair *prev;
 
   // Length

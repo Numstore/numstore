@@ -33,8 +33,19 @@ DEFINE_DBG_ASSERT (
       ASSERT (n);
       ASSERT (!in_pair_is_empty (n->pivot));
 
-      ASSERT (n->rlen <= arrlen (n->right));
-      ASSERT (n->llen <= arrlen (n->left));
+      ASSERTF (n->rlen <= arrlen (n->right),
+               "You've exceeded node updates right capacity. "
+               "Node updates can handle a maximum of: %ld nodes, "
+               "but your node is of length: %d. Ensure you're writing in batches "
+               "limited by MAX INSERT SIZE: %d\n",
+               arrlen (n->right), n->rlen, NUPD_MAX_DATA_LENGTH);
+
+      ASSERTF (n->llen <= arrlen (n->left),
+               "You've exceeded node updates left capacity. "
+               "Node updates can handle a maximum of: %ld nodes, "
+               "but your node is of length: %d. Ensure you're writing in batches "
+               "limited by MAX INSERT SIZE: %d\n",
+               arrlen (n->left), n->llen, NUPD_MAX_DATA_LENGTH);
 
       // obs can only be > len on the last node
       ASSERT (n->robs <= arrlen (n->right));

@@ -28,6 +28,7 @@ struct var_create_params
 {
   struct cstring vname;
   struct type t;
+  pgno root;
 };
 
 struct var_get_params

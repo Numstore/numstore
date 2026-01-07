@@ -22,7 +22,7 @@
 
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/intf/types.h>
 
@@ -33,7 +33,7 @@ struct clck_alloc
   u32 clock;
   size_t elem_size;
   u32 nelems;
-  struct spx_latch l;
+  struct latch l;
 };
 
 err_t clck_alloc_open (struct clck_alloc *ca, size_t elem_size, u32 nelems, error *e);

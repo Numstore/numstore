@@ -35,4 +35,6 @@
 #define CLI_MAX_FILTERS 32
 #define MAX_TIDS 1000
 
+// #define DUMB_PAGER
+
 void i_log_config (void);

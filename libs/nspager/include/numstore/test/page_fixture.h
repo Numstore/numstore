@@ -21,8 +21,10 @@
 
 // core
 #include <numstore/core/error.h>
+#include <numstore/core/threadpool.h>
 #include <numstore/pager/data_list.h>
 #include <numstore/pager/inner_node.h>
+#include <numstore/pager/lock_table.h>
 #include <numstore/pager/page_h.h>
 
 // numstore
@@ -33,6 +35,8 @@ struct pgr_fixture
 {
   error e;
   struct pager *p;
+  struct lockt lt;
+  struct thread_pool *tp;
 };
 
 err_t pgr_fixture_create (struct pgr_fixture *dest);

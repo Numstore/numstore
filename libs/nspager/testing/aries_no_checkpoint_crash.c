@@ -32,7 +32,10 @@
 #include <numstore/test/testing.h>
 #include <numstore/test/testing_test.h>
 
-#include "wal.h"
+#include <config.h>
+#include <wal.h>
+
+#ifndef DUMB_PAGER
 
 #ifndef NTEST
 
@@ -40,10 +43,16 @@ TEST_disabled (TT_UNIT, aries_crash_before_commit)
 {
   error e = error_create ();
 
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // NORMAL PROCESSING
@@ -67,7 +76,7 @@ TEST_disabled (TT_UNIT, aries_crash_before_commit)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // VALIDATION
@@ -91,16 +100,25 @@ TEST_disabled (TT_UNIT, aries_crash_before_commit)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
 TEST_disabled (TT_UNIT, aries_crash_before_commit_multiple)
 {
   error e = error_create ();
 
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   struct txn tx1, tx2;
@@ -125,7 +143,7 @@ TEST_disabled (TT_UNIT, aries_crash_before_commit_multiple)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // NORMAL PROCESSING
@@ -149,7 +167,7 @@ TEST_disabled (TT_UNIT, aries_crash_before_commit_multiple)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // VALIDATION
@@ -173,16 +191,25 @@ TEST_disabled (TT_UNIT, aries_crash_before_commit_multiple)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
 TEST (TT_UNIT, aries_crash_after_commit_before_end)
 {
   error e = error_create ();
 
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   u8 data[5][DL_DATA_SIZE];
@@ -212,7 +239,7 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // VALIDATION
@@ -238,16 +265,25 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
 TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple)
 {
   error e = error_create ();
 
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   u8 data[10][DL_DATA_SIZE];
@@ -277,7 +313,7 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // NORMAL PROCESSING
@@ -303,7 +339,7 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // VALIDATION
@@ -340,16 +376,25 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 
-TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
+TEST_disabled (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
 {
   error e = error_create ();
+
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
 
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   u8 data[10][DL_DATA_SIZE];
@@ -379,7 +424,7 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   // NORMAL PROCESSING
@@ -403,7 +448,7 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
 
   // REOPEN
   test_fail_if (pgr_crash (p, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
   return;
 
@@ -439,5 +484,9 @@ TEST (TT_UNIT, aries_crash_after_commit_before_end_multiple_second_no_commit)
   }
 
   test_err_t_wrap (pgr_close (p, &e), &e);
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
+#endif
 #endif

@@ -35,7 +35,8 @@ struct rptc_write
   b_size bstrlen; // stride * bsize
 
   u32 bnext;
-  b_size total_written;
+  b_size total_bwritten;
+  b_size max_bwrite;
 
   enum
   {
@@ -53,4 +54,10 @@ err_t rptc_write_execute (struct rptree_cursor *r, error *e);
 err_t rptc_write_to_unseeked (struct rptree_cursor *r, error *e);
 
 // SEEKED -> WRITE
-void rptc_seeked_to_write (struct rptree_cursor *r, struct cbuffer *src, t_size bsize, u32 stride);
+err_t rptc_seeked_to_write (
+    struct rptree_cursor *r,
+    struct cbuffer *src,
+    b_size max_nwrite,
+    t_size bsize,
+    u32 stride,
+    error *e);

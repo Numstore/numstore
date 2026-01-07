@@ -24,6 +24,7 @@
  */
 
 #include "nsfslite.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,32 +37,18 @@ main (void)
 {
   int ret = 0;
   nsfslite *n = NULL;
-  int *data = malloc (N_ELEMS * sizeof (int));
-  int *read_data = malloc (N_ELEMS * sizeof (int));
-
-  for (size_t i = 0; i < N_ELEMS; i++)
-    {
-      data[i] = i;
-    }
+  int *data = int_range (N_ELEMS);
+  int *read_data = int_random (N_ELEMS);
 
   unlink ("test14.db");
   unlink ("test14.wal");
 
-  n = nsfslite_open ("test14.db", "test14.wal");
-  if (!n)
-    {
-      fprintf (stderr, "Failed to open database\n");
-      ret = -1;
-      goto cleanup;
-    }
+  // OPEN
+  CHECKN ((n = nsfslite_open ("test14.db", "test14.wal")));
 
+  // NEW VARIABLE
   int64_t id = nsfslite_new (n, NULL, "data");
-  if (id < 0)
-    {
-      fprintf (stderr, "Failed to create variable: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  CHECK (id);
 
   nsfslite_txn *tx = nsfslite_begin_txn (n);
   if (!tx)
@@ -71,62 +58,34 @@ main (void)
       goto cleanup;
     }
 
-  if (nsfslite_insert (n, id, tx, data, 0, sizeof (int), N_ELEMS) < 0)
-    {
-      fprintf (stderr, "Failed to insert: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  // INSERT
+  CHECK (nsfslite_insert (n, id, tx, data, 0, sizeof (int), N_ELEMS));
+  CHECK (nsfslite_commit (n, tx));
 
-  if (nsfslite_commit (n, tx) < 0)
-    {
-      fprintf (stderr, "Failed to commit: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
-
+  // CLOSE
   nsfslite_close (n);
 
-  n = nsfslite_open ("test14.db", "test14.wal");
-  if (!n)
-    {
-      fprintf (stderr, "Failed to reopen database\n");
-      ret = -1;
-      goto cleanup;
-    }
+  // OPEN
+  CHECKN ((n = nsfslite_open ("test14.db", "test14.wal")));
 
+  // GET ID
   id = nsfslite_get_id (n, "data");
-  if (id < 0)
-    {
-      fprintf (stderr, "Failed to get id: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  CHECK (id);
 
-  if (nsfslite_read (n, id, read_data, sizeof (int),
-                     (struct nsfslite_stride){ .bstart = 0, .stride = 1, .nelems = N_ELEMS })
-      < 0)
-    {
-      fprintf (stderr, "Failed to read: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  // READ
+  struct nsfslite_stride rstride = { .bstart = 0, .stride = 1, .nelems = N_ELEMS };
+  CHECK (nsfslite_read (n, id, read_data, sizeof (int), rstride));
 
-  for (size_t i = 0; i < N_ELEMS; i++)
-    {
-      if (data[i] != read_data[i])
-        {
-          fprintf (stderr, "Mismatch at %zu: expected %d, got %d\n", i, data[i], read_data[i]);
-          ret = -1;
-          goto cleanup;
-        }
-    }
+  // COMPARE
+  COMPARE (data, read_data, N_ELEMS);
 
   printf ("SUCCESS: Transaction with %d elements committed and verified\n", N_ELEMS);
 
 cleanup:
   if (n)
-    nsfslite_close (n);
+    {
+      nsfslite_close (n);
+    }
   free (data);
   free (read_data);
   return ret;

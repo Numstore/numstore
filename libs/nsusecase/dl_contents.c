@@ -60,7 +60,13 @@ dl_contents (FILE *out, char *fname, pgno pg)
 {
   error e = error_create ();
 
-  struct pager *p = pgr_open (fname, "test.wal", &e);
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
+  struct pager *p = pgr_open (fname, "test.wal", &lt, tp, &e);
   if (p == NULL)
     {
       error_log_consume (&e);

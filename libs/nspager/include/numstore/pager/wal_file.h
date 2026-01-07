@@ -19,7 +19,7 @@
  *   Write-ahead log file interface for durable transaction logging supporting crash recovery and atomicity.
  */
 
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/os.h>
 #include <numstore/pager/dirty_page_table.h>
 #include <numstore/pager/page.h>
@@ -35,7 +35,7 @@ struct wal_file
   bool istream_open;
   const char *fname;
 
-  struct spx_latch l;
+  struct latch l;
 };
 
 err_t walf_open (struct wal_file *dest, const char *fname, error *e);
@@ -53,7 +53,7 @@ err_t walf_pread (struct wal_rec_hdr_read *dest, struct wal_file *w, lsn ofst, e
 err_t walf_read (struct wal_rec_hdr_read *dest, lsn *rlsn, struct wal_file *w, error *e);
 
 // FLUSH
-err_t walf_flush_all (struct wal_file *w, error *e);
+err_t walf_flush_to (struct wal_file *w, lsn l, error *e);
 
 #ifndef NTEST
 err_t walf_crash (struct wal_file *w, error *e);

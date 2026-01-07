@@ -82,6 +82,8 @@ TEST (TT_UNIT, rptc_seek_pop_into_cur)
 
   test_err_t_wrap (pgr_delete_and_release (f.p, r.tx, &r.cur, &f.e), &f.e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
@@ -286,6 +288,8 @@ TEST (TT_UNIT, rptc_seek_load_choice)
     }
   test_err_t_wrap (pgr_release (f.p, &r.cur, PG_DATA_LIST, &f.e), &f.e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
@@ -405,6 +409,8 @@ TEST (TT_UNIT, rptc_start_seek)
 
     test_assert_int_equal (r.state, RPTS_UNSEEKED);
   }
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }

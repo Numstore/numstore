@@ -182,7 +182,7 @@ struct wal_rec_hdr_write wrhw_from_wrhr (struct wal_rec_hdr_read *src);
 stxid wrh_get_tid (struct wal_rec_hdr_read *h);
 slsn wrh_get_prev_lsn (struct wal_rec_hdr_read *h);
 void i_log_wal_rec_hdr_read (int log_level, struct wal_rec_hdr_read *r);
-void i_print_wal_rec_hdr_read_light (int log_level, const struct wal_rec_hdr_read *w, lsn l);
+void i_print_wal_rec_hdr_read_light (int log_level, struct wal_rec_hdr_read *w, lsn l);
 
 // DECODE
 void walf_decode_update (struct wal_rec_hdr_read *r, const u8 buf[WL_UPDATE_LEN]);

@@ -72,9 +72,20 @@ pgr_fixture_create (struct pgr_fixture *dest)
   err_t_wrap (i_remove_quiet ("test.db", &dest->e), &dest->e);
   err_t_wrap (i_remove_quiet ("test.wal", &dest->e), &dest->e);
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &dest->e);
+  err_t_wrap (lockt_init (&dest->lt, &dest->e), &dest->e);
+
+  dest->tp = tp_open (&dest->e);
+  if (dest->tp == NULL)
+    {
+      lockt_destroy (&dest->lt);
+      return dest->e.cause_code;
+    }
+
+  struct pager *p = pgr_open ("test.db", "test.wal", &dest->lt, dest->tp, &dest->e);
   if (p == NULL)
     {
+      tp_free (dest->tp, &dest->e);
+      lockt_destroy (&dest->lt);
       return dest->e.cause_code;
     }
 
@@ -89,6 +100,9 @@ err_t
 pgr_fixture_teardown (struct pgr_fixture *f)
 {
   pgr_close (f->p, &f->e);
+
+  tp_free (f->tp, &f->e);
+  lockt_destroy (&f->lt);
 
   return f->e.cause_code;
 }
@@ -349,6 +363,8 @@ TEST (TT_UNIT, build_page_tree)
   test_err_t_wrap (pgr_release (f.p, inl1, PG_INNER_NODE, &f.e), &f.e);
   test_err_t_wrap (pgr_release (f.p, dll1, PG_DATA_LIST, &f.e), &f.e);
   test_err_t_wrap (pgr_release (f.p, dll2, PG_DATA_LIST, &f.e), &f.e);
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }

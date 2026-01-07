@@ -28,9 +28,9 @@
 #include <numstore/core/error.h>
 #include <numstore/core/hash_table.h>
 #include <numstore/core/ht_models.h>
+#include <numstore/core/latch.h>
 #include <numstore/core/random.h>
 #include <numstore/core/serializer.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 #include <numstore/pager/txn.h>
@@ -60,7 +60,7 @@ txnt_open (struct txn_table *dest, error *e)
   };
 
   err_t_wrap (adptv_htable_init (&dest->t, settings, e), e);
-  spx_latch_init (&dest->l);
+  latch_init (&dest->l);
 
   return SUCCESS;
 }
@@ -82,9 +82,9 @@ void
 txnt_close (struct txn_table *t)
 {
   DBG_ASSERT (txn_table, t);
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
   adptv_htable_free (&t->t);
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
 }
 
 static inline const char *
@@ -103,18 +103,28 @@ txn_state_to_str (int state)
 static bool
 txn_equals_for_exists (const struct hnode *left, const struct hnode *right)
 {
-  struct txn *_left = container_of (left, struct txn, node);
-  struct txn *_right = container_of (right, struct txn, node);
+  // Might have passed the exact same reference as exists in the htable
+  if (left == right)
+    {
+      return true;
+    }
 
-  spx_latch_lock_s (&_left->l);
-  spx_latch_lock_s (&_right->l);
+  // Otherwise, passed a key with just relevant information
+  else
+    {
+      struct txn *_left = container_of (left, struct txn, node);
+      struct txn *_right = container_of (right, struct txn, node);
 
-  bool ret = _left->tid == _right->tid;
+      latch_lock (&_left->l);
+      latch_lock (&_right->l);
 
-  spx_latch_unlock_s (&_right->l);
-  spx_latch_unlock_s (&_left->l);
+      bool ret = _left->tid == _right->tid;
 
-  return ret;
+      latch_unlock (&_right->l);
+      latch_unlock (&_left->l);
+
+      return ret;
+    }
 }
 
 bool
@@ -134,7 +144,7 @@ txnt_insert_txn (struct txn_table *t, struct txn *tx, error *e)
   DBG_ASSERT (txn_table, t);
   ASSERT (!txn_exists (t, tx->tid));
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   if (adptv_htable_insert (&t->t, &tx->node, e))
     {
@@ -142,7 +152,7 @@ txnt_insert_txn (struct txn_table *t, struct txn *tx, error *e)
     }
 
 theend:
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
   return e->cause_code;
 }
 
@@ -151,7 +161,7 @@ txnt_insert_txn_if_not_exists (struct txn_table *t, struct txn *tx, error *e)
 {
   DBG_ASSERT (txn_table, t);
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   if (txn_exists (t, tx->tid))
     {
@@ -164,7 +174,7 @@ txnt_insert_txn_if_not_exists (struct txn_table *t, struct txn *tx, error *e)
     }
 
 theend:
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
   return e->cause_code;
 }
 
@@ -173,14 +183,14 @@ txnt_remove_txn (bool *exists, struct txn_table *t, struct txn *tx, error *e)
 {
   DBG_ASSERT (txn_table, t);
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   struct hnode *node = adptv_htable_lookup (&t->t, &tx->node, txn_equals_for_exists);
 
   if (node == NULL)
     {
       *exists = false;
-      spx_latch_unlock_x (&t->l);
+      latch_unlock (&t->l);
       return e->cause_code;
     }
 
@@ -188,11 +198,11 @@ txnt_remove_txn (bool *exists, struct txn_table *t, struct txn *tx, error *e)
 
   if (adptv_htable_delete (NULL, &t->t, node, txn_equals_for_exists, e))
     {
-      spx_latch_unlock_x (&t->l);
+      latch_unlock (&t->l);
       return e->cause_code;
     }
 
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
   return e->cause_code;
 }
 
@@ -201,7 +211,7 @@ txnt_remove_txn_expect (struct txn_table *t, struct txn *tx, error *e)
 {
   DBG_ASSERT (txn_table, t);
 
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
 
   struct hnode *node = adptv_htable_lookup (&t->t, &tx->node, txn_equals_for_exists);
 
@@ -209,11 +219,11 @@ txnt_remove_txn_expect (struct txn_table *t, struct txn *tx, error *e)
 
   if (adptv_htable_delete (NULL, &t->t, node, txn_equals_for_exists, e))
     {
-      spx_latch_unlock_x (&t->l);
+      latch_unlock (&t->l);
       return e->cause_code;
     }
 
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
   return e->cause_code;
 }
 
@@ -222,7 +232,7 @@ txnt_get (struct txn **dest, struct txn_table *t, txid tid)
 {
   DBG_ASSERT (txn_table, t);
 
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
 
   struct txn key;
   txn_key_init (&key, tid);
@@ -233,7 +243,7 @@ txnt_get (struct txn **dest, struct txn_table *t, txid tid)
       *dest = container_of (node, struct txn, node);
     }
 
-  spx_latch_unlock_s (&t->l);
+  latch_unlock (&t->l);
 
   return node != NULL;
 }
@@ -243,7 +253,7 @@ txnt_get_expect (struct txn **dest, struct txn_table *t, txid tid)
 {
   DBG_ASSERT (txn_table, t);
 
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
 
   struct txn key;
   txn_key_init (&key, tid);
@@ -252,7 +262,7 @@ txnt_get_expect (struct txn **dest, struct txn_table *t, txid tid)
   ASSERT (node);
   *dest = container_of (node, struct txn, node);
 
-  spx_latch_unlock_s (&t->l);
+  latch_unlock (&t->l);
 }
 
 struct max_undo_ctx
@@ -265,7 +275,7 @@ find_max_undo (struct txn *tx, void *vctx)
 {
   struct max_undo_ctx *ctx = vctx;
 
-  spx_latch_lock_s (&tx->l);
+  latch_lock (&tx->l);
 
   if (tx->data.state == TX_CANDIDATE_FOR_UNDO)
     {
@@ -275,7 +285,7 @@ find_max_undo (struct txn *tx, void *vctx)
         }
     }
 
-  spx_latch_unlock_s (&tx->l);
+  latch_unlock (&tx->l);
 }
 
 slsn
@@ -283,39 +293,39 @@ txnt_max_u_undo_lsn (struct txn_table *t)
 {
   struct max_undo_ctx ctx = { .max = -1 };
 
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
   txnt_foreach (t, find_max_undo, &ctx);
-  spx_latch_unlock_s (&t->l);
+  latch_unlock (&t->l);
 
   return ctx.max;
 }
 
 static void
-i_log_txn (struct hnode *node, void *_log_level)
+i_log_txn_in_txnt (struct hnode *node, void *_log_level)
 {
   int *log_level = _log_level;
   struct txn *tx = container_of (node, struct txn, node);
 
-  spx_latch_lock_s (&tx->l);
+  latch_lock (&tx->l);
 
   i_printf (
       *log_level,
       "| %d | %" PRtxid " | %" PRpgno " | %" PRpgno " | %s |\n",
       tx->node.hcode, tx->tid, tx->data.last_lsn, tx->data.undo_next_lsn, txn_state_to_str (tx->data.state));
 
-  spx_latch_unlock_s (&tx->l);
+  latch_unlock (&tx->l);
 }
 
 void
 i_log_txnt (int log_level, struct txn_table *t)
 {
-  spx_latch_lock_s (&t->l);
+  latch_lock (&t->l);
 
   i_log (log_level, "============ TXN TABLE START ===============\n");
-  adptv_htable_foreach (&t->t, i_log_txn, &log_level);
+  adptv_htable_foreach (&t->t, i_log_txn_in_txnt, &log_level);
   i_log (log_level, "============ TXN TABLE END   ===============\n");
 
-  spx_latch_unlock_s (&t->l);
+  latch_unlock (&t->l);
 }
 
 struct merge_ctx
@@ -336,7 +346,7 @@ merge_txn (struct txn *tx, void *vctx)
       return;
     }
 
-  spx_latch_lock_s (&tx->l);
+  latch_lock (&tx->l);
 
   if (txn_exists (ctx->dest, tx->tid))
     {
@@ -361,7 +371,7 @@ merge_txn (struct txn *tx, void *vctx)
       return;
     }
 
-  spx_latch_unlock_s (&tx->l);
+  latch_unlock (&tx->l);
 }
 
 err_t
@@ -377,9 +387,9 @@ txnt_merge_into (
     .txn_dest = txn_dest,
   };
 
-  spx_latch_lock_s (&src->l);
+  latch_lock (&src->l);
   txnt_foreach (src, merge_txn, &ctx);
-  spx_latch_unlock_s (&src->l);
+  latch_unlock (&src->l);
 
   return ctx.e->cause_code;
 }
@@ -425,13 +435,13 @@ hnode_foreach_serialize (struct hnode *node, void *ctx)
 
   struct txn *tx = container_of (node, struct txn, node);
 
-  spx_latch_lock_s (&tx->l);
+  latch_lock (&tx->l);
 
   srlizr_write_expect (&_ctx->s, &tx->tid, sizeof (tx->tid));
   srlizr_write_expect (&_ctx->s, &tx->data.last_lsn, sizeof (tx->data.last_lsn));
   srlizr_write_expect (&_ctx->s, &tx->data.undo_next_lsn, sizeof (tx->data.undo_next_lsn));
 
-  spx_latch_unlock_s (&tx->l);
+  latch_unlock (&tx->l);
 }
 
 u32
@@ -447,11 +457,7 @@ txnt_serialize (u8 *dest, u32 dlen, struct txn_table *t)
     .s = srlizr_create (dest, dlen),
   };
 
-  spx_latch_lock_s (&t->l);
-
   adptv_htable_foreach (&t->t, hnode_foreach_serialize, &ctx);
-
-  spx_latch_unlock_s (&t->l);
 
   return ctx.s.dlen;
 }
@@ -521,7 +527,7 @@ txnt_eq_foreach (struct hnode *node, void *_ctx)
     }
 
   struct txn *tx = container_of (node, struct txn, node);
-  spx_latch_lock_s (&tx->l);
+  latch_lock (&tx->l);
 
   struct txn candidate;
   txn_key_init (&candidate, tx->tid);
@@ -531,30 +537,30 @@ txnt_eq_foreach (struct hnode *node, void *_ctx)
   if (other_node == NULL)
     {
       ctx->ret = false;
-      spx_latch_unlock_s (&tx->l);
+      latch_unlock (&tx->l);
       return;
     }
 
   struct txn *other_tx = container_of (other_node, struct txn, node);
 
-  spx_latch_lock_s (&other_tx->l);
+  latch_lock (&other_tx->l);
 
   ctx->ret = txn_data_equal (&tx->data, &other_tx->data);
 
-  spx_latch_unlock_s (&tx->l);
-  spx_latch_unlock_s (&other_tx->l);
+  latch_unlock (&tx->l);
+  latch_unlock (&other_tx->l);
 }
 
 bool
 txnt_equal (struct txn_table *left, struct txn_table *right)
 {
-  spx_latch_lock_s (&left->l);
-  spx_latch_lock_s (&right->l);
+  latch_lock (&left->l);
+  latch_lock (&right->l);
 
   if (adptv_htable_size (&left->t) != adptv_htable_size (&right->t))
     {
-      spx_latch_unlock_s (&right->l);
-      spx_latch_unlock_s (&left->l);
+      latch_unlock (&right->l);
+      latch_unlock (&left->l);
       return false;
     }
 
@@ -564,8 +570,8 @@ txnt_equal (struct txn_table *left, struct txn_table *right)
   };
   adptv_htable_foreach (&left->t, txnt_eq_foreach, &ctx);
 
-  spx_latch_unlock_s (&right->l);
-  spx_latch_unlock_s (&left->l);
+  latch_unlock (&right->l);
+  latch_unlock (&left->l);
 
   return ctx.ret;
 }
@@ -580,7 +586,7 @@ txnt_crash (struct txn_table *t)
 void
 txnt_determ_populate (struct txn_table *t, struct alloc *alloc)
 {
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
   u32 len = adptv_htable_size (&t->t);
 
   txid tid = 0;
@@ -606,13 +612,13 @@ txnt_determ_populate (struct txn_table *t, struct alloc *alloc)
     }
 
 theend:
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
 }
 
 void
 txnt_rand_populate (struct txn_table *t, struct alloc *alloc)
 {
-  spx_latch_lock_x (&t->l);
+  latch_lock (&t->l);
   u32 len = adptv_htable_size (&t->t);
 
   txid tid = 0;
@@ -638,7 +644,7 @@ txnt_rand_populate (struct txn_table *t, struct alloc *alloc)
     }
 
 theend:
-  spx_latch_unlock_x (&t->l);
+  latch_unlock (&t->l);
 }
 
 #endif

@@ -21,12 +21,12 @@
  */
 
 #include <numstore/core/hash_table.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 
 struct adptv_htable_settings
 {
-  u32 max_load_factor;
-  u32 min_load_factor;
+  f32 max_load_factor; // Trigger rehash if size > capacity * max_load_factor
+  f32 min_load_factor; // Trigger rehash if size < capacity * min_load_factor
   u32 rehashing_work;
   u32 max_size;
   u32 min_size;
@@ -37,7 +37,7 @@ struct adptv_htable
   struct htable *current;
   struct htable *prev;
   u32 migrate_pos;
-  struct spx_latch latch;
+  struct latch latch;
 
   struct adptv_htable_settings settings;
 };

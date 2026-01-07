@@ -84,11 +84,7 @@ valgrind-tests: test
 		--show-leak-kinds=all --track-origins=yes \
 		--read-var-info=yes \
 		--undef-value-errors=yes --error-exitcode=1 \
-		./test -- \
-		../libs/nstypes/libnstypes.so \
-		../libs/nspager/libnspager.so \
-		../libs/numstore/libnumstore.so \
-		../libs/nsusecase/libnsusecase.so 
+		./test 
 
 clean:
 	rm -f *.db *.wal 

@@ -45,7 +45,7 @@ clck_alloc_open (struct clck_alloc *ca, size_t elem_size, u32 nelems, error *e)
       return error_change_causef (e, ERR_NOMEM, "Failed to allocate clock allocator");
     }
 
-  spx_latch_init (&ca->l);
+  latch_init (&ca->l);
 
   i_memset (ca->data, 0, total_size);
 
@@ -61,7 +61,7 @@ clck_alloc_alloc (struct clck_alloc *ca, error *e)
   ASSERT (ca->data);
   ASSERT (ca->occupied);
 
-  spx_latch_lock_x (&ca->l);
+  latch_lock (&ca->l);
   for (u32 i = 0; i < ca->nelems; ++i)
     {
       u32 next = ca->clock;
@@ -71,11 +71,11 @@ clck_alloc_alloc (struct clck_alloc *ca, error *e)
         {
           ca->occupied[next] = true;
           void *ret = (char *)ca->data + (next * ca->elem_size);
-          spx_latch_unlock_x (&ca->l);
+          latch_unlock (&ca->l);
           return ret;
         }
     }
-  spx_latch_unlock_x (&ca->l);
+  latch_unlock (&ca->l);
 
   error_causef (e, ERR_NOMEM, "All clock allocator spots are full");
   return NULL;
@@ -98,7 +98,7 @@ clck_alloc_calloc (struct clck_alloc *ca, error *e)
 void
 clck_alloc_free (struct clck_alloc *ca, void *ptr)
 {
-  spx_latch_lock_x (&ca->l);
+  latch_lock (&ca->l);
   ASSERT (ca);
   ASSERT (ca->data);
   ASSERT (ca->occupied);
@@ -113,7 +113,7 @@ clck_alloc_free (struct clck_alloc *ca, void *ptr)
   u32 index = (u32) (offset / ca->elem_size);
   ASSERT (ca->occupied[index]);
   ca->occupied[index] = false;
-  spx_latch_unlock_x (&ca->l);
+  latch_unlock (&ca->l);
 }
 
 void

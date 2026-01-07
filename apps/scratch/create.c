@@ -36,6 +36,8 @@ main (void)
   rptree *r;
   u32 write_data[20480];
   u32 read_data[2048];
+  struct lockt lt;
+  struct thread_pool *tp;
 
   // Initialize
   {
@@ -43,7 +45,21 @@ main (void)
     i_remove_quiet ("test.db", &e);
     i_remove_quiet ("test.wal", &e);
 
-    p = pgr_open ("test.db", "test.wal", &e);
+    if (lockt_init (&lt, &e))
+      {
+        fprintf (stderr, "Failed to init lock table\n");
+        exit (1);
+      }
+
+    tp = tp_open (&e);
+    if (tp == NULL)
+      {
+        fprintf (stderr, "Failed to open thread pool\n");
+        lockt_destroy (&lt);
+        exit (1);
+      }
+
+    p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
 
     t = pgr_begin_txn (p, &e); // TODO - this is not used - should warn or
     // do something on pager close

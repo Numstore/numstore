@@ -18,21 +18,23 @@
  */
 
 #include <file_pager.h>
-#include <numstore/pager.h>
 
 #include <numstore/core/adptv_hash_table.h>
 #include <numstore/core/assert.h>
 #include <numstore/core/dbl_buffer.h>
 #include <numstore/core/error.h>
+#include <numstore/core/latch.h>
 #include <numstore/core/max_capture.h>
 #include <numstore/core/random.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 #include <numstore/intf/types.h>
+#include <numstore/pager.h>
 #include <numstore/pager/data_list.h>
 #include <numstore/pager/dirty_page_table.h>
+#include <numstore/pager/lock_table.h>
+#include <numstore/pager/lt_lock.h>
 #include <numstore/pager/page.h>
 #include <numstore/pager/page_h.h>
 #include <numstore/pager/root_node.h>
@@ -44,7 +46,10 @@
 #include <numstore/test/page_fixture.h>
 #include <numstore/test/testing.h>
 
+#include <config.h>
 #include <wal.h>
+
+#ifndef DUMB_PAGER
 
 #define KTYPE pgno
 #define VTYPE u32
@@ -62,6 +67,7 @@ enum
   PW_ACCESS = 1u << 0, // Only used for readable
   PW_DIRTY = 1u << 1,  // Only used for readable
   PW_PRESENT = 1u << 2,
+  PW_X = 1u << 3,
 };
 
 static inline bool
@@ -89,6 +95,8 @@ struct pager
   struct file_pager fp;
   struct wal ww;
   bool restarting;
+  struct lockt *lt;
+  struct thread_pool *tp;
 
   struct dpg_table *dpt;
   struct txn_table tnxt;
@@ -101,14 +109,11 @@ struct pager
   u32 clock;
   bool wal_enabled;
 
-  struct spx_latch l;
+  struct latch l;
 
   // CACHE
   lsn master_lsn;
   pgno first_tombstone;
-
-  // Checkpoint state
-  lsn ckpt_begin_lsn;
 };
 
 DEFINE_DBG_ASSERT (
@@ -188,29 +193,31 @@ failed:
 static err_t pgr_restart (struct pager *p, struct aries_ctx *ctx, error *e);
 
 static inline err_t
-pgr_evict (struct pager *p, struct page_frame *mp, error *e)
+pgr_flush (struct pager *p, struct page_frame *mp, error *e)
 {
   DBG_ASSERT (pager, p);
   ASSERT (pf_check (mp, PW_PRESENT));
-  ASSERT (mp->pin == 0); // TODO - latch
-  ASSERT (mp->wsibling == -1);
+  ASSERT (!pf_check (mp, PW_X));
 
   // Only need to write it out if it's dirty
   if (pf_check (mp, PW_DIRTY))
     {
-      i_log_trace ("Evicting page: %" PRpgno " from the pager\n", mp->page.pg);
+      i_log_trace ("Flushing page: %" PRpgno " from the pager\n", mp->page.pg);
       i_log_trace ("Page: %" PRpgno " is dirty, flushing to wal\n", mp->page.pg);
 
       if (p->wal_enabled)
         {
           /**
+           * WAL Invariant: Flush to wal before flushing to disk
+           *
            * When we're in analysis phase we're reading and there's
            * no point in writing pages during evict because we SHOULDN't
            * be creating new data.
            */
           if (!p->restarting)
             {
-              err_t_wrap (wal_flush_all (&p->ww, e), e);
+              lsn plsn = page_get_page_lsn (&mp->page);
+              err_t_wrap (wal_flush_to (&p->ww, plsn, e), e);
             }
         }
 
@@ -222,6 +229,19 @@ pgr_evict (struct pager *p, struct page_frame *mp, error *e)
       dpgt_remove (p->dpt, mp->page.pg);
     }
 
+  return SUCCESS;
+}
+
+static inline err_t
+pgr_evict (struct pager *p, struct page_frame *mp, error *e)
+{
+  DBG_ASSERT (pager, p);
+  ASSERT (pf_check (mp, PW_PRESENT));
+  ASSERT (!pf_check (mp, PW_X));
+  ASSERT (mp->pin == 0);
+
+  err_t_wrap (pgr_flush (p, mp, e), e);
+
   ht_delete_expect_idx (&p->pgno_to_value, NULL, mp->page.pg);
   mp->flags = 0;
   pf_clr (mp, PW_PRESENT);
@@ -232,12 +252,8 @@ pgr_evict (struct pager *p, struct page_frame *mp, error *e)
 static inline err_t
 pgr_evict_all (struct pager *pg, error *e)
 {
+  // Should be called when there are no PW_X in the db
   DBG_ASSERT (pager, pg);
-
-  i_log_trace ("Pager before evict all:\n");
-  i_log_page_table (LOG_TRACE, pg);
-
-  err_t ret = SUCCESS;
 
   for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
     {
@@ -245,14 +261,27 @@ pgr_evict_all (struct pager *pg, error *e)
 
       if (pf_check (mp, PW_PRESENT))
         {
-          if (ret)
-            {
-              pgr_evict (pg, mp, NULL);
-            }
-          else
-            {
-              ret = pgr_evict (pg, mp, e);
-            }
+          pgr_evict (pg, mp, e);
+        }
+
+      pg->clock = (pg->clock + 1) % MEMORY_PAGE_LEN;
+    }
+
+  return e->cause_code;
+}
+
+static inline err_t
+pgr_flush_all (struct pager *pg, error *e)
+{
+  DBG_ASSERT (pager, pg);
+
+  for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
+    {
+      struct page_frame *mp = &pg->pages[pg->clock];
+
+      if (pf_check (mp, PW_PRESENT) && !pf_check (mp, PW_X))
+        {
+          pgr_flush (pg, mp, e);
         }
 
       pg->clock = (pg->clock + 1) % MEMORY_PAGE_LEN;
@@ -329,12 +358,12 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
   err_t ret = SUCCESS;
 
   // Reserve the read page spot
-  spx_latch_lock_x (&p->l);
+  latch_lock (&p->l);
   {
     ret = pgr_reserve_at_clock_thread_unsafe (p, e);
     if (ret)
       {
-        spx_latch_unlock_x (&p->l);
+        latch_unlock (&p->l);
         goto theend;
       }
     pgrloc = p->clock;
@@ -346,7 +375,7 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
     pf_set (pgr, PW_ACCESS);
     pf_set (pgr, PW_PRESENT);
   }
-  spx_latch_unlock_x (&p->l);
+  latch_unlock (&p->l);
 
   page_init_empty (&pgr->page, PG_TOMBSTONE);
   tmbst_set_next (&pgr->page, fpgr_get_npages (&p->fp) + 1);
@@ -354,14 +383,14 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
   i_printf_trace ("Read buffer pool location: %d\n", pgrloc);
 
   // Reserve the write page spot
-  spx_latch_lock_x (&p->l);
+  latch_lock (&p->l);
   {
     ret = pgr_reserve_at_clock_thread_unsafe (p, e);
     if (ret)
       {
         pgr->pin = 0;
         pgr->flags = 0;
-        spx_latch_unlock_x (&p->l);
+        latch_unlock (&p->l);
         goto theend;
       }
 
@@ -372,8 +401,9 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
     pgw->flags = 0;
     pgw->wsibling = -1;
     pf_set (pgw, PW_PRESENT);
+    pf_set (pgw, PW_X);
   }
-  spx_latch_unlock_x (&p->l);
+  latch_unlock (&p->l);
 
   i_printf_trace ("Write buffer pool location: %d\n", pgr->wsibling);
 
@@ -386,12 +416,12 @@ pgr_new_extend (page_h *dest, struct pager *p, struct txn *tx, error *e)
   ret = fpgr_new (&p->fp, &pg, e);
   if (ret)
     {
-      spx_latch_lock_x (&p->l);
+      latch_lock (&p->l);
       pgr->pin = 0;
       pgr->flags = 0;
       pgw->pin = 0;
       pgw->flags = 0;
-      spx_latch_unlock_x (&p->l);
+      latch_unlock (&p->l);
       goto theend;
     }
 
@@ -547,8 +577,8 @@ pgr_is_new_guard (struct pager *p, bool *isnew, error *e)
 
   page root;
 
-  err_t_wrap (fpgr_read (&p->fp, root.raw, 0, e), e);
-  root.pg = 0;
+  err_t_wrap (fpgr_read (&p->fp, root.raw, ROOT_PGNO, e), e);
+  root.pg = ROOT_PGNO;
 
   p->master_lsn = rn_get_master_lsn (&root);
   p->first_tombstone = rn_get_first_tmbst (&root);
@@ -557,7 +587,7 @@ pgr_is_new_guard (struct pager *p, bool *isnew, error *e)
 }
 
 struct pager *
-pgr_open (const char *fname, const char *walname, error *e)
+pgr_open (const char *fname, const char *walname, struct lockt *lt, struct thread_pool *tp, error *e)
 {
   struct pager *ret = NULL;
   struct dpg_table *dpt = NULL;
@@ -594,18 +624,20 @@ pgr_open (const char *fname, const char *walname, error *e)
     ht_init_idx (&ret->pgno_to_value, ret->_hdata, MEMORY_PAGE_LEN);
 
     // Initialize internal latch
-    spx_latch_init (&ret->l);
+    latch_init (&ret->l);
 
     // Initialize page frame latches
     for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
       {
-        spx_latch_init (&ret->pages[i].latch);
+        latch_init (&ret->pages[i].latch);
       }
 
     // Simple variables
     ret->dpt = dpt;
     ret->clock = 0;
     ret->next_tid = 1;
+    ret->lt = lt;
+    ret->tp = tp;
   }
 
   if (is_new)
@@ -622,7 +654,7 @@ pgr_open (const char *fname, const char *walname, error *e)
 
 failed:
   ASSERT (e->cause_code);
-  // spx_latch doesn't need cleanup
+  // latch doesn't need cleanup
   if (dpt)
     {
       dpgt_close (dpt);
@@ -657,10 +689,19 @@ TEST (TT_UNIT, pager_open)
     test_fail_if (i_remove_quiet ("test.db", &e));
     test_fail_if (i_remove_quiet ("test.wal", &e));
 
-    struct pager *p = pgr_open ("test.db", "test.wal", &e);
+    struct lockt lt;
+    test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+    struct thread_pool *tp = tp_open (&e);
+    test_fail_if_null (tp);
+
+    struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
 
     test_fail_if_null (p);
     test_err_t_wrap (pgr_close (p, &e), &e);
+
+    test_err_t_wrap (tp_free (tp, &e), &e);
+    lockt_destroy (&lt);
   }
 }
 #endif
@@ -672,6 +713,12 @@ TEST (TT_UNIT, pgr_open_basic)
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
   i_file fp;
   test_err_t_wrap (i_open_rw (&fp, "test.db", &e), &e);
 
@@ -679,21 +726,21 @@ TEST (TT_UNIT, pgr_open_basic)
 
   /* File is shorter than page size */
   test_fail_if (i_truncate (&fp, PAGE_SIZE - 1, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_assert_int_equal (e.cause_code, ERR_CORRUPT);
   test_assert_equal (p, NULL);
   e.cause_code = SUCCESS;
 
   /* Half a page */
   test_fail_if (i_truncate (&fp, PAGE_SIZE / 2, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_assert_int_equal (e.cause_code, ERR_CORRUPT);
   test_assert_equal (p, NULL);
   e.cause_code = SUCCESS;
 
   /* 0 pages */
   test_fail_if (i_truncate (&fp, 0, &e));
-  p = pgr_open ("test.db", "test.wal", &e);
+  p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_assert_int_equal (e.cause_code, SUCCESS);
   test_fail_if_null (p);
   test_assert_int_equal ((int)pgr_get_npages (p), 1);
@@ -702,6 +749,9 @@ TEST (TT_UNIT, pgr_open_basic)
   /* Tear down */
   test_fail_if (i_close (&fp, &e));
   test_fail_if (i_unlink ("test.db", &e));
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 #endif
 
@@ -734,12 +784,21 @@ TEST (TT_UNIT, pgr_close_success)
   test_fail_if (i_remove_quiet ("test.db", &e));
   test_fail_if (i_remove_quiet ("test.wal", &e));
 
-  struct pager *p = pgr_open ("test.db", "test.wal", &e);
+  struct lockt lt;
+  test_err_t_wrap (lockt_init (&lt, &e), &e);
+
+  struct thread_pool *tp = tp_open (&e);
+  test_fail_if_null (tp);
+
+  struct pager *p = pgr_open ("test.db", "test.wal", &lt, tp, &e);
   test_fail_if_null (p);
 
   /* Delete file i_close should fail */
   test_assert_equal (pgr_close (p, &e), SUCCESS);
   test_fail_if (i_remove_quiet ("foo.db", &e));
+
+  test_err_t_wrap (tp_free (tp, &e), &e);
+  lockt_destroy (&lt);
 }
 #endif
 
@@ -764,7 +823,9 @@ pgr_begin_txn (struct txn *tx, struct pager *p, error *e)
   if (p->wal_enabled)
     {
       // Generate a new transaction ID
+      latch_lock (&p->l);
       txid tid = p->next_tid++;
+      latch_unlock (&p->l);
 
       // Append begin record
       slsn l = wal_append_begin_log (&p->ww, tid, e);
@@ -794,11 +855,11 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
   if (p->wal_enabled)
     {
-      spx_latch_lock_s (&tx->l);
+      latch_lock (&tx->l);
 
       if (tx->data.state != TX_RUNNING)
         {
-          spx_latch_unlock_s (&tx->l);
+          latch_unlock (&tx->l);
           return error_causef (e, ERR_DUPLICATE_COMMIT, "Committing a transaction that is already committed\n");
         }
 
@@ -806,32 +867,82 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
       slsn l = wal_append_commit_log (&p->ww, tx->tid, tx->data.last_lsn, e);
       if (l < 0)
         {
-          spx_latch_unlock_s (&tx->l);
+          latch_unlock (&tx->l);
           return e->cause_code;
         }
 
       // Flush the wal to the expected lsn
-      err_t_wrap (wal_flush_all (&p->ww, e), e);
+      err_t_wrap (wal_flush_to (&p->ww, l, e), e);
 
       // Append an end log to the wal
       l = wal_append_end_log (&p->ww, tx->tid, l, e);
       if (l < 0)
         {
-          spx_latch_unlock_x (&tx->l);
+          latch_unlock (&tx->l);
           return e->cause_code;
         }
 
       err_t_wrap (txnt_remove_txn_expect (&p->tnxt, tx, e), e);
 
-      spx_latch_upgrade_s_x (&tx->l);
-
       tx->data.state = TX_DONE;
 
-      spx_latch_unlock_x (&tx->l);
+      err_t_wrap (lockt_unlock (p->lt, tx, e), e);
+
+      latch_unlock (&tx->l);
 
       return SUCCESS;
     }
   return SUCCESS;
+}
+
+static err_t
+pgr_update_master_lsn (struct pager *p, lsn mlsn, error *e)
+{
+  // BEGIN TXN
+  struct txn tx;
+  err_t_wrap (pgr_begin_txn (&tx, p, e), e);
+
+  // X(root)
+  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, &tx, e))
+    {
+      goto theend;
+    }
+
+  // GET ROOT
+  page_h root = page_h_create ();
+  if (pgr_get_writable (&root, &tx, PG_ROOT_NODE, 0, p, e))
+    {
+      return e->cause_code;
+    }
+
+  // UPDATE MLSN
+  rn_set_master_lsn (page_h_w (&root), mlsn);
+
+  // SAVE (don't release yet, we'll evict it)
+  if (pgr_save (p, &root, PG_ROOT_NODE, e))
+    {
+      goto theend;
+    }
+
+  // COMMIT
+  if (pgr_commit (p, &tx, e))
+    {
+      goto theend;
+    }
+
+  /**
+   * Flush root node to disk. It doesn't hurt. Technically we don't need to 
+   * but if we want checkpoint to be "done" after this call, root page should be persisted (forced) 
+   * to disk
+   */
+  if (pgr_flush (p, root.pgr, e))
+    {
+      goto theend;
+    }
+
+theend:
+  pgr_release (p, &root, PG_ROOT_NODE, e);
+  return e->cause_code;
 }
 
 err_t
@@ -839,73 +950,27 @@ pgr_checkpoint (struct pager *p, error *e)
 {
   if (p->wal_enabled)
     {
-      slsn l = wal_append_ckpt_begin (&p->ww, e);
-      err_t_wrap (l, e);
+      // BEGIN CHECKPOINT
+      slsn mlsn = wal_append_ckpt_begin (&p->ww, e);
+      err_t_wrap (mlsn, e);
 
-      // Store the begin LSN for use in checkpoint_end
-      p->ckpt_begin_lsn = l;
+      // FLUSH PAGES
+      err_t_wrap (pgr_evict_all (p, e), e);
 
-      // Write the checkpoint end record
-      slsn ckpt_lsn = wal_append_ckpt_end (&p->ww, &p->tnxt, p->dpt, e);
-      if (ckpt_lsn < 0)
+      // END CHECKPOINT
+      slsn end_lsn = wal_append_ckpt_end (&p->ww, &p->tnxt, p->dpt, e);
+      if (end_lsn < 0)
         {
           return e->cause_code;
         }
 
-      struct txn tx;
-      err_t_wrap (pgr_begin_txn (&tx, p, e), e);
+      // Flush the wal so that master lsn is accurate
+      err_t_wrap (wal_flush_to (&p->ww, end_lsn, e), e);
 
-      // Update the master LSN on the root page to point to this checkpoint
-      // This is NOT part of a transaction - it's a system-level operation
-      page_h root = page_h_create ();
-      err_t ret = pgr_get_writable (&root, &tx, PG_ROOT_NODE, 0, p, e);
-      if (ret)
-        {
-          return ret;
-        }
+      // Update master lsn
+      err_t_wrap (pgr_update_master_lsn (p, mlsn, e), e);
 
-      // Set the master LSN to point to the BEGIN checkpoint LSN
-      // (not the END checkpoint LSN - recovery expects BEGIN)
-      rn_set_master_lsn (page_h_w (&root), p->ckpt_begin_lsn);
-
-      // Save the root page to log the change and update the page LSN
-      ret = pgr_save (p, &root, PG_ROOT_NODE, e);
-      if (ret)
-        {
-          pgr_release (p, &root, PG_ROOT_NODE, e);
-          return ret;
-        }
-
-      // Get the page LSN after saving
-      lsn root_lsn = page_get_page_lsn (page_h_ro (&root));
-
-      // Flush the root page to disk immediately so master_lsn persists across crashes
-      ret = fpgr_write (&p->fp, page_h_ro (&root)->raw, 0, e);
-      if (ret)
-        {
-          pgr_release (p, &root, PG_ROOT_NODE, e);
-          return ret;
-        }
-
-      // Release the page
-      ret = pgr_release (p, &root, PG_ROOT_NODE, e);
-      if (ret)
-        {
-          return ret;
-        }
-
-      // Flush WAL to ensure all records are persisted
-      ret = wal_flush_all (&p->ww, e);
-      if (ret)
-        {
-          return ret;
-        }
-
-      err_t_wrap (pgr_commit (p, &tx, e), e);
-
-      i_log_info ("Checkpoint written at LSN %" PRlsn "\n", ckpt_lsn);
-
-      return SUCCESS;
+      i_log_info ("Checkpoint written at LSN %" PRlsn "\n", mlsn);
     }
   return SUCCESS;
 }
@@ -1103,6 +1168,7 @@ pgr_make_writable_no_tx (struct pager *p, page_h *h, error *e)
   pgw->wsibling = -1;
   pgw->flags = 0;
   pf_set (pgw, PW_PRESENT);
+  pf_set (pgw, PW_X);
   i_memcpy (pgw->page.raw, h->pgr->page.raw, PAGE_SIZE);
   pgw->page.pg = h->pgr->page.pg;
 
@@ -1213,7 +1279,7 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
   // Save log
   if (p->wal_enabled)
     {
-      spx_latch_lock_x (&h->tx->l);
+      latch_lock (&h->tx->l);
 
       // Construct an update log record
       struct wal_update_write update = {
@@ -1228,7 +1294,7 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
       slsn page_lsn = wal_append_update_log (&p->ww, update, e);
       if (page_lsn < 0)
         {
-          spx_latch_unlock_x (&h->tx->l);
+          latch_unlock (&h->tx->l);
           return e->cause_code;
         }
 
@@ -1244,12 +1310,12 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
         {
           if (dpgt_add (p->dpt, page_h_pgno (h), (lsn)page_lsn, e))
             {
-              spx_latch_unlock_x (&h->tx->l);
+              latch_unlock (&h->tx->l);
               return e->cause_code;
             }
         }
 
-      spx_latch_unlock_x (&h->tx->l);
+      latch_unlock (&h->tx->l);
     }
 
   i_memcpy (&h->pgr->page.raw, h->pgw->page.raw, PAGE_SIZE);
@@ -1285,11 +1351,17 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
   err_t ret = SUCCESS;
   page_h root_node = page_h_create ();
 
+  // S(root)
+  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, tx, e))
+    {
+      return e->cause_code;
+    }
+
   /**
    * First, we'll check the tombstone to see if we can
    * dish out a new page that's already been deleted
    */
-  err_t_wrap (pgr_get (&root_node, PG_ROOT_NODE, 0, p, e), e);
+  err_t_wrap (pgr_get (&root_node, PG_ROOT_NODE, ROOT_PGNO, p, e), e);
 
   pgno ftpg = rn_get_first_tmbst (page_h_ro (&root_node));
   ret = pgr_make_writable (p, tx, &root_node, e);
@@ -1297,6 +1369,12 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
     {
       pgr_release_no_tx (p, &root_node, PG_ROOT_NODE, e);
       return ret;
+    }
+
+  // X(tombstone)
+  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_TMBST, .data = { .tmbst_pg = ftpg } }, LM_X, tx, e))
+    {
+      return e->cause_code;
     }
 
   if (ftpg < fpgr_get_npages (&p->fp))
@@ -1355,6 +1433,8 @@ TEST (TT_UNIT, pgr_new_get_save)
 
   // Make it valid
   dl_set_used (page_h_w (&h), DL_DATA_SIZE);
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_release (f.p, &h, PG_DATA_LIST, &f.e), &f.e);
 
@@ -1484,6 +1564,8 @@ TEST (TT_UNIT, pgr_delete)
   test_err_t_wrap (pgr_delete_and_release (f.p, &tx, &c, e), e);
   test_err_t_wrap (pgr_release (f.p, &d, PG_DATA_LIST, e), e);
 
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
@@ -1503,6 +1585,7 @@ pgr_release (struct pager *p, page_h *h, int flags, error *e)
 {
   DBG_ASSERT (pager, p);
   ASSERT (h->mode == PHM_X || h->mode == PHM_S);
+  ASSERT (pf_check (h->pgr, PW_PRESENT));
 
   i_log_trace ("Releasing %" PRpgno "\n", page_h_pgno (h));
 
@@ -1527,7 +1610,8 @@ pgr_flush_wall (struct pager *p, error *e)
 {
   if (p->wal_enabled)
     {
-      return wal_flush_all (&p->ww, e);
+      // TODO - make cleaner
+      return wal_flush_to (&p->ww, p->ww.wf.current_ostream->flushed_lsn + cbuffer_len (&p->ww.wf.current_ostream->buffer), e);
     }
   UNREACHABLE ();
 }
@@ -1586,7 +1670,9 @@ TEST (TT_UNIT, pager_fill_ht)
       }
   }
 
-  test_err_t_wrap (pgr_close (f.p, &f.e), &f.e);
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
+
+  test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
 #endif
 
@@ -1604,6 +1690,8 @@ TEST (TT_UNIT, wal_int)
 
   dl_set_used (page_h_w (&h), DL_DATA_SIZE);
   test_err_t_wrap (pgr_release (f.p, &h, PG_DATA_LIST, &f.e), &f.e);
+
+  test_err_t_wrap (pgr_commit (f.p, &tx, &f.e), &f.e);
 
   test_err_t_wrap (pgr_fixture_teardown (&f), &f.e);
 }
@@ -1642,7 +1730,7 @@ i_log_page_table (int log_level, struct pager *p)
 err_t
 pgr_rollback (struct pager *p, struct txn *tx, lsn save_lsn, error *e)
 {
-  spx_latch_lock_x (&tx->l);
+  latch_lock (&tx->l);
 
   struct wal_rec_hdr_read *log_rec = NULL;
   struct wal_clr_write clr;
@@ -1776,7 +1864,7 @@ pgr_rollback (struct pager *p, struct txn *tx, lsn save_lsn, error *e)
 
 theend:
 
-  spx_latch_unlock_x (&tx->l);
+  latch_unlock (&tx->l);
 
   return SUCCESS;
 }
@@ -2198,7 +2286,7 @@ pgr_restart_undo (struct pager *p, struct aries_ctx *ctx, error *e)
                   },
                   e);
               err_t_wrap (l, e);
-              err_t_wrap (wal_flush_all (&p->ww, e), e);
+              err_t_wrap (wal_flush_to (&p->ww, l, e), e);
 
               // Page.LSN = LgLSN
               page_set_page_lsn (page_h_w (&ph), l);
@@ -2690,4 +2778,5 @@ pgr_crash (struct pager *p, error *e)
   return e->cause_code;
 }
 
+#endif
 #endif

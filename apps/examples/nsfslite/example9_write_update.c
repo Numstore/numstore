@@ -24,6 +24,7 @@
  */
 
 #include "nsfslite.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,7 +41,7 @@ main (void)
   nsfslite *n = NULL;
   int *data = malloc (N_ELEMS * sizeof (int));
   int *update_data = malloc (UPDATE_COUNT * sizeof (int));
-  int *read_data = malloc (N_ELEMS * sizeof (int));
+  int *read_data = int_random (N_ELEMS);
   int *expected = malloc (N_ELEMS * sizeof (int));
 
   for (size_t i = 0; i < N_ELEMS; i++)
@@ -60,80 +61,43 @@ main (void)
   unlink ("test9.db");
   unlink ("test9.wal");
 
-  n = nsfslite_open ("test9.db", "test9.wal");
-  if (!n)
-    {
-      fprintf (stderr, "Failed to open database\n");
-      ret = -1;
-      goto cleanup;
-    }
+  // OPEN
+  CHECKN ((n = nsfslite_open ("test9.db", "test9.wal")));
 
+  // NEW VARIABLE
   int64_t id = nsfslite_new (n, NULL, "data");
-  if (id < 0)
-    {
-      fprintf (stderr, "Failed to create variable: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  CHECK (id);
+  // INSERT
+  CHECK (nsfslite_insert (n, id, NULL, data, 0, sizeof (int), N_ELEMS));
 
-  if (nsfslite_insert (n, id, NULL, data, 0, sizeof (int), N_ELEMS) < 0)
-    {
-      fprintf (stderr, "Failed to insert: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  struct nsfslite_stride wstride = { .bstart = UPDATE_OFFSET * sizeof (int), .stride = 1, .nelems = UPDATE_COUNT };
+  // WRITE
+  CHECK (nsfslite_write (n, id, NULL, update_data, sizeof (int), wstride));
 
-  if (nsfslite_write (n, id, NULL, update_data, sizeof (int),
-                      (struct nsfslite_stride){ .bstart = UPDATE_OFFSET * sizeof (int), .stride = 1, .nelems = UPDATE_COUNT })
-      < 0)
-    {
-      fprintf (stderr, "Failed to write update: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
-
+  // CLOSE
   nsfslite_close (n);
 
-  n = nsfslite_open ("test9.db", "test9.wal");
-  if (!n)
-    {
-      fprintf (stderr, "Failed to reopen database\n");
-      ret = -1;
-      goto cleanup;
-    }
+  // OPEN
+  CHECKN ((n = nsfslite_open ("test9.db", "test9.wal")));
 
+  // GET ID
   id = nsfslite_get_id (n, "data");
-  if (id < 0)
-    {
-      fprintf (stderr, "Failed to get id: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  CHECK (id);
 
-  if (nsfslite_read (n, id, read_data, sizeof (int),
-                     (struct nsfslite_stride){ .bstart = 0, .stride = 1, .nelems = N_ELEMS })
-      < 0)
-    {
-      fprintf (stderr, "Failed to read: %s\n", nsfslite_error (n));
-      ret = -1;
-      goto cleanup;
-    }
+  // READ
+  struct nsfslite_stride rstride = { .bstart = 0, .stride = 1, .nelems = N_ELEMS };
+  CHECK (nsfslite_read (n, id, read_data, sizeof (int), rstride));
 
-  for (size_t i = 0; i < N_ELEMS; i++)
-    {
-      if (expected[i] != read_data[i])
-        {
-          fprintf (stderr, "Mismatch at %zu: expected %d, got %d\n", i, expected[i], read_data[i]);
-          ret = -1;
-          goto cleanup;
-        }
-    }
+  // COMPARE
+  COMPARE (expected, read_data, N_ELEMS);
 
   printf ("SUCCESS: Updated %d elements at offset %d, verified after reopen\n", UPDATE_COUNT, UPDATE_OFFSET);
 
 cleanup:
   if (n)
-    nsfslite_close (n);
+    {
+      nsfslite_close (n);
+    }
   free (data);
   free (update_data);
   free (read_data);

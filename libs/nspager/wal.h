@@ -40,7 +40,7 @@ err_t wal_close (struct wal *w, error *e);
 err_t wal_write_mode (struct wal *w, error *e);
 
 // FLUSH
-err_t wal_flush_all (struct wal *w, error *e);
+err_t wal_flush_to (struct wal *w, lsn l, error *e);
 
 // READ
 struct wal_rec_hdr_read *wal_read_next (struct wal *w, lsn *read_lsn, error *e);

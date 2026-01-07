@@ -30,7 +30,7 @@ struct dpg_entry
 {
   lsn rec_lsn;
   pgno pg;
-  struct spx_latch l;
+  struct latch l;
 };
 
 #define VTYPE struct dpg_entry *
@@ -46,7 +46,7 @@ struct dpg_table
   hash_table_dpt table;
   struct clck_alloc alloc;
   hentry_dpt _table[100000];
-  struct spx_latch l;
+  struct latch l;
 };
 
 // LIFECYCLE
@@ -59,6 +59,7 @@ void i_log_dpgt (int log_level, struct dpg_table *dpt);
 bool dpgt_equal (struct dpg_table *left, struct dpg_table *right);
 lsn dpgt_min_rec_lsn (struct dpg_table *d);
 void dpgt_merge_into (struct dpg_table *dest, struct dpg_table *src);
+u32 dpgt_get_size (struct dpg_table *d);
 
 // INSERT
 err_t dpgt_add (struct dpg_table *t, pgno pg, lsn rec_lsn, error *e);

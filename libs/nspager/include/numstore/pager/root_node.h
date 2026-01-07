@@ -32,8 +32,7 @@
 
 // OFFSETS and _Static_asserts
 #define RN_FSTS_OFST PG_COMMN_END                              // First tombstone
-#define RN_TXNN_OFST ((p_size) (RN_FSTS_OFST + sizeof (pgno))) // Transaction id
-#define RN_MLSN_OFST ((p_size) (RN_TXNN_OFST + sizeof (txid))) // Master LSN
+#define RN_MLSN_OFST ((p_size) (RN_FSTS_OFST + sizeof (pgno))) // Master LSN
 
 // Initialization
 

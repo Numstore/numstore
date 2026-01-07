@@ -20,7 +20,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/cbuffer.h>
 #include <numstore/core/checksums.h>
-#include <numstore/core/spx_latch.h>
+#include <numstore/core/latch.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 #include <numstore/intf/stdlib.h>
@@ -59,7 +59,7 @@ walos_open (const char *fname, error *e)
       return NULL;
     }
 
-  spx_latch_init (&ret->l);
+  latch_init (&ret->l);
 
   ret->buffer = cbuffer_create (ret->_buffer, sizeof (ret->_buffer));
   ret->flushed_lsn = len;
@@ -74,9 +74,11 @@ walos_close (struct wal_ostream *w, error *e)
 {
   DBG_ASSERT (wal_ostream, w);
 
-  err_t_wrap (walos_flush_to (w, w->flushed_lsn + cbuffer_len (&w->buffer), e), e);
+  walos_flush_to (w, w->flushed_lsn + cbuffer_len (&w->buffer), e);
+  i_close (&w->fd, e);
+  i_free (w);
 
-  return i_close (&w->fd, e);
+  return e->cause_code;
 }
 
 ///////////////////////////////////////////////////////
@@ -89,7 +91,7 @@ walos_flush_to_impl (struct wal_ostream *w, lsn l, bool lock, error *e)
 
   if (lock)
     {
-      spx_latch_lock_x (&w->l);
+      latch_lock (&w->l);
     }
 
   ASSERTF (l <= w->flushed_lsn + cbuffer_len (&w->buffer),
@@ -120,7 +122,7 @@ walos_flush_to_impl (struct wal_ostream *w, lsn l, bool lock, error *e)
     }
 
 theend:
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
   return e->cause_code;
 }
 
@@ -128,12 +130,6 @@ err_t
 walos_flush_to (struct wal_ostream *w, lsn l, error *e)
 {
   return walos_flush_to_impl (w, l, true, e);
-}
-
-err_t
-walos_flush_all (struct wal_ostream *w, error *e)
-{
-  return walos_flush_to_impl (w, w->flushed_lsn + cbuffer_len (&w->buffer), true, e);
 }
 
 err_t
@@ -149,7 +145,7 @@ walos_write_all (struct wal_ostream *w, u32 *checksum, const void *data, u32 len
   u32 written = 0;
   const u8 *src = data;
 
-  spx_latch_lock_x (&w->l);
+  latch_lock (&w->l);
 
   while (written < len)
     {
@@ -157,7 +153,7 @@ walos_write_all (struct wal_ostream *w, u32 *checksum, const void *data, u32 len
         {
           if (walos_flush_to_impl (w, w->flushed_lsn + cbuffer_len (&w->buffer), false, e))
             {
-              spx_latch_unlock_x (&w->l);
+              latch_unlock (&w->l);
               return e->cause_code;
             }
         }
@@ -170,7 +166,7 @@ walos_write_all (struct wal_ostream *w, u32 *checksum, const void *data, u32 len
       written += towrite;
     }
 
-  spx_latch_unlock_x (&w->l);
+  latch_unlock (&w->l);
 
   return SUCCESS;
 }
@@ -186,6 +182,8 @@ err_t
 walos_crash (struct wal_ostream *w, error *e)
 {
   DBG_ASSERT (wal_ostream, w);
-  return i_close (&w->fd, e);
+  i_close (&w->fd, e);
+  i_free (w);
+  return e->cause_code;
 }
 #endif

@@ -20,8 +20,8 @@
 #include <numstore/core/hash_table.h>
 
 #include <numstore/core/error.h>
+#include <numstore/core/latch.h>
 #include <numstore/core/random.h>
-#include <numstore/core/spx_latch.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 
@@ -32,6 +32,12 @@ DEFINE_DBG_ASSERT (
       ASSERT (t->cap > 0);
       ASSERT (t->table);
     })
+
+static bool
+default_equals (const struct hnode *left, const struct hnode *right)
+{
+  return left->hcode == right->hcode;
+}
 
 struct htable *
 htable_create (u32 n, error *e)
@@ -47,7 +53,7 @@ htable_create (u32 n, error *e)
 
   ret->cap = n;
   ret->size = 0;
-  spx_latch_init (&ret->latch);
+  latch_init (&ret->latch);
 
   DBG_ASSERT (htable, ret);
 
@@ -65,7 +71,7 @@ htable_free (struct htable *t)
 void
 htable_insert (struct htable *t, struct hnode *node)
 {
-  spx_latch_lock_x (&t->latch);
+  latch_lock (&t->latch);
 
   DBG_ASSERT (htable, t);
 
@@ -75,7 +81,7 @@ htable_insert (struct htable *t, struct hnode *node)
   t->table[pos] = node;
   t->size++;
 
-  spx_latch_unlock_x (&t->latch);
+  latch_unlock (&t->latch);
 }
 
 struct hnode **
@@ -84,7 +90,12 @@ htable_lookup (
     const struct hnode *key,
     bool (*eq) (const struct hnode *, const struct hnode *))
 {
-  spx_latch_lock_s (&t->latch);
+  if (eq == NULL)
+    {
+      eq = default_equals;
+    }
+
+  latch_lock (&t->latch);
 
   DBG_ASSERT (htable, t);
 
@@ -96,19 +107,19 @@ htable_lookup (
     {
       if (cur->hcode == key->hcode && eq (cur, key))
         {
-          spx_latch_unlock_s (&t->latch);
+          latch_unlock (&t->latch);
           return from;
         }
     }
 
-  spx_latch_unlock_s (&t->latch);
+  latch_unlock (&t->latch);
   return NULL;
 }
 
 struct hnode *
 htable_delete (struct htable *t, struct hnode **from)
 {
-  spx_latch_lock_x (&t->latch);
+  latch_lock (&t->latch);
 
   DBG_ASSERT (htable, t);
 
@@ -116,7 +127,7 @@ htable_delete (struct htable *t, struct hnode **from)
   *from = node->next;
   t->size--;
 
-  spx_latch_unlock_x (&t->latch);
+  latch_unlock (&t->latch);
 
   return node;
 }
@@ -124,7 +135,7 @@ htable_delete (struct htable *t, struct hnode **from)
 void
 htable_foreach (const struct htable *t, void (*action) (struct hnode *v, void *ctx), void *ctx)
 {
-  spx_latch_lock_s (&((struct htable *)t)->latch);
+  latch_lock (&((struct htable *)t)->latch);
 
   for (u32 i = 0; i < t->cap; ++i)
     {
@@ -137,7 +148,7 @@ htable_foreach (const struct htable *t, void (*action) (struct hnode *v, void *c
         }
     }
 
-  spx_latch_unlock_s (&((struct htable *)t)->latch);
+  latch_unlock (&((struct htable *)t)->latch);
 }
 
 #ifndef NTEST
