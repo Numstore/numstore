@@ -31,8 +31,7 @@
 #include <numstore/pager/wal_rec_hdr.h>
 #include <numstore/test/testing.h>
 
-#include "config.h"
-#include "numstore/test/testing_test.h"
+#include <config.h>
 
 DEFINE_DBG_ASSERT (
     struct wal, wal, w, {
