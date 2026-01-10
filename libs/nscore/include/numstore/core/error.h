@@ -78,6 +78,7 @@ typedef struct
   char cause_msg[256];
   u32 cmlen;
   bool print_trace;
+  bool print_msg_on_error;
 } error;
 
 ////////////////////////////////////////////////////////////

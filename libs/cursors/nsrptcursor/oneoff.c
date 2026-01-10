@@ -20,6 +20,8 @@ rptof_insert (
   b_size nbytes = nelem * size;
   b_size written = 0;
 
+  pgno root_before = c->root;
+
   while (written < nbytes)
     {
       // SEEK
@@ -46,6 +48,12 @@ rptof_insert (
         }
 
       written += _nbytes;
+    }
+
+  // Update the root page on the meta_root page
+  if (root_before != c->root)
+    {
+      err_t_wrap (rptc_update_meta_root (c, e), e);
     }
 
   return SUCCESS;

@@ -97,6 +97,7 @@ DEFINE_DBG_ASSERT (
 // State Utils
 err_t rptc_pop_all (struct rptree_cursor *r, error *e);
 err_t rptc_load_new_root (struct rptree_cursor *r, error *e);
+err_t rptc_update_meta_root (struct rptree_cursor *r, error *e);
 
 err_t rptc_balance_and_release (
     struct three_in_pair *output,

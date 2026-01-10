@@ -94,6 +94,7 @@ error_create (void)
     .cause_code = SUCCESS,
     .cmlen = 0,
     .print_trace = false,
+    .print_msg_on_error = true,
   };
 
   DBG_ASSERT (error, &ret);
@@ -131,7 +132,10 @@ error_causef (error *e, err_t c, const char *fmt, ...)
           e->cmlen = cmlen;
         }
 
-      i_log_error ("%.*s\n", e->cmlen, e->cause_msg);
+      if (e->print_msg_on_error)
+        {
+          i_log_error ("%.*s\n", e->cmlen, e->cause_msg);
+        }
 
       if (e->print_trace)
         {
