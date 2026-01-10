@@ -31,7 +31,7 @@ struct clck_alloc
   void *data;
   bool *occupied;
   u32 clock;
-  size_t elem_size;
+  u32 elem_size;
   u32 nelems;
   struct latch l;
 };

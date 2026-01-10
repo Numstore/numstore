@@ -17,6 +17,7 @@
  *   TODO: Add description for lock_table.c
  */
 
+#include "numstore/core/slab_alloc.h"
 #include <numstore/core/latch.h>
 #include <numstore/intf/os/threading.h>
 #include <numstore/pager/lock_table.h>
@@ -71,10 +72,7 @@ lockt_frame_eq (const struct hnode *left, const struct hnode *right)
 err_t
 lockt_init (struct lockt *t, error *e)
 {
-  if (clck_alloc_open (&t->gr_lock_alloc, sizeof (struct lockt_frame), 1000, e))
-    {
-      return e->cause_code;
-    }
+  slab_alloc_init (&t->lock_alloc, sizeof (struct lockt_frame), 1000);
 
   struct adptv_htable_settings settings = {
     .max_load_factor = 8,
@@ -86,7 +84,6 @@ lockt_init (struct lockt *t, error *e)
 
   if (adptv_htable_init (&t->table, settings, e))
     {
-      clck_alloc_close (&t->gr_lock_alloc);
       return e->cause_code;
     }
 
@@ -99,7 +96,7 @@ void
 lockt_destroy (struct lockt *t)
 {
   // TODO - wait for all locks?
-  clck_alloc_close (&t->gr_lock_alloc);
+  slab_alloc_destroy (&t->lock_alloc);
   adptv_htable_free (&t->table);
 }
 
@@ -136,7 +133,7 @@ lockt_lock_once (
   else
     {
       // Allocate New
-      frame = clck_alloc_alloc (&t->gr_lock_alloc, e);
+      frame = slab_alloc_alloc (&t->lock_alloc, e);
       err_t_panic (e->cause_code, e);
       err_t_panic (lockt_frame_init (frame, lock, e), e);
       err_t_panic (adptv_htable_insert (&t->table, &frame->node, e), e);
@@ -245,7 +242,7 @@ unlock_and_maybe_remove (struct lt_lock lock, enum lock_mode mode, void *ctx, er
     {
       err_t_wrap (adptv_htable_delete (NULL, &c->t->table, &key.node, lockt_frame_eq, e), e);
       gr_lock_destroy (&frame->lock);
-      clck_alloc_free (&c->t->gr_lock_alloc, frame);
+      slab_alloc_free (&c->t->lock_alloc, frame);
     }
 
   return SUCCESS;

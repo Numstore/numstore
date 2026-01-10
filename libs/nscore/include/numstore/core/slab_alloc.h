@@ -16,25 +16,29 @@
  * limitations under the License.
  *
  * Description:
- *   Build configuration header defining compile-time constants for the NumStore system.
- *   Specifies page sizes, memory limits, transaction table sizes, WAL buffer capacity,
- *   cursor pool settings, and other fundamental system parameters. Provides logging
- *   function for configuration inspection.
+ *   Slab allocator 
  */
 
+#include "numstore/intf/os/memory.h"
+#include <numstore/core/assert.h>
+#include <numstore/core/error.h>
+#include <numstore/core/latch.h>
+#include <numstore/intf/stdlib.h>
 #include <numstore/intf/types.h>
 
-#define PAGE_SIZE ((p_size)2048)
-#define MEMORY_PAGE_LEN ((u32)20)
-#define MAX_VSTR 10000
-#define MAX_TSTR 10000
-#define TXN_TBL_SIZE 512
-#define WAL_BUFFER_CAP 1000000
-#define MAX_NUPD_SIZE 200
-#define CURSOR_POOL_SIZE 100
-#define CLI_MAX_FILTERS 32
-#define MAX_TIDS 1000
+struct slab;
 
-// #define DUMB_PAGER
+struct slab_alloc
+{
+  struct slab *head;
+  struct slab *current; // Cache slab with free space (hot path)
+  struct latch l;
+  u32 size;
+  u32 cap_per_slab;
+};
 
-void i_log_config (void);
+void slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab);
+void slab_alloc_destroy (struct slab_alloc *alloc);
+
+void *slab_alloc_alloc (struct slab_alloc *alloc, error *e);
+void slab_alloc_free (struct slab_alloc *alloc, void *ptr);

@@ -68,7 +68,7 @@ u32 txnlen_from_serialized (u32 slen);
 
 #ifndef NTEST
 bool txnt_equal (struct txn_table *left, struct txn_table *right);
-void txnt_rand_populate (struct txn_table *t, struct alloc *alloc);
-void txnt_determ_populate (struct txn_table *t, struct alloc *alloc);
+err_t txnt_rand_populate (struct txn_table *t, struct alloc *alloc, error *e);
+err_t txnt_determ_populate (struct txn_table *t, struct alloc *alloc, error *e);
 void txnt_crash (struct txn_table *t);
 #endif

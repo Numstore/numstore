@@ -82,7 +82,7 @@ struct wal_clr_write
 struct wal_ckpt_end_read
 {
   struct txn_table att;
-  struct dpg_table *dpt;
+  struct dpg_table dpt;
   struct txn *txn_bank;
 };
 
