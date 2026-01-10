@@ -107,7 +107,7 @@ nsfslite_open (const char *fname, const char *recovery_fname)
     }
 
   // Create a new pager
-  ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, &ret->e);
+  ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, &e);
   if (ret->p == NULL)
     {
       tp_free (ret->tp, &e);
