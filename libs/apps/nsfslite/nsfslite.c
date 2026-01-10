@@ -107,7 +107,7 @@ nsfslite_open (const char *fname, const char *recovery_fname)
     }
 
   // Create a new pager
-  ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, &ret->e);
+  ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, &e);
   if (ret->p == NULL)
     {
       tp_free (ret->tp, &e);
@@ -119,12 +119,16 @@ nsfslite_open (const char *fname, const char *recovery_fname)
   if (pgr_get_npages (ret->p) == 1)
     {
       // Create a variable hash table page
+      bool before = e.print_msg_on_error;
+      e.print_msg_on_error = false;
       if (varh_init_hash_page (ret->p, &e) < 0)
         {
+          e.print_msg_on_error = before;
           pgr_close (ret->p, &e);
           i_free (ret);
           goto failed;
         }
+      e.print_msg_on_error = before;
     }
 
   // Open a clock allocator for cursors

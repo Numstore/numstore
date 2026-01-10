@@ -17,6 +17,7 @@
  *   Implements wal_rec_hdr.h. WAL record header operations including serialization and record type handling.
  */
 
+#include "numstore/pager/dirty_page_table.h"
 #include <numstore/pager/wal_rec_hdr.h>
 
 #include <numstore/core/assert.h>
@@ -131,7 +132,7 @@ wrhw_from_wrhr (struct wal_rec_hdr_read *src)
           .type = WL_CKPT_END,
           .ckpt_end = {
               .att = &src->ckpt_end.att,
-              .dpt = src->ckpt_end.dpt,
+              .dpt = &src->ckpt_end.dpt,
           },
         };
       }
@@ -288,7 +289,7 @@ wal_rec_hdr_read_equal (struct wal_rec_hdr_read *left, struct wal_rec_hdr_read *
     case WL_CKPT_END:
       {
         match = match && txnt_equal (&left->ckpt_end.att, &right->ckpt_end.att);
-        match = match && dpgt_equal (left->ckpt_end.dpt, right->ckpt_end.dpt);
+        match = match && dpgt_equal (&left->ckpt_end.dpt, &right->ckpt_end.dpt);
         break;
       }
 
@@ -408,7 +409,7 @@ i_log_ckpt_end (int log_level, struct wal_rec_hdr_read *r)
   i_log (log_level, "------------------ %s:\n", wal_rec_hdr_type_tostr (r->type));
   i_printf (log_level, "HEADER: %d\n", r->type);
   i_log_txnt (log_level, &r->ckpt_end.att);
-  i_log_dpgt (log_level, r->ckpt_end.dpt);
+  i_log_dpgt (log_level, &r->ckpt_end.dpt);
   i_log (log_level, "------------------------------------\n");
 }
 
@@ -512,7 +513,7 @@ i_print_wal_rec_hdr_read_light (int log_level, struct wal_rec_hdr_read *r, lsn l
     case WL_CKPT_END:
       {
         i_printf (log_level, "%15" PRlsn "      CKPT_END   [ natt = %8d, ndpt = %8d                      ]\n",
-                  l, txnt_get_size (&r->ckpt_end.att), dpgt_get_size (r->ckpt_end.dpt));
+                  l, txnt_get_size (&r->ckpt_end.att), dpgt_get_size (&r->ckpt_end.dpt));
         break;
       }
     case WL_EOF:
@@ -671,15 +672,13 @@ walf_decode_ckpt_end (struct wal_rec_hdr_read *r, const u8 *buf, error *e)
   head += attsize;
 
   // dpt
-  struct dpg_table *dpt = dpgt_deserialize (buf + head, dptsize, e);
-  if (dpt == NULL)
+  if (dpgt_deserialize (&r->ckpt_end.dpt, buf + head, dptsize, e))
     {
       txnt_close (&r->ckpt_end.att);
       i_free (r->ckpt_end.txn_bank);
       return e->cause_code;
     }
-  r->ckpt_end.dpt = dpt;
-  head += dptsize;
+  head += attsize;
 
   return SUCCESS;
 }

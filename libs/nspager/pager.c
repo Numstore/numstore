@@ -98,7 +98,7 @@ struct pager
   struct lockt *lt;
   struct thread_pool *tp;
 
-  struct dpg_table *dpt;
+  struct dpg_table dpt;
   struct txn_table tnxt;
 
   txid next_tid;
@@ -120,7 +120,6 @@ DEFINE_DBG_ASSERT (
     struct pager, pager, p,
     {
       ASSERT (p);
-      ASSERT (p->dpt);
       ASSERT (p->clock < MEMORY_PAGE_LEN);
     })
 
@@ -139,7 +138,7 @@ struct aries_ctx
   struct dbl_buffer txns;
 
   // Dirty page table
-  struct dpg_table *dpt;
+  struct dpg_table dpt;
   txid max_tid;
 };
 
@@ -148,7 +147,7 @@ aries_ctx_free (struct aries_ctx *ctx)
 {
   ASSERT (ctx);
   txnt_close (&ctx->txt);
-  dpgt_close (ctx->dpt);
+  dpgt_close (&ctx->dpt);
   dblb_free (&ctx->txns);
 }
 
@@ -156,15 +155,22 @@ static inline err_t
 aries_ctx_create (struct aries_ctx *dest, lsn master_lsn, error *e)
 {
   bool txt_open = false;
+  bool dpt_open = false;
   bool txns_open = false;
   dest->master_lsn = master_lsn;
   dest->max_tid = 0;
 
-  err_t_wrap_goto (txnt_open (&dest->txt, e), failed, e);
+  if (txnt_open (&dest->txt, e))
+    {
+      goto failed;
+    }
   txt_open = true;
 
-  dest->dpt = dpgt_open (e);
-  err_t_wrap_null_goto (dest->dpt, failed, e);
+  if (dpgt_open (&dest->dpt, e))
+    {
+      goto failed;
+    }
+  dpt_open = true;
 
   err_t_wrap_goto (dblb_create (&dest->txns, sizeof (struct txn), 100, e), failed, e);
   txns_open = true;
@@ -181,9 +187,9 @@ failed:
     {
       dblb_free (&dest->txns);
     }
-  if (dest->dpt)
+  if (dpt_open)
     {
-      dpgt_close (dest->dpt);
+      dpgt_close (&dest->dpt);
     }
 
   return e->cause_code;
@@ -226,7 +232,7 @@ pgr_flush (struct pager *p, struct page_frame *mp, error *e)
 
       pf_clr (mp, PW_DIRTY);
 
-      dpgt_remove (p->dpt, mp->page.pg);
+      err_t_wrap (dpgt_remove_expect (&p->dpt, mp->page.pg, e), e);
     }
 
   return SUCCESS;
@@ -590,56 +596,57 @@ struct pager *
 pgr_open (const char *fname, const char *walname, struct lockt *lt, struct thread_pool *tp, error *e)
 {
   struct pager *ret = NULL;
-  struct dpg_table *dpt = NULL;
   bool is_new = !i_exists_rw (fname);
   bool fpgr_opened = false;
+  bool dpt_opened = false;
 
-  // Initialize internals
-  {
-    // Allocate the pager
-    err_t_wrap_null_goto (ret = i_calloc (1, sizeof *ret, e), failed, e);
+  // Allocate the pager
+  if ((ret = i_calloc (1, sizeof *ret, e)) == NULL)
+    {
+      return NULL;
+    }
 
-    // Initialize the file pager
-    err_t_wrap_goto (fpgr_open (&ret->fp, fname, e), failed, e);
-    fpgr_opened = true;
+  // Initialize the file pager
+  err_t_wrap_goto (fpgr_open (&ret->fp, fname, e), failed, e);
+  fpgr_opened = true;
 
-    // Pull in the root node data values
-    err_t_wrap_goto (pgr_is_new_guard (ret, &is_new, e), failed, e);
+  // Pull in the root node data values
+  err_t_wrap_goto (pgr_is_new_guard (ret, &is_new, e), failed, e);
 
-    // Open the dirty page table
-    err_t_wrap_null_goto (dpt = dpgt_open (e), failed, e);
+  // Open the dirty page table
+  err_t_wrap_goto (dpgt_open (&ret->dpt, e), failed, e);
+  dpt_opened = true;
 
-    // Initialize the WAL
-    if (walname)
-      {
-        err_t_wrap_goto (wal_open (&ret->ww, walname, e), failed, e);
-        ret->wal_enabled = true;
-      }
-    else
-      {
-        ret->wal_enabled = false;
-      }
+  // Initialize the WAL
+  if (walname)
+    {
+      err_t_wrap_goto (wal_open (&ret->ww, walname, e), failed, e);
+      ret->wal_enabled = true;
+    }
+  else
+    {
+      ret->wal_enabled = false;
+    }
 
-    // Initialize the hash table from pgno -> table index
-    ht_init_idx (&ret->pgno_to_value, ret->_hdata, MEMORY_PAGE_LEN);
+  // Initialize the hash table from pgno -> table index
+  ht_init_idx (&ret->pgno_to_value, ret->_hdata, MEMORY_PAGE_LEN);
 
-    // Initialize internal latch
-    latch_init (&ret->l);
+  // Initialize internal latch
+  latch_init (&ret->l);
 
-    // Initialize page frame latches
-    for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
-      {
-        latch_init (&ret->pages[i].latch);
-      }
+  // Initialize page frame latches
+  for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
+    {
+      latch_init (&ret->pages[i].latch);
+    }
 
-    // Simple variables
-    ret->dpt = dpt;
-    ret->clock = 0;
-    ret->next_tid = 1;
-    ret->lt = lt;
-    ret->tp = tp;
-  }
+  // Simple variables
+  ret->clock = 0;
+  ret->next_tid = 1;
+  ret->lt = lt;
+  ret->tp = tp;
 
+  // More work
   if (is_new)
     {
       err_t_wrap_null_goto (pgr_open_new (fname, walname, ret, e), failed, e);
@@ -655,9 +662,9 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
 failed:
   ASSERT (e->cause_code);
   // latch doesn't need cleanup
-  if (dpt)
+  if (dpt_opened)
     {
-      dpgt_close (dpt);
+      dpgt_close (&ret->dpt);
     }
   if (ret && ret->wal_enabled)
     {
@@ -770,7 +777,7 @@ pgr_close (struct pager *p, error *e)
   fpgr_close (&p->fp, e);
 
   txnt_close (&p->tnxt);
-  dpgt_close (p->dpt);
+  dpgt_close (&p->dpt);
 
   i_free (p);
 
@@ -958,7 +965,7 @@ pgr_checkpoint (struct pager *p, error *e)
       err_t_wrap (pgr_evict_all (p, e), e);
 
       // END CHECKPOINT
-      slsn end_lsn = wal_append_ckpt_end (&p->ww, &p->tnxt, p->dpt, e);
+      slsn end_lsn = wal_append_ckpt_end (&p->ww, &p->tnxt, &p->dpt, e);
       if (end_lsn < 0)
         {
           return e->cause_code;
@@ -1215,6 +1222,16 @@ pgr_release_no_tx (struct pager *p, page_h *h, int flags, error *e)
 
   if (h->mode == PHM_X)
     {
+      // TODO - I think this is wrong
+      // Add page to DPT if this is the first update (RecLSN = LSN of first update)
+      if (!dpgt_exists (&p->dpt, page_h_pgno (h)))
+        {
+          if (dpgt_add (&p->dpt, page_h_pgno (h), (lsn)page_get_page_lsn (page_h_ro (h)), e))
+            {
+              return e->cause_code;
+            }
+        }
+
       // Save without WAL logging (recovery doesn't need WAL)
       ASSERTF (page_validate_for_db (page_h_w (h), flags, NULL) == SUCCESS,
                "%.*s\n", e->cmlen, e->cause_msg);
@@ -1305,10 +1322,9 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
       h->tx->data.undo_next_lsn = page_lsn;
 
       // Add page to DPT if this is the first update (RecLSN = LSN of first update)
-      struct dpg_entry dpe;
-      if (!dpe_get (&dpe, p->dpt, page_h_pgno (h)))
+      if (!dpgt_exists (&p->dpt, page_h_pgno (h)))
         {
-          if (dpgt_add (p->dpt, page_h_pgno (h), (lsn)page_lsn, e))
+          if (dpgt_add (&p->dpt, page_h_pgno (h), (lsn)page_lsn, e))
             {
               latch_unlock (&h->tx->l);
               return e->cause_code;
@@ -1722,8 +1738,8 @@ i_log_page_table (int log_level, struct pager *p)
           i_printf (log_level, "%u | |\n", i);
         }
     }
-  i_log (log_level, "Dirty Page Table:\n");
-  i_log_dpgt (log_level, p->dpt);
+  i_log_dpgt (log_level, &p->dpt);
+  i_log_txnt (log_level, &p->tnxt);
 }
 
 // (ARIES Figure 8)
@@ -1842,7 +1858,7 @@ pgr_rollback (struct pager *p, struct txn *tx, lsn save_lsn, error *e)
         case WL_CKPT_END:
           {
             txnt_close (&log_rec->ckpt_end.att);
-            dpgt_close (log_rec->ckpt_end.dpt);
+            dpgt_close (&log_rec->ckpt_end.dpt);
             if (log_rec->ckpt_end.txn_bank)
               {
                 i_free (log_rec->ckpt_end.txn_bank);
@@ -1959,25 +1975,38 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
 
       if (tid != -1)
         {
-          // Create a new transaction object
-          tx = dblb_append_alloc (&ctx->txns, 1, e);
-          if (tx == NULL)
-            {
-              return e->cause_code;
-            }
-
-          // Fetch the previous lsn
           slsn prev_lsn = wrh_get_prev_lsn (log_rec);
-          ASSERT (prev_lsn >= 0);
 
-          txn_init (tx, tid, (struct txn_data){
-                                 .state = TX_CANDIDATE_FOR_UNDO,
-                                 .last_lsn = read_lsn,
-                                 .undo_next_lsn = prev_lsn,
-                             });
+          if (!txnt_get (&tx, &ctx->txt, tid))
+            {
+              // Create a new transaction object
+              tx = dblb_append_alloc (&ctx->txns, 1, e);
+              if (tx == NULL)
+                {
+                  return e->cause_code;
+                }
 
-          // Insert this transaction
-          err_t_wrap (txnt_insert_txn_if_not_exists (&ctx->txt, tx, e), e);
+              // Fetch the previous lsn
+              ASSERT (prev_lsn >= 0);
+
+              txn_init (tx, tid, (struct txn_data){
+                                     .state = TX_CANDIDATE_FOR_UNDO,
+                                     .last_lsn = read_lsn,
+                                     .undo_next_lsn = prev_lsn,
+                                 });
+
+              // Insert this transaction
+              err_t_wrap (txnt_insert_txn_if_not_exists (&ctx->txt, tx, e), e);
+            }
+          else
+            {
+              txn_update (
+                  tx, (struct txn_data){
+                          .state = TX_CANDIDATE_FOR_UNDO,
+                          .last_lsn = read_lsn,
+                          .undo_next_lsn = prev_lsn,
+                      });
+            }
         }
 
       switch (log_rec->type)
@@ -1997,10 +2026,9 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
             // IF LogRec.PageID not in Dirty_Page_Table THEN
             //   Dirty_Page_Table[LogRec.PageID].RecLSN := LogRec.LSN
             pgno pg = log_rec->update.pg;
-            struct dpg_entry dpe;
-            if (!dpe_get (&dpe, ctx->dpt, pg))
+            if (!dpgt_exists (&ctx->dpt, pg))
               {
-                err_t_wrap_goto (dpgt_add (ctx->dpt, pg, read_lsn, e), theend, e);
+                err_t_wrap_goto (dpgt_add (&ctx->dpt, pg, read_lsn, e), theend, e);
               }
 
             break;
@@ -2027,26 +2055,25 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
         case WL_CKPT_END:
           {
             // FOR each entry in LogRec.Tran_Table
-            txnt_merge_into (&ctx->txt, &log_rec->ckpt_end.att, &ctx->txns, e);
-
-            // FOR each entry in LogRec.Dirty_PageLst
-            u32 ckpt_dpt_count = 0;
-            for (p_size i = 0; i < arrlen (log_rec->ckpt_end.dpt->_table); ++i)
+            if (txnt_merge_into (&ctx->txt, &log_rec->ckpt_end.att, &ctx->txns, e))
               {
-                if (log_rec->ckpt_end.dpt->_table[i].present)
-                  {
-                    ckpt_dpt_count++;
-                  }
+                goto theend;
               }
 
-            dpgt_merge_into (ctx->dpt, log_rec->ckpt_end.dpt);
+            // FOR each entry in LogRec.Dirty_PageLst
+            u32 ckpt_dpt_count = dpgt_get_size (&log_rec->ckpt_end.dpt);
 
+            if (dpgt_merge_into (&ctx->dpt, &log_rec->ckpt_end.dpt, e))
+              {
+                goto theend;
+              }
+
+            dpgt_close (&log_rec->ckpt_end.dpt);
             txnt_close (&log_rec->ckpt_end.att);
             if (log_rec->ckpt_end.txn_bank)
               {
                 i_free (log_rec->ckpt_end.txn_bank);
               }
-            dpgt_close (log_rec->ckpt_end.dpt);
 
             break;
           }
@@ -2111,7 +2138,7 @@ theend:
         }
     }
 
-  ctx->redo_lsn = dpgt_min_rec_lsn (ctx->dpt);
+  ctx->redo_lsn = dpgt_min_rec_lsn (&ctx->dpt);
 
   return e->cause_code;
 }
@@ -2144,10 +2171,10 @@ pgr_restart_redo (struct pager *p, struct aries_ctx *ctx, error *e)
         {
         case WL_UPDATE:
           {
-            struct dpg_entry dpe;
-            bool in_dpt = dpe_get (&dpe, ctx->dpt, log_rec->update.pg);
+            lsn rec_lsn;
+            bool in_dpgt = dpgt_get (&rec_lsn, &ctx->dpt, log_rec->update.pg);
 
-            if (in_dpt && ctx->redo_lsn >= dpe.rec_lsn)
+            if (in_dpgt && ctx->redo_lsn >= rec_lsn)
               {
                 // fix&latch(LogRec.PageID, 'X')
                 page_h ph = page_h_create ();
@@ -2164,20 +2191,20 @@ pgr_restart_redo (struct pager *p, struct aries_ctx *ctx, error *e)
                   }
                 else
                   {
-                    dpgt_update (ctx->dpt, log_rec->update.pg, page_lsn + 1);
+                    dpgt_update (&ctx->dpt, log_rec->update.pg, page_lsn + 1);
                   }
 
                 // unfix&unlatch(page)
-                pgr_release_no_tx (p, &ph, PG_ANY, NULL);
+                err_t_wrap (pgr_release_no_tx (p, &ph, PG_ANY, e), e);
               }
             break;
           }
         case WL_CLR:
           {
-            struct dpg_entry dpe;
-            bool in_dpt = dpe_get (&dpe, ctx->dpt, log_rec->clr.pg);
+            lsn rec_lsn;
+            bool in_dpgt = dpgt_get (&rec_lsn, &ctx->dpt, log_rec->clr.pg);
 
-            if (in_dpt && ctx->redo_lsn >= dpe.rec_lsn)
+            if (in_dpgt && ctx->redo_lsn >= rec_lsn)
               {
                 // fix&latch(LogRec.PageID, 'X')
                 page_h ph = page_h_create ();
@@ -2194,7 +2221,7 @@ pgr_restart_redo (struct pager *p, struct aries_ctx *ctx, error *e)
                   }
                 else
                   {
-                    dpgt_update (ctx->dpt, log_rec->clr.pg, page_lsn + 1);
+                    dpgt_update (&ctx->dpt, log_rec->clr.pg, page_lsn + 1);
                   }
 
                 // unfix&unlatch(page)
@@ -2207,7 +2234,7 @@ pgr_restart_redo (struct pager *p, struct aries_ctx *ctx, error *e)
             // Checkpoint end records during redo need their ATT/DPT freed
             // since we don't use them in redo phase (only in analysis)
             txnt_close (&log_rec->ckpt_end.att);
-            dpgt_close (log_rec->ckpt_end.dpt);
+            dpgt_close (&log_rec->ckpt_end.dpt);
             break;
           }
         default:
@@ -2358,13 +2385,22 @@ pgr_restart (struct pager *p, struct aries_ctx *ctx, error *e)
   p->restarting = true;
 
   // ANALYSIS
-  err_t_wrap_goto (pgr_restart_analysis (p, ctx, e), theend, e);
+  if (pgr_restart_analysis (p, ctx, e))
+    {
+      goto theend;
+    }
 
   // REDO
-  err_t_wrap_goto (pgr_restart_redo (p, ctx, e), theend, e);
+  if (pgr_restart_redo (p, ctx, e))
+    {
+      goto theend;
+    }
 
   // UNDO
-  err_t_wrap_goto (pgr_restart_undo (p, ctx, e), theend, e);
+  if (pgr_restart_undo (p, ctx, e))
+    {
+      goto theend;
+    }
 
 theend:
   aries_ctx_free (ctx);
@@ -2771,7 +2807,7 @@ pgr_crash (struct pager *p, error *e)
   fpgr_crash (&p->fp, e);
 
   txnt_crash (&p->tnxt);
-  dpgt_crash (p->dpt);
+  dpgt_crash (&p->dpt);
 
   i_free (p);
 

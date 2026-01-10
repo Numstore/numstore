@@ -279,7 +279,7 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
   ASSERT (r->type == WL_CKPT_END);
 
   void *att_serialized = NULL;
-  u8 dpgt_serialized[MAX_DPGT_SRL_SIZE];
+  void *dpgt_serialized = NULL;
   u32 attsize = 0;
   u32 dptsize = 0;
 
@@ -297,13 +297,24 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
           {
             latch_unlock (&r->ckpt_end.dpt->l);
             latch_unlock (&r->ckpt_end.att->l);
-            return e->cause_code;
+            goto theend;
           }
         txnt_serialize (att_serialized, attsize, r->ckpt_end.att);
       }
 
     // DPT
-    dptsize = dpgt_serialize (dpgt_serialized, r->ckpt_end.dpt);
+    dptsize = dpgt_get_serialize_size (r->ckpt_end.dpt);
+    if (dptsize > 0)
+      {
+        dpgt_serialized = i_malloc (dptsize, 1, e);
+        if (dpgt_serialized == NULL)
+          {
+            latch_unlock (&r->ckpt_end.dpt->l);
+            latch_unlock (&r->ckpt_end.att->l);
+            goto theend;
+          }
+        txnt_serialize (att_serialized, attsize, r->ckpt_end.att);
+      }
 
     latch_unlock (&r->ckpt_end.dpt->l);
     latch_unlock (&r->ckpt_end.att->l);
@@ -312,37 +323,62 @@ walf_write_ckpt_end (struct wal_file *w, const struct wal_rec_hdr_write *r, erro
   // Write WAL
   {
     latch_lock (&w->l);
-    err_t_wrap_goto (walf_lazy_ostream_init (w, e), cleanup, e);
+    if (walf_lazy_ostream_init (w, e))
+      {
+        goto theend;
+      }
 
     u32 checksum = checksum_init ();
     wlh t = r->type;
 
-    err_t_wrap_goto (walos_write_all (w->current_ostream, &checksum, &t, sizeof (wlh), e), cleanup, e);
-    err_t_wrap_goto (walos_write_all (w->current_ostream, &checksum, &attsize, sizeof (attsize), e), cleanup, e);
-    err_t_wrap_goto (walos_write_all (w->current_ostream, &checksum, &dptsize, sizeof (dptsize), e), cleanup, e);
+    if (walos_write_all (w->current_ostream, &checksum, &t, sizeof (wlh), e))
+      {
+        goto theend;
+      }
+    if (walos_write_all (w->current_ostream, &checksum, &attsize, sizeof (attsize), e))
+      {
+        goto theend;
+      }
+    if (walos_write_all (w->current_ostream, &checksum, &dptsize, sizeof (dptsize), e))
+      {
+        goto theend;
+      }
 
     // Transaction table
     if (attsize > 0)
       {
-        err_t_wrap_goto (walos_write_all (w->current_ostream, &checksum, att_serialized, attsize, e), cleanup, e);
+        if (walos_write_all (w->current_ostream, &checksum, att_serialized, attsize, e))
+          {
+            goto theend;
+          }
       }
 
     // Dirty page table
     if (dptsize > 0)
       {
-        err_t_wrap_goto (walos_write_all (w->current_ostream, &checksum, dpgt_serialized, dptsize, e), cleanup, e);
+        if (walos_write_all (w->current_ostream, &checksum, dpgt_serialized, dptsize, e))
+          {
+            goto theend;
+          }
       }
 
-    err_t_wrap_goto (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e), cleanup, e);
-
-  cleanup:
-    latch_unlock (&w->l);
-    if (att_serialized)
+    if (walos_write_all (w->current_ostream, NULL, &checksum, sizeof (u32), e))
       {
-        i_free (att_serialized);
+        goto theend;
       }
-    return e->cause_code;
   }
+
+theend:
+  latch_unlock (&w->l);
+  if (att_serialized)
+    {
+      i_free (att_serialized);
+    }
+  if (dpgt_serialized)
+    {
+      i_free (dpgt_serialized);
+    }
+  return e->cause_code;
 }
 
 slsn

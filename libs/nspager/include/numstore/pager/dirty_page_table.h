@@ -19,67 +19,57 @@
  *   Dirty page table for tracking modified pages during transactions, supporting write-ahead logging and recovery operations.
  */
 
+#include "numstore/core/adptv_hash_table.h"
 #include <numstore/core/bytes.h>
-#include <numstore/core/clock_allocator.h>
 #include <numstore/core/error.h>
+#include <numstore/core/slab_alloc.h>
 #include <numstore/intf/types.h>
 
 #include <config.h>
 
-struct dpg_entry
-{
-  lsn rec_lsn;
-  pgno pg;
-  struct latch l;
-};
-
-#define VTYPE struct dpg_entry *
-#define KTYPE pgno
-#define SUFFIX dpt
-#include <numstore/core/robin_hood_ht.h>
-#undef VTYPE
-#undef KTYPE
-#undef SUFFIX
-
 struct dpg_table
 {
-  hash_table_dpt table;
-  struct clck_alloc alloc;
-  hentry_dpt _table[100000];
+  struct adptv_htable table; // Hash table pg -> entry
+  struct slab_alloc alloc;   // Allocator for dpgt frames
   struct latch l;
 };
 
-// LIFECYCLE
-struct dpg_table *dpgt_open (error *e);
+// Lifecycle
+err_t dpgt_open (struct dpg_table *dest, error *e);
 void dpgt_close (struct dpg_table *t);
 
-// UTILS
-void dpgt_rand_populate (struct dpg_table *dpt);
+// Utils
 void i_log_dpgt (int log_level, struct dpg_table *dpt);
-bool dpgt_equal (struct dpg_table *left, struct dpg_table *right);
+err_t dpgt_merge_into (struct dpg_table *dest, struct dpg_table *src, error *e);
 lsn dpgt_min_rec_lsn (struct dpg_table *d);
-void dpgt_merge_into (struct dpg_table *dest, struct dpg_table *src);
+void dpgt_foreach (struct dpg_table *t, void (*action) (pgno pg, lsn rec_lsn, void *ctx), void *ctx);
 u32 dpgt_get_size (struct dpg_table *d);
+
+// Main Methods
+bool dpgt_exists (struct dpg_table *t, pgno pg);
 
 // INSERT
 err_t dpgt_add (struct dpg_table *t, pgno pg, lsn rec_lsn, error *e);
 
 // GET
-bool dpe_get (struct dpg_entry *dest, struct dpg_table *t, pgno pg);
-struct dpg_entry dpgt_get_expect (struct dpg_table *t, pgno pg);
+bool dpgt_get (lsn *dest, struct dpg_table *t, pgno pg);
+void dpgt_get_expect (lsn *dest, struct dpg_table *t, pgno pg);
 
 // REMOVE
-bool dpgt_remove (struct dpg_table *t, pgno pg);
-void dpgt_remove_expect (struct dpg_table *t, pgno pg);
+err_t dpgt_remove (bool *exists, struct dpg_table *t, pgno pg, error *e);
+err_t dpgt_remove_expect (struct dpg_table *t, pgno pg, error *e);
 
 // UPDATE
 void dpgt_update (struct dpg_table *d, pgno pg, lsn new_rec_lsn);
 
 // SERIALIZATION
-#define MAX_DPGT_SRL_SIZE (MEMORY_PAGE_LEN * (sizeof (pgno) + sizeof (lsn)))
-u32 dpgt_serialize (u8 dest[MAX_DPGT_SRL_SIZE], struct dpg_table *t);
-struct dpg_table *dpgt_deserialize (const u8 *src, u32 dlen, error *e);
+u32 dpgt_get_serialize_size (struct dpg_table *t);
+u32 dpgt_serialize (u8 *dest, u32 dlen, struct dpg_table *t);
+err_t dpgt_deserialize (struct dpg_table *dest, const u8 *src, u32 slen, error *e);
+u32 dpgtlen_from_serialized (u32 slen);
 
 #ifndef NTEST
+bool dpgt_equal (struct dpg_table *left, struct dpg_table *right);
+err_t dpgt_rand_populate (struct dpg_table *t, error *e);
 void dpgt_crash (struct dpg_table *t);
 #endif

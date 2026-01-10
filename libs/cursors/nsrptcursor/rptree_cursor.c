@@ -115,6 +115,18 @@ rptc_pop_all (struct rptree_cursor *r, error *e)
   return SUCCESS;
 }
 
+err_t
+rptc_update_meta_root (struct rptree_cursor *r, error *e)
+{
+  DBG_ASSERT (rptc_unseeked, r);
+
+  err_t_wrap (pgr_get_writable (&r->cur, r->tx, PG_RPT_ROOT, r->meta_root, r->pager, e), e);
+  rr_set_root (page_h_w (&r->cur), r->root);
+  err_t_wrap (pgr_release (r->pager, &r->cur, PG_RPT_ROOT, e), e);
+
+  return SUCCESS;
+}
+
 static inline struct three_in_pair
 three_in_pair_from (page_h *prev, page_h *cur, page_h *next)
 {

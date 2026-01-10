@@ -31,7 +31,7 @@
 #include <numstore/pager/wal_rec_hdr.h>
 #include <numstore/test/testing.h>
 
-#include "config.h"
+#include <config.h>
 
 DEFINE_DBG_ASSERT (
     struct wal, wal, w, {
@@ -302,7 +302,8 @@ TEST_disabled (TT_UNIT, wal)
   struct wal ww;
   struct txn_table att1;
   struct txn_table att2;
-  struct dpg_table *dpt1 = NULL, *dpt2 = NULL;
+  struct dpg_table dpt1;
+  struct dpg_table dpt2;
 
   test_err_t_wrap (i_remove_quiet ("test.wal", &e), &e);
   test_err_t_wrap (wal_open (&ww, "test.wal", &e), &e);
@@ -372,12 +373,10 @@ TEST_disabled (TT_UNIT, wal)
 
   // Allocate and store in variables for proper cleanup
   test_err_t_wrap (txnt_open (&att1, &e), &e);
-  dpt1 = dpgt_open (&e);
-  test_err_t_wrap (txnt_open (&att2, &e), &e);
-  dpt2 = dpgt_open (&e);
+  test_err_t_wrap (dpgt_open (&dpt1, &e), &e);
 
-  test_fail_if_null (dpt1);
-  test_fail_if_null (dpt2);
+  test_err_t_wrap (txnt_open (&att2, &e), &e);
+  test_err_t_wrap (dpgt_open (&dpt2, &e), &e);
 
   in[6].ckpt_end.att = att1;
   in[6].ckpt_end.dpt = dpt1;
@@ -388,10 +387,10 @@ TEST_disabled (TT_UNIT, wal)
   struct alloc a;
   a.type = AT_CHNK_ALLOC;
   chunk_alloc_create_default (&a._calloc);
-  txnt_determ_populate (&in[6].ckpt_end.att, &a);
-  dpgt_rand_populate (in[6].ckpt_end.dpt);
-  txnt_rand_populate (&in[7].ckpt_end.att, &a);
-  dpgt_rand_populate (in[7].ckpt_end.dpt);
+  test_err_t_wrap (txnt_determ_populate (&in[6].ckpt_end.att, &a, &e), &e);
+  test_err_t_wrap (dpgt_rand_populate (&in[6].ckpt_end.dpt, &e), &e);
+  test_err_t_wrap (txnt_rand_populate (&in[7].ckpt_end.att, &a, &e), &e);
+  test_err_t_wrap (dpgt_rand_populate (&in[7].ckpt_end.dpt, &e), &e);
 
   struct wal_rec_hdr_read in2[] = {
     {
@@ -443,7 +442,7 @@ TEST_disabled (TT_UNIT, wal)
           {
             txnt_close (&next->ckpt_end.att);
             i_free (next->ckpt_end.txn_bank);
-            dpgt_close (next->ckpt_end.dpt);
+            dpgt_close (&next->ckpt_end.dpt);
           }
       }
   }
@@ -477,7 +476,7 @@ TEST_disabled (TT_UNIT, wal)
         if (next->type == WL_CKPT_END)
           {
             txnt_close (&next->ckpt_end.att);
-            dpgt_close (next->ckpt_end.dpt);
+            dpgt_close (&next->ckpt_end.dpt);
           }
       }
 
@@ -492,15 +491,15 @@ TEST_disabled (TT_UNIT, wal)
         if (next->type == WL_CKPT_END)
           {
             txnt_close (&next->ckpt_end.att);
-            dpgt_close (next->ckpt_end.dpt);
+            dpgt_close (&next->ckpt_end.dpt);
           }
       }
   }
 
   txnt_close (&att1);
-  dpgt_close (dpt1);
+  dpgt_close (&dpt1);
   txnt_close (&att2);
-  dpgt_close (dpt2);
+  dpgt_close (&dpt2);
 
   test_err_t_wrap (wal_close (&ww, &e), &e);
 }
