@@ -42,28 +42,28 @@
 #ifdef _MSC_VER
 // MSVC doesn't have __builtin_*_overflow, use manual checks
 #define SAFE_ADD_U8(dest, a, b) \
-  ((u8) (a) <= (UINT8_MAX - (u8) (b)) ? (*(dest) = (u8) (a) + (u8) (b), true) : false)
+  ((u8)(a) <= (UINT8_MAX - (u8)(b)) ? (*(dest) = (u8)(a) + (u8)(b), true) : false)
 #define SAFE_SUB_U8(dest, a, b) \
-  ((u8) (a) >= (u8) (b) ? (*(dest) = (u8) (a) - (u8) (b), true) : false)
+  ((u8)(a) >= (u8)(b) ? (*(dest) = (u8)(a) - (u8)(b), true) : false)
 #define SAFE_MUL_U8(dest, a, b) \
-  (((u8) (a) == 0 || (u8) (b) <= (UINT8_MAX / (u8) (a))) ? (*(dest) = (u8) (a) * (u8) (b), true) : false)
+  (((u8)(a) == 0 || (u8)(b) <= (UINT8_MAX / (u8)(a))) ? (*(dest) = (u8)(a) * (u8)(b), true) : false)
 
 #define SAFE_ADD_U16(dest, a, b) \
-  ((u16) (a) <= (UINT16_MAX - (u16) (b)) ? (*(dest) = (u16) (a) + (u16) (b), true) : false)
+  ((u16)(a) <= (UINT16_MAX - (u16)(b)) ? (*(dest) = (u16)(a) + (u16)(b), true) : false)
 #define SAFE_SUB_U16(dest, a, b) \
-  ((u16) (a) >= (u16) (b) ? (*(dest) = (u16) (a) - (u16) (b), true) : false)
+  ((u16)(a) >= (u16)(b) ? (*(dest) = (u16)(a) - (u16)(b), true) : false)
 #define SAFE_MUL_U16(dest, a, b) \
-  (((u16) (a) == 0 || (u16) (b) <= (UINT16_MAX / (u16) (a))) ? (*(dest) = (u16) (a) * (u16) (b), true) : false)
+  (((u16)(a) == 0 || (u16)(b) <= (UINT16_MAX / (u16)(a))) ? (*(dest) = (u16)(a) * (u16)(b), true) : false)
 
 #define SAFE_ADD_U32(dest, a, b) \
-  ((u32) (a) <= (UINT32_MAX - (u32) (b)) ? (*(dest) = (u32) (a) + (u32) (b), true) : false)
+  ((u32)(a) <= (UINT32_MAX - (u32)(b)) ? (*(dest) = (u32)(a) + (u32)(b), true) : false)
 #define SAFE_SUB_U32(dest, a, b) \
-  ((u32) (a) >= (u32) (b) ? (*(dest) = (u32) (a) - (u32) (b), true) : false)
+  ((u32)(a) >= (u32)(b) ? (*(dest) = (u32)(a) - (u32)(b), true) : false)
 #define SAFE_MUL_U32(dest, a, b) \
-  (((u32) (a) == 0 || (u32) (b) <= (UINT32_MAX / (u32) (a))) ? (*(dest) = (u32) (a) * (u32) (b), true) : false)
+  (((u32)(a) == 0 || (u32)(b) <= (UINT32_MAX / (u32)(a))) ? (*(dest) = (u32)(a) * (u32)(b), true) : false)
 
 #define SAFE_ADD_U64(dest, a, b) \
-  ((u64) (a) <= (UINT64_MAX - (u64) (b)) ? (*(dest) = (u64) (a) + (u64) (b), true) : false)
+  ((u64)(a) <= (UINT64_MAX - (u64)(b)) ? (*(dest) = (u64)(a) + (u64)(b), true) : false)
 #else
 #define SAFE_ADD_U8(dest, a, b) \
   (!__builtin_add_overflow (a, b, dest))
@@ -111,9 +111,9 @@ safe_add_u64 (u64 *dest, u64 a, u64 b, error *e)
 
 #ifdef _MSC_VER
 #define SAFE_SUB_U64(dest, a, b) \
-  ((u64) (a) >= (u64) (b) ? (*(dest) = (u64) (a) - (u64) (b), true) : false)
+  ((u64)(a) >= (u64)(b) ? (*(dest) = (u64)(a) - (u64)(b), true) : false)
 #define SAFE_MUL_U64(dest, a, b) \
-  (((u64) (a) == 0 || (u64) (b) <= (UINT64_MAX / (u64) (a))) ? (*(dest) = (u64) (a) * (u64) (b), true) : false)
+  (((u64)(a) == 0 || (u64)(b) <= (UINT64_MAX / (u64)(a))) ? (*(dest) = (u64)(a) * (u64)(b), true) : false)
 #else
 #define SAFE_SUB_U64(dest, a, b) \
   (!__builtin_sub_overflow (a, b, dest))
@@ -129,11 +129,11 @@ safe_add_u64 (u64 *dest, u64 a, u64 b, error *e)
 #ifdef _MSC_VER
 // MSVC signed integer overflow checks
 #define SAFE_ADD_I8(dest, a, b) \
-  ((((b) > 0 && (i8) (a) <= (INT8_MAX - (i8) (b))) || ((b) <= 0 && (i8) (a) >= (INT8_MIN - (i8) (b)))) ? (*(dest) = (i8) (a) + (i8) (b), true) : false)
+  ((((b) > 0 && (i8)(a) <= (INT8_MAX - (i8)(b))) || ((b) <= 0 && (i8)(a) >= (INT8_MIN - (i8)(b)))) ? (*(dest) = (i8)(a) + (i8)(b), true) : false)
 #define SAFE_SUB_I8(dest, a, b) \
-  ((((b) < 0 && (i8) (a) <= (INT8_MAX + (i8) (b))) || ((b) >= 0 && (i8) (a) >= (INT8_MIN + (i8) (b)))) ? (*(dest) = (i8) (a) - (i8) (b), true) : false)
+  ((((b) < 0 && (i8)(a) <= (INT8_MAX + (i8)(b))) || ((b) >= 0 && (i8)(a) >= (INT8_MIN + (i8)(b)))) ? (*(dest) = (i8)(a) - (i8)(b), true) : false)
 #define SAFE_MUL_I8(dest, a, b) \
-  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i8) (a) <= (INT8_MAX / (i8) (b))) || ((a) < 0 && (b) < 0 && (i8) (a) >= (INT8_MAX / (i8) (b))) || ((a) > 0 && (b) < 0 && (i8) (b) >= (INT8_MIN / (i8) (a))) || ((a) < 0 && (b) > 0 && (i8) (a) >= (INT8_MIN / (i8) (b))))) ? (*(dest) = (i8) (a) * (i8) (b), true) : false)
+  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i8)(a) <= (INT8_MAX / (i8)(b))) || ((a) < 0 && (b) < 0 && (i8)(a) >= (INT8_MAX / (i8)(b))) || ((a) > 0 && (b) < 0 && (i8)(b) >= (INT8_MIN / (i8)(a))) || ((a) < 0 && (b) > 0 && (i8)(a) >= (INT8_MIN / (i8)(b))))) ? (*(dest) = (i8)(a) * (i8)(b), true) : false)
 #else
 #define SAFE_ADD_I8(dest, a, b) \
   (!__builtin_add_overflow (a, b, dest))
@@ -148,25 +148,25 @@ safe_add_u64 (u64 *dest, u64 a, u64 b, error *e)
 
 #ifdef _MSC_VER
 #define SAFE_ADD_I16(dest, a, b) \
-  ((((b) > 0 && (i16) (a) <= (INT16_MAX - (i16) (b))) || ((b) <= 0 && (i16) (a) >= (INT16_MIN - (i16) (b)))) ? (*(dest) = (i16) (a) + (i16) (b), true) : false)
+  ((((b) > 0 && (i16)(a) <= (INT16_MAX - (i16)(b))) || ((b) <= 0 && (i16)(a) >= (INT16_MIN - (i16)(b)))) ? (*(dest) = (i16)(a) + (i16)(b), true) : false)
 #define SAFE_SUB_I16(dest, a, b) \
-  ((((b) < 0 && (i16) (a) <= (INT16_MAX + (i16) (b))) || ((b) >= 0 && (i16) (a) >= (INT16_MIN + (i16) (b)))) ? (*(dest) = (i16) (a) - (i16) (b), true) : false)
+  ((((b) < 0 && (i16)(a) <= (INT16_MAX + (i16)(b))) || ((b) >= 0 && (i16)(a) >= (INT16_MIN + (i16)(b)))) ? (*(dest) = (i16)(a) - (i16)(b), true) : false)
 #define SAFE_MUL_I16(dest, a, b) \
-  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i16) (a) <= (INT16_MAX / (i16) (b))) || ((a) < 0 && (b) < 0 && (i16) (a) >= (INT16_MAX / (i16) (b))) || ((a) > 0 && (b) < 0 && (i16) (b) >= (INT16_MIN / (i16) (a))) || ((a) < 0 && (b) > 0 && (i16) (a) >= (INT16_MIN / (i16) (b))))) ? (*(dest) = (i16) (a) * (i16) (b), true) : false)
+  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i16)(a) <= (INT16_MAX / (i16)(b))) || ((a) < 0 && (b) < 0 && (i16)(a) >= (INT16_MAX / (i16)(b))) || ((a) > 0 && (b) < 0 && (i16)(b) >= (INT16_MIN / (i16)(a))) || ((a) < 0 && (b) > 0 && (i16)(a) >= (INT16_MIN / (i16)(b))))) ? (*(dest) = (i16)(a) * (i16)(b), true) : false)
 
 #define SAFE_ADD_I32(dest, a, b) \
-  ((((b) > 0 && (i32) (a) <= (INT32_MAX - (i32) (b))) || ((b) <= 0 && (i32) (a) >= (INT32_MIN - (i32) (b)))) ? (*(dest) = (i32) (a) + (i32) (b), true) : false)
+  ((((b) > 0 && (i32)(a) <= (INT32_MAX - (i32)(b))) || ((b) <= 0 && (i32)(a) >= (INT32_MIN - (i32)(b)))) ? (*(dest) = (i32)(a) + (i32)(b), true) : false)
 #define SAFE_SUB_I32(dest, a, b) \
-  ((((b) < 0 && (i32) (a) <= (INT32_MAX + (i32) (b))) || ((b) >= 0 && (i32) (a) >= (INT32_MIN + (i32) (b)))) ? (*(dest) = (i32) (a) - (i32) (b), true) : false)
+  ((((b) < 0 && (i32)(a) <= (INT32_MAX + (i32)(b))) || ((b) >= 0 && (i32)(a) >= (INT32_MIN + (i32)(b)))) ? (*(dest) = (i32)(a) - (i32)(b), true) : false)
 #define SAFE_MUL_I32(dest, a, b) \
-  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i32) (a) <= (INT32_MAX / (i32) (b))) || ((a) < 0 && (b) < 0 && (i32) (a) >= (INT32_MAX / (i32) (b))) || ((a) > 0 && (b) < 0 && (i32) (b) >= (INT32_MIN / (i32) (a))) || ((a) < 0 && (b) > 0 && (i32) (a) >= (INT32_MIN / (i32) (b))))) ? (*(dest) = (i32) (a) * (i32) (b), true) : false)
+  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i32)(a) <= (INT32_MAX / (i32)(b))) || ((a) < 0 && (b) < 0 && (i32)(a) >= (INT32_MAX / (i32)(b))) || ((a) > 0 && (b) < 0 && (i32)(b) >= (INT32_MIN / (i32)(a))) || ((a) < 0 && (b) > 0 && (i32)(a) >= (INT32_MIN / (i32)(b))))) ? (*(dest) = (i32)(a) * (i32)(b), true) : false)
 
 #define SAFE_ADD_I64(dest, a, b) \
-  ((((b) > 0 && (i64) (a) <= (INT64_MAX - (i64) (b))) || ((b) <= 0 && (i64) (a) >= (INT64_MIN - (i64) (b)))) ? (*(dest) = (i64) (a) + (i64) (b), true) : false)
+  ((((b) > 0 && (i64)(a) <= (INT64_MAX - (i64)(b))) || ((b) <= 0 && (i64)(a) >= (INT64_MIN - (i64)(b)))) ? (*(dest) = (i64)(a) + (i64)(b), true) : false)
 #define SAFE_SUB_I64(dest, a, b) \
-  ((((b) < 0 && (i64) (a) <= (INT64_MAX + (i64) (b))) || ((b) >= 0 && (i64) (a) >= (INT64_MIN + (i64) (b)))) ? (*(dest) = (i64) (a) - (i64) (b), true) : false)
+  ((((b) < 0 && (i64)(a) <= (INT64_MAX + (i64)(b))) || ((b) >= 0 && (i64)(a) >= (INT64_MIN + (i64)(b)))) ? (*(dest) = (i64)(a) - (i64)(b), true) : false)
 #define SAFE_MUL_I64(dest, a, b) \
-  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i64) (a) <= (INT64_MAX / (i64) (b))) || ((a) < 0 && (b) < 0 && (i64) (a) >= (INT64_MAX / (i64) (b))) || ((a) > 0 && (b) < 0 && (i64) (b) >= (INT64_MIN / (i64) (a))) || ((a) < 0 && (b) > 0 && (i64) (a) >= (INT64_MIN / (i64) (b))))) ? (*(dest) = (i64) (a) * (i64) (b), true) : false)
+  ((((a) == 0 || (b) == 0) || (((a) > 0 && (b) > 0 && (i64)(a) <= (INT64_MAX / (i64)(b))) || ((a) < 0 && (b) < 0 && (i64)(a) >= (INT64_MAX / (i64)(b))) || ((a) > 0 && (b) < 0 && (i64)(b) >= (INT64_MIN / (i64)(a))) || ((a) < 0 && (b) > 0 && (i64)(a) >= (INT64_MIN / (i64)(b))))) ? (*(dest) = (i64)(a) * (i64)(b), true) : false)
 #else
 #define SAFE_ADD_I16(dest, a, b) \
   (!__builtin_add_overflow (a, b, dest))

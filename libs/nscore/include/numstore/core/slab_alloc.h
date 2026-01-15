@@ -16,7 +16,7 @@
  * limitations under the License.
  *
  * Description:
- *   Slab allocator 
+ *   Slab allocator
  */
 
 #include "numstore/intf/os/memory.h"

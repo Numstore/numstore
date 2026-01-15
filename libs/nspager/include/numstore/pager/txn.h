@@ -28,7 +28,7 @@ struct txn_data
 {
   /**
    * In the ARIES paper:
-   *   - P (prepared / in doubt) - Transaction has 
+   *   - P (prepared / in doubt) - Transaction has
    *     completed it's prepare phase in two phase
    *     commit but hasn't yet received a commit / abort decision
    *   - U (unprepared) - Transaction is active and hasn't prepared yet
@@ -58,8 +58,8 @@ struct txn_data
     TX_COMMITTED, // (P)
 
     /**
-     * Just a special case for done transactions with end record 
-     * appended. You'd just remove the transaction from the 
+     * Just a special case for done transactions with end record
+     * appended. You'd just remove the transaction from the
      * table when done
      */
     TX_DONE,

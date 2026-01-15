@@ -938,8 +938,8 @@ pgr_update_master_lsn (struct pager *p, lsn mlsn, error *e)
     }
 
   /**
-   * Flush root node to disk. It doesn't hurt. Technically we don't need to 
-   * but if we want checkpoint to be "done" after this call, root page should be persisted (forced) 
+   * Flush root node to disk. It doesn't hurt. Technically we don't need to
+   * but if we want checkpoint to be "done" after this call, root page should be persisted (forced)
    * to disk
    */
   if (pgr_flush (p, root.pgr, e))

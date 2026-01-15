@@ -94,6 +94,7 @@ add_subdirectory(libs/nspager)
 add_subdirectory(libs/nsusecase)
 #add_subdirectory(libs/apps/nsdblite)
 add_subdirectory(libs/apps/nsfslite)
+add_subdirectory(libs/apps/nslite)
 add_subdirectory(libs/nscompiler)
 add_subdirectory(apps)
 
@@ -108,6 +109,7 @@ add_library(numstore STATIC
     $<TARGET_OBJECTS:nspager_objects>
     $<TARGET_OBJECTS:nsusecase_objects>
     $<TARGET_OBJECTS:nsfslite_objects>
+    $<TARGET_OBJECTS:nslite_objects>
     $<TARGET_OBJECTS:nscompiler_objects>
 )
 
@@ -120,6 +122,7 @@ target_include_directories(numstore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nspager/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecase/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/apps/nsfslite/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/apps/nslite/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nscompiler/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -143,6 +146,7 @@ install(DIRECTORY
     libs/nspager/include/
     libs/nsusecase/include/
     libs/apps/nsfslite/include/
+    libs/apps/nslite/include/
     libs/nscompiler/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"

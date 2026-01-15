@@ -54,9 +54,9 @@ enum page_type
 
 // COMMON PAGE HEADER
 #define PG_CKSM_OFST ((p_size)0)
-#define PG_HEDR_OFST ((p_size) (PG_CKSM_OFST + sizeof (u32)))
-#define PG_PLSN_OFST ((p_size) (PG_HEDR_OFST + sizeof (pgh)))
-#define PG_COMMN_END ((p_size) (PG_PLSN_OFST + sizeof (lsn)))
+#define PG_HEDR_OFST ((p_size)(PG_CKSM_OFST + sizeof (u32)))
+#define PG_PLSN_OFST ((p_size)(PG_HEDR_OFST + sizeof (pgh)))
+#define PG_COMMN_END ((p_size)(PG_PLSN_OFST + sizeof (lsn)))
 
 typedef struct
 {
