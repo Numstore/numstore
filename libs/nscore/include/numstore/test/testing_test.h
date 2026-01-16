@@ -219,7 +219,7 @@ reset_local_coverage (void)
   do                                                    \
     {                                                   \
       (ename)->print_trace = true;                      \
-      err_t __ret = (err_t)(expr);                      \
+      err_t __ret = (err_t) (expr);                     \
       if ((__ret) < SUCCESS)                            \
         {                                               \
           fail_test ("Expression: %s failed\n", #expr); \
@@ -294,6 +294,13 @@ reset_local_coverage (void)
   while (0)
 
 #define test_assert_memequal(a, b, size) test_assert_int_equal (memcmp (a, b, size), 0)
+#define test_assert_str_equal(a, b)                       \
+  do                                                      \
+    {                                                     \
+      test_assert_int_equal (i_strlen (a), i_strlen (b)); \
+      test_assert_memequal (a, b, i_strlen (b));          \
+    }                                                     \
+  while (0)
 
 HEADER_FUNC bool
 local_coverage_hit (const char *label)

@@ -109,6 +109,7 @@ i64 i_file_size (i_file *fp, error *e);
 err_t i_remove_quiet (const char *fname, error *e);
 err_t i_mkstemp (i_file *dest, char *tmpl, error *e);
 err_t i_unlink (const char *name, error *e);
+err_t i_mkdir (const char *name, error *e);
 
 typedef enum
 {
@@ -124,3 +125,4 @@ i64 i_seek (i_file *fp, u64 offset, seek_t whence, error *e);
 err_t i_access_rw (const char *fname, error *e);
 bool i_exists_rw (const char *fname);
 err_t i_touch (const char *fname, error *e);
+err_t i_dir_exists (const char *fname, bool *dest, error *e);

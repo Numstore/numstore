@@ -34,6 +34,8 @@
 #define CURSOR_POOL_SIZE 100
 #define CLI_MAX_FILTERS 32
 #define MAX_TIDS 1000
+#define MAX_OPEN_FILES 10
+#define MAX_FILE_NAME 4096
 
 // #define DUMB_PAGER
 

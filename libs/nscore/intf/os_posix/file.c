@@ -790,6 +790,17 @@ i_unlink (const char *name, error *e)
   return SUCCESS;
 }
 
+err_t
+i_mkdir (const char *name, error *e)
+{
+  if (mkdir (name, S_IRWXU | S_IRWXG | S_IRWXO))
+    {
+      error_causef (e, ERR_IO, "mkdir: %s", strerror (errno));
+      return e->cause_code;
+    }
+  return SUCCESS;
+}
+
 i64
 i_seek (i_file *fp, u64 offset, seek_t whence, error *e)
 {
@@ -859,6 +870,29 @@ i_touch (const char *fname, error *e)
   i_file fd = { 0 };
   err_t_wrap (i_open_rw (&fd, fname, e), e);
   err_t_wrap (i_close (&fd, e), e);
+
+  return SUCCESS;
+}
+
+err_t
+i_dir_exists (const char *fname, bool *dest, error *e)
+{
+  struct stat statbuf;
+  if (stat (fname, &statbuf) != 0)
+    {
+      if (ENOENT == errno)
+        {
+          *dest = false;
+          return 0;
+        }
+      else
+        {
+          error_causef (e, ERR_IO, "stat %s: %s", fname, strerror (errno));
+          return e->cause_code;
+        }
+    }
+
+  *dest = S_ISDIR (statbuf.st_mode);
 
   return SUCCESS;
 }

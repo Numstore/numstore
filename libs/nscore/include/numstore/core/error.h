@@ -65,6 +65,10 @@ typedef enum
   // User Errors
   ERR_INVALID_ARGUMENT = -18,
   ERR_DUPLICATE_COMMIT = -19,
+
+  // Continue here
+  ERR_TOO_MANY_FILES = -20,
+
 #ifndef NTEST
   ERR_FAILED_TEST = -29,
 #endif

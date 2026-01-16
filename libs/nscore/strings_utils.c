@@ -36,7 +36,7 @@ line_length (const char *buf, u64 max)
 
   if (nl != NULL)
     {
-      ret = (u64)(nl - buf);
+      ret = (u64) (nl - buf);
     }
   else
     {
