@@ -10,9 +10,9 @@ err_t
 fpool_init (struct file_pool *dest, const char *base, error *e)
 {
   // Check if base directory exists
-  bool dir_exists;
-  err_t_wrap (i_dir_exists (base, &dir_exists, e), e);
-  if (!dir_exists)
+  bool exists;
+  err_t_wrap (i_dir_exists (base, &exists, e), e);
+  if (!exists)
     {
       return error_causef (e, ERR_INVALID_ARGUMENT, "Directory: %s doesn't exist", base);
     }
@@ -30,8 +30,8 @@ fpool_init (struct file_pool *dest, const char *base, error *e)
     }
 
   // Create directory
-  err_t_wrap (i_dir_exists (dest->temp_fname, &dir_exists, e), e);
-  if (!dir_exists)
+  err_t_wrap (i_dir_exists (dest->temp_fname, &exists, e), e);
+  if (!exists)
     {
       err_t_wrap (i_mkdir (dest->temp_fname, e), e);
     }
@@ -72,17 +72,30 @@ get_extension (u8 page_type)
     }
 }
 
-#define PAGE_TYPE_MASK 0xF0000000ULL // Mask to get the file type of the address
-#define FILE_NUM_MASK 0x0FFFFFFFULL  // Mask to get file part of the address
-#define PAGE_TYPE_SHIFT 28           // Bits for the file name
-#define FOLDER_LEN 2                 // "01"
-#define FILENAME_LEN 9               // "000000001" = 2^28 = 268,435,455
-#define EXTENSION_LEN 4              // ".wal"
+// Shifts
+#define FILE_TYPE_SHIFT (FILE_NUM_BITS + FILE_OFST_BITS) // 60
+#define FILE_NUM_SHIFT (FILE_OFST_BITS)                  // 24
+
+// Masks
+#define FILE_TYPE_MASK (((1ULL << FILE_TYPE_BITS) - 1) << FILE_TYPE_SHIFT) // 0xF000000000000000
+#define FILE_NUM_MASK (((1ULL << FILE_NUM_BITS) - 1) << FILE_NUM_SHIFT)    // 0x0FFFFFFFFF000000
+#define FILE_OFST_MASK ((1ULL << FILE_OFST_BITS) - 1)                      // 0x0000000000FFFFFF
+
+// Extractors
+#define FILE_TYPE(addr) (((addr)&FILE_TYPE_MASK) >> FILE_TYPE_SHIFT)
+#define FILE_NUM(addr) (((addr)&FILE_NUM_MASK) >> FILE_NUM_SHIFT)
+#define FILE_OFST(addr) ((addr)&FILE_OFST_MASK)
+
+// String lengths - calculate decimal digits needed for max value
+// Formula: ceil(N * log10(2)) = ceil(N * 0.30103) ≈ (N * 30103 + 99999) / 100000
+#define FILE_TYPE_LEN ((FILE_TYPE_BITS * 30103UL + 99999UL) / 100000UL) // 2
+#define FILE_NUM_LEN ((FILE_NUM_BITS * 30103UL + 99999UL) / 100000UL)   // 11
+#define EXTENSION_LEN 4                                                 // ".wal"
 
 static inline void
 fpool_append_folder (struct file_pool *f, u64 addr)
 {
-  u8 type = (addr & PAGE_TYPE_MASK) >> PAGE_TYPE_SHIFT;
+  u8 type = FILE_TYPE (addr);
   u32 ofst = f->baselen;
   u32 len = i_snprintf (f->temp_fname + ofst, MAX_FILE_NAME - ofst, "%02u/", type);
 
@@ -92,8 +105,8 @@ fpool_append_folder (struct file_pool *f, u64 addr)
 static inline void
 fpool_append_file (struct file_pool *f, u64 addr)
 {
-  u8 type = (addr & PAGE_TYPE_MASK) >> PAGE_TYPE_SHIFT;
-  u32 file_num = addr & FILE_NUM_MASK;
+  u8 type = FILE_TYPE (addr);
+  u32 file_num = FILE_NUM (addr);
 
   u32 ofst = f->baselen + 2 + 1; // "00/"
   u32 len = i_snprintf (f->temp_fname + ofst, MAX_FILE_NAME - ofst, "%09u%s", file_num, get_extension (type));
@@ -107,10 +120,10 @@ fpool_open_file (struct file_pool *f, struct i_file *dest, u64 adr, error *e)
   fpool_append_folder (f, adr);
 
   // Check if folder exists
-  bool dir_exists;
-  err_t_wrap (i_dir_exists (f->temp_fname, &dir_exists, e), e);
+  bool exists;
+  err_t_wrap (i_dir_exists (f->temp_fname, &exists, e), e);
 
-  if (!dir_exists)
+  if (!exists)
     {
       err_t_wrap (i_mkdir (f->temp_fname, e), e);
     }
@@ -119,7 +132,14 @@ fpool_open_file (struct file_pool *f, struct i_file *dest, u64 adr, error *e)
   fpool_append_file (f, adr);
 
   // Open the file
+  err_t_wrap (i_file_exists (f->temp_fname, &exists, e), e);
   err_t_wrap (i_open_rw (dest, f->temp_fname, e), e);
+
+  if (!exists)
+    {
+      // Pre allocate segments
+      err_t_wrap (i_fallocate (dest, 1 << FILE_OFST_BITS, e), e);
+    }
 
   return SUCCESS;
 }
@@ -270,6 +290,113 @@ fpool_close (struct file_pool *f, error *e)
 
   return e->cause_code;
 }
+
+u64
+page_to_addr (pgno page_num)
+{
+  u64 byte_offset = page_num << PAGE_POW; // page_num * PAGE_SIZE
+
+  u64 file_num = byte_offset >> FILE_OFST_BITS;
+  u32 file_offset = byte_offset & FILE_OFST_MASK;
+
+  return (0ULL << FILE_TYPE_SHIFT) // page_type = 0
+         | (file_num << FILE_NUM_SHIFT)
+         | file_offset;
+}
+
+u64
+lsn_to_addr (lsn l)
+{
+  u64 file_num = l >> FILE_OFST_BITS;
+  u32 file_offset = l & FILE_OFST_MASK;
+
+  return (1ULL << FILE_TYPE_SHIFT) // page_type = 1 (WAL)
+         | (file_num << FILE_NUM_SHIFT)
+         | file_offset;
+}
+
+#ifndef NTEST
+
+TEST (TT_UNIT, page_to_addr_conversion)
+{
+  // Test page 0
+  u64 addr = page_to_addr (0);
+  test_assert_int_equal (FILE_TYPE (addr), 0);
+  test_assert_int_equal (FILE_NUM (addr), 0);
+  test_assert_int_equal (FILE_OFST (addr), 0);
+
+  // Test page 2 (offset = 2 * 4096 = 8192)
+  addr = page_to_addr (2);
+  test_assert_int_equal (FILE_TYPE (addr), 0);
+  test_assert_int_equal (FILE_NUM (addr), 0);
+  test_assert_int_equal (FILE_OFST (addr), 8192);
+
+  // Test page that fits exactly in first file
+  // First file holds: 2^24 bytes / 4096 bytes/page = 4096 pages (0-4095)
+  u64 pages_per_file = (1ULL << FILE_OFST_BITS) >> PAGE_POW;
+  addr = page_to_addr (pages_per_file - 1); // Last page of first file
+  test_assert_int_equal (FILE_TYPE (addr), 0);
+  test_assert_int_equal (FILE_NUM (addr), 0);
+  test_assert_int_equal (FILE_OFST (addr), (1ULL << FILE_OFST_BITS) - PAGE_SIZE);
+
+  // Test first page of second file (page 4096)
+  addr = page_to_addr (pages_per_file);
+  test_assert_int_equal (FILE_TYPE (addr), 0);
+  test_assert_int_equal (FILE_NUM (addr), 1);
+  test_assert_int_equal (FILE_OFST (addr), 0);
+
+  // Test page in second file (page 4097)
+  addr = page_to_addr (pages_per_file + 1);
+  test_assert_int_equal (FILE_TYPE (addr), 0);
+  test_assert_int_equal (FILE_NUM (addr), 1);
+  test_assert_int_equal (FILE_OFST (addr), 4096);
+}
+
+TEST (TT_UNIT, lsn_to_addr_conversion)
+{
+  // Test LSN 0
+  u64 addr = lsn_to_addr (0);
+  test_assert_int_equal (FILE_TYPE (addr), 1);
+  test_assert_int_equal (FILE_NUM (addr), 0);
+  test_assert_int_equal (FILE_OFST (addr), 0);
+
+  // Test LSN 10
+  addr = lsn_to_addr (10);
+  test_assert_int_equal (FILE_TYPE (addr), 1);
+  test_assert_int_equal (FILE_NUM (addr), 0);
+  test_assert_int_equal (FILE_OFST (addr), 10);
+
+  // Test LSN at end of first file
+  u64 segment_size = 1ULL << FILE_OFST_BITS;
+  addr = lsn_to_addr (segment_size - 1);
+  test_assert_int_equal (FILE_TYPE (addr), 1);
+  test_assert_int_equal (FILE_NUM (addr), 0);
+  test_assert_int_equal (FILE_OFST (addr), segment_size - 1);
+
+  // Test LSN at start of second file
+  addr = lsn_to_addr (segment_size);
+  test_assert_int_equal (FILE_TYPE (addr), 1);
+  test_assert_int_equal (FILE_NUM (addr), 1);
+  test_assert_int_equal (FILE_OFST (addr), 0);
+
+  // Test LSN in second file
+  addr = lsn_to_addr (segment_size + 100);
+  test_assert_int_equal (FILE_TYPE (addr), 1);
+  test_assert_int_equal (FILE_NUM (addr), 1);
+  test_assert_int_equal (FILE_OFST (addr), 100);
+
+  // Test large LSN (multiple files)
+  addr = lsn_to_addr (segment_size * 5 + 12345);
+  test_assert_int_equal (FILE_TYPE (addr), 1);
+  test_assert_int_equal (FILE_NUM (addr), 5);
+  test_assert_int_equal (FILE_OFST (addr), 12345);
+}
+
+#endif
+
+// Examples:
+// lsn = 10 -> file_num = 10 >> 24 = 0, file_offset = 10
+// Result: type=1, file=0, offset=10
 
 ////////////////////////////////////////////////////////////
 /// Tests

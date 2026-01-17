@@ -36,3 +36,6 @@ err_t fpool_init (struct file_pool *dest, const char *base, error *e);
 struct i_file *fpool_getf (struct file_pool *f, u64 adr, error *e);
 void fpool_release (struct file_pool *f, struct i_file *fp);
 err_t fpool_close (struct file_pool *f, error *e);
+
+u64 page_to_addr (pgno pg);
+u64 lsn_to_addr (lsn l);

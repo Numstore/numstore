@@ -105,6 +105,7 @@ err_t i_write_all (i_file *fp, const void *src, u64 nbytes, error *e);
 ////////////////////////////////////////////////////////////
 // Others
 err_t i_truncate (i_file *fp, u64 bytes, error *e);
+err_t i_fallocate (i_file *fp, u64 bytes, error *e);
 i64 i_file_size (i_file *fp, error *e);
 err_t i_remove_quiet (const char *fname, error *e);
 err_t i_mkstemp (i_file *dest, char *tmpl, error *e);
@@ -126,3 +127,4 @@ err_t i_access_rw (const char *fname, error *e);
 bool i_exists_rw (const char *fname);
 err_t i_touch (const char *fname, error *e);
 err_t i_dir_exists (const char *fname, bool *dest, error *e);
+err_t i_file_exists (const char *fname, bool *dest, error *e);
