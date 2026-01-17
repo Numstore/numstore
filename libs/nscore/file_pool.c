@@ -1,3 +1,4 @@
+#include "config.h"
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/file_pool.h>
@@ -8,32 +9,32 @@
 err_t
 fpool_init (struct file_pool *dest, const char *base, error *e)
 {
-  bool base_exists;
-  err_t_wrap (i_dir_exists (base, &base_exists, e), e);
-  if (!base_exists)
+  // Check if base directory exists
+  bool dir_exists;
+  err_t_wrap (i_dir_exists (base, &dir_exists, e), e);
+  if (!dir_exists)
     {
       return error_causef (e, ERR_INVALID_ARGUMENT, "Directory: %s doesn't exist", base);
     }
 
+  // Add a trailing slash and copy into temp_fname
   u32 base_len = i_strlen (base);
   bool needs_slash = (base_len > 0 && base[base_len - 1] != '/');
   if (needs_slash)
     {
-      i_snprintf (dest->temp_fname, MAX_FILE_NAME, "%s/numstore", base);
+      dest->baselen = i_snprintf (dest->temp_fname, MAX_FILE_NAME, "%s/numstore/", base);
     }
   else
     {
-      i_snprintf (dest->temp_fname, MAX_FILE_NAME, "%snumstore", base);
+      dest->baselen = i_snprintf (dest->temp_fname, MAX_FILE_NAME, "%snumstore/", base);
     }
 
-  bool db_folder_exists;
-  err_t_wrap (i_dir_exists (dest->temp_fname, &db_folder_exists, e), e);
-  if (!db_folder_exists) // FIXED: was checking if exists, should check if doesn't exist
+  // Create directory
+  err_t_wrap (i_dir_exists (dest->temp_fname, &dir_exists, e), e);
+  if (!dir_exists)
     {
       err_t_wrap (i_mkdir (dest->temp_fname, e), e);
     }
-
-  dest->base = base;
 
   ht_init_fp (&dest->table, dest->data, arrlen (dest->data));
   i_memset (dest->files, 0, sizeof (dest->files));
@@ -79,25 +80,48 @@ get_extension (u8 page_type)
 #define EXTENSION_LEN 4              // ".wal"
 
 static inline void
-construct_fname (const char *base, char dest[MAX_FILE_NAME], u64 addr)
+fpool_append_folder (struct file_pool *f, u64 addr)
 {
-  u8 page_type = (addr & PAGE_TYPE_MASK) >> PAGE_TYPE_SHIFT;
+  u8 type = (addr & PAGE_TYPE_MASK) >> PAGE_TYPE_SHIFT;
+  u32 ofst = f->baselen;
+  u32 len = i_snprintf (f->temp_fname + ofst, MAX_FILE_NAME - ofst, "%02u/", type);
+
+  ASSERT (ofst + len < MAX_FILE_NAME);
+}
+
+static inline void
+fpool_append_file (struct file_pool *f, u64 addr)
+{
+  u8 type = (addr & PAGE_TYPE_MASK) >> PAGE_TYPE_SHIFT;
   u32 file_num = addr & FILE_NUM_MASK;
-  const char *ext = get_extension (page_type);
 
-  u32 base_len = i_strlen (base);
-  bool needs_slash = (base_len > 0 && base[base_len - 1] != '/');
+  u32 ofst = f->baselen + 2 + 1; // "00/"
+  u32 len = i_snprintf (f->temp_fname + ofst, MAX_FILE_NAME - ofst, "%09u%s", file_num, get_extension (type));
 
-  if (needs_slash)
+  ASSERT (ofst + len < MAX_FILE_NAME);
+}
+
+static inline err_t
+fpool_open_file (struct file_pool *f, struct i_file *dest, u64 adr, error *e)
+{
+  fpool_append_folder (f, adr);
+
+  // Check if folder exists
+  bool dir_exists;
+  err_t_wrap (i_dir_exists (f->temp_fname, &dir_exists, e), e);
+
+  if (!dir_exists)
     {
-      ASSERT (i_strlen (base) + i_strlen ("/numstore//") + FOLDER_LEN + FILENAME_LEN + EXTENSION_LEN < MAX_FILE_NAME);
-      i_snprintf (dest, MAX_FILE_NAME, "%s/numstore/%02u/%09u%s", base, page_type, file_num, ext);
+      err_t_wrap (i_mkdir (f->temp_fname, e), e);
     }
-  else
-    {
-      ASSERT (i_strlen (base) + i_strlen ("numstore//") + FOLDER_LEN + FILENAME_LEN + EXTENSION_LEN < MAX_FILE_NAME);
-      i_snprintf (dest, MAX_FILE_NAME, "%snumstore/%02u/%09u%s", base, page_type, file_num, ext);
-    }
+
+  // Append file name at the end
+  fpool_append_file (f, adr);
+
+  // Open the file
+  err_t_wrap (i_open_rw (dest, f->temp_fname, e), e);
+
+  return SUCCESS;
 }
 
 struct i_file *
@@ -134,10 +158,8 @@ fpool_getf (struct file_pool *f, u64 adr, error *e)
       // Empty - use this spot
       if (f->files[k].flag == 0)
         {
-          construct_fname (f->base, f->temp_fname, adr);
-
           // Open the file
-          if (i_open_rw (&f->files[k].fp, f->temp_fname, e))
+          if (fpool_open_file (f, &f->files[k].fp, adr, e))
             {
               latch_unlock (&f->files[k].l);
               latch_unlock (&f->l);
@@ -184,10 +206,8 @@ fpool_getf (struct file_pool *f, u64 adr, error *e)
               return NULL;
             }
 
-          // Open a file here
-          construct_fname (f->base, f->temp_fname, adr);
-
-          if (i_open_rw (&f->files[k].fp, f->temp_fname, e))
+          // Open the file
+          if (fpool_open_file (f, &f->files[k].fp, adr, e))
             {
               latch_unlock (&f->files[k].l);
               latch_unlock (&f->l);
@@ -256,65 +276,13 @@ fpool_close (struct file_pool *f, error *e)
 
 #ifndef NTEST
 
-TEST (TT_UNIT, construct_fname)
-{
-  TEST_CASE ("construct_fname_basic")
-  {
-    char dest[MAX_FILE_NAME];
-
-    // Test page_type=0 (db), file_num=1
-    u64 addr = (0ULL << 28) | 1;
-    construct_fname ("/home/theo", dest, addr);
-    test_assert_str_equal (dest, "/home/theo/numstore/00/000000001.db");
-
-    // Test page_type=1 (wal), file_num=42
-    addr = (1ULL << 28) | 42;
-    construct_fname ("/home/theo", dest, addr);
-    test_assert_str_equal (dest, "/home/theo/numstore/01/000000042.wal");
-
-    // Test max file number (2^28 - 1 = 268435455)
-    addr = (0ULL << 28) | 268435455;
-    construct_fname ("/var/lib", dest, addr);
-    test_assert_str_equal (dest, "/var/lib/numstore/00/268435455.db");
-  }
-
-  TEST_CASE ("construct_fname_trailing_slash")
-  {
-    char dest[MAX_FILE_NAME];
-
-    // Base with trailing slash
-    u64 addr = (1ULL << 28) | 100;
-    construct_fname ("/home/theo/", dest, addr);
-    test_assert_str_equal (dest, "/home/theo/numstore/01/000000100.wal");
-
-    // Base without trailing slash should produce same result
-    char dest2[MAX_FILE_NAME];
-    construct_fname ("/home/theo", dest2, addr);
-    test_assert_str_equal (dest, dest2);
-  }
-
-  TEST_CASE ("construct_fname_edge_cases")
-  {
-    char dest[MAX_FILE_NAME];
-
-    // File number 0
-    u64 addr = (0ULL << 28) | 0;
-    construct_fname ("/tmp", dest, addr);
-    test_assert_str_equal (dest, "/tmp/numstore/00/000000000.db");
-
-    // Empty base path
-    addr = (1ULL << 28) | 5;
-    construct_fname ("", dest, addr);
-    test_assert_str_equal (dest, "numstore/01/000000005.wal");
-  }
-}
-
 TEST (TT_UNIT, fpool)
 {
   TEST_CASE ("fpool_init_state")
   {
+    error e = error_create ();
     struct file_pool pool;
-    fpool_init (&pool, "/test/base");
+    test_err_t_wrap (fpool_init (&pool, "./", &e), &e);
 
     // All files should be marked as unused (flag = 0)
     for (u32 i = 0; i < arrlen (pool.files); ++i)
@@ -330,10 +298,7 @@ TEST (TT_UNIT, fpool)
   {
     struct file_pool pool;
     error e = error_create ();
-    fpool_init (&pool, "/tmp/numstore_test");
-
-    // Create test directory structure
-    test_err_t_wrap (i_mkdir ("/tmp/numstore_test/numstore/00", &e), &e);
+    test_err_t_wrap (fpool_init (&pool, "./", &e), &e);
 
     // Get a file - should open it
     u64 addr1 = (0ULL << 28) | 1;
@@ -365,10 +330,7 @@ TEST (TT_UNIT, fpool)
   {
     struct file_pool pool;
     error e = error_create ();
-    fpool_init (&pool, "/tmp/numstore_test");
-
-    // Create test directory structure
-    test_err_t_wrap (i_mkdir ("/tmp/numstore_test/numstore/00", &e), &e);
+    test_err_t_wrap (fpool_init (&pool, "./", &e), &e);
 
     // Open first file
     u64 addr1 = (0ULL << 28) | 1;
@@ -396,10 +358,7 @@ TEST (TT_UNIT, fpool)
   {
     struct file_pool pool;
     error e = error_create ();
-    fpool_init (&pool, "/tmp/numstore_test");
-
-    // Create test directory structure
-    test_err_t_wrap (i_mkdir ("/tmp/numstore_test/numstore/00", &e), &e);
+    test_err_t_wrap (fpool_init (&pool, "./", &e), &e);
 
     // Fill the pool completely
     struct i_file *files[arrlen (pool.files)];
@@ -440,17 +399,15 @@ TEST (TT_UNIT, fpool)
   {
     struct file_pool pool;
     error e = error_create ();
-    fpool_init (&pool, "/tmp/numstore_test");
-
-    // Create test directory structure
-    test_err_t_wrap (i_mkdir ("/tmp/numstore_test/numstore/00", &e), &e);
+    test_err_t_wrap (fpool_init (&pool, "./", &e), &e);
 
     // Fill the pool completely and keep all files pinned
     struct i_file *files[arrlen (pool.files)];
     for (u32 i = 0; i < arrlen (pool.files); ++i)
       {
         u64 addr = (0ULL << 28) | i;
-        test_err_t_wrap (files[i] = fpool_getf (&pool, addr, &e), &e);
+        files[i] = fpool_getf (&pool, addr, &e);
+        test_fail_if_null (files[i]);
       }
 
     // Try to get one more file - should fail with ERR_TOO_MANY_FILES
@@ -472,26 +429,30 @@ TEST (TT_UNIT, fpool)
   {
     struct file_pool pool;
     error e = error_create ();
-    fpool_init (&pool, "/tmp/numstore_test");
-
-    // Create test directory structure
-    test_err_t_wrap (i_mkdir ("/tmp/numstore_test/numstore/00", &e), &e);
+    test_err_t_wrap (fpool_init (&pool, "./", &e), &e);
 
     test_assert_int_equal (pool.clock, 0);
 
     // Open first file - clock should advance
     u64 addr1 = (0ULL << 28) | 1;
-    test_err_t_wrap (fpool_getf (&pool, addr1, &e), &e);
+    struct i_file *fp1 = fpool_getf (&pool, addr1, &e);
+    test_fail_if_null (fp1);
     test_assert_int_equal (pool.clock, 1);
 
     // Open second file - clock should advance again
     u64 addr2 = (0ULL << 28) | 2;
-    test_err_t_wrap (fpool_getf (&pool, addr2, &e), &e);
+    struct i_file *fp2 = fpool_getf (&pool, addr2, &e);
+    test_fail_if_null (fp2);
     test_assert_int_equal (pool.clock, 2);
 
     // Getting existing file should NOT advance clock
-    test_err_t_wrap (fpool_getf (&pool, addr1, &e), &e);
+    struct i_file *fp3 = fpool_getf (&pool, addr1, &e);
+    test_fail_if_null (fp3);
     test_assert_int_equal (pool.clock, 2);
+
+    fpool_release (&pool, fp1);
+    fpool_release (&pool, fp2);
+    fpool_release (&pool, fp3);
 
     // Clean up
     fpool_close (&pool, &e);

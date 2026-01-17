@@ -29,7 +29,7 @@ struct file_pool
   struct latch l;
 
   char temp_fname[MAX_FILE_NAME];
-  const char *base;
+  u32 baselen;
 };
 
 err_t fpool_init (struct file_pool *dest, const char *base, error *e);
