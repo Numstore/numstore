@@ -53,7 +53,12 @@ htable_create (u32 n, error *e)
 
   ret->cap = n;
   ret->size = 0;
-  latch_init (&ret->latch);
+  err_t err = latch_init (&ret->latch, e);
+  if (err < SUCCESS)
+    {
+      i_free (ret);
+      return NULL;
+    }
 
   DBG_ASSERT (htable, ret);
 

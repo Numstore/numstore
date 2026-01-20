@@ -33,7 +33,8 @@ txn_init (struct txn *dest, txid tid, struct txn_data data)
   dest->tid = tid;
   dest->locks = NULL;
   hnode_init (&dest->node, tid);
-  latch_init (&dest->l);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->l, &e), &e);
 }
 
 void
@@ -41,7 +42,8 @@ txn_key_init (struct txn *dest, txid tid)
 {
   dest->tid = tid;
   hnode_init (&dest->node, tid);
-  latch_init (&dest->l);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->l, &e), &e);
 }
 
 void

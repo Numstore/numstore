@@ -40,7 +40,8 @@ srlizr_create (u8 *data, u32 dcap)
     .dlen = 0,
     .dcap = dcap,
   };
-  latch_init (&ret.latch);
+  error e = error_create ();
+  err_t_panic (latch_init (&ret.latch, &e), &e);
   return ret;
 }
 

@@ -59,7 +59,13 @@ walos_open (const char *fname, error *e)
       return NULL;
     }
 
-  latch_init (&ret->l);
+  err_t err = latch_init (&ret->l, e);
+  if (err < SUCCESS)
+    {
+      i_close (&ret->fd, e);
+      i_free (ret);
+      return NULL;
+    }
 
   ret->buffer = cbuffer_create (ret->_buffer, sizeof (ret->_buffer));
   ret->flushed_lsn = len;

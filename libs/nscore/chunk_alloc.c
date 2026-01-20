@@ -140,7 +140,8 @@ chunk_alloc_create (struct chunk_alloc *dest, struct chunk_alloc_settings settin
     .total_used = 0,
   };
 
-  latch_init (&dest->latch);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->latch, &e), &e);
 
   DBG_ASSERT (chunk_alloc, dest);
 }

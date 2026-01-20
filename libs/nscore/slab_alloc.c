@@ -26,7 +26,8 @@ slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab)
     .size = size,
     .cap_per_slab = cap_per_slab,
   };
-  latch_init (&dest->l);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->l, &e), &e);
 }
 
 void

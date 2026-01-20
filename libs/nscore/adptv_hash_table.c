@@ -62,7 +62,13 @@ adptv_htable_init (struct adptv_htable *dest, struct adptv_htable_settings setti
 
   dest->settings = settings;
   dest->migrate_pos = 0;
-  latch_init (&dest->latch);
+  err_t ret = latch_init (&dest->latch, e);
+  if (ret < SUCCESS)
+    {
+      htable_free (dest->current);
+      htable_free (dest->prev);
+      return ret;
+    }
 
   DBG_ASSERT (adptv_htable, dest);
 

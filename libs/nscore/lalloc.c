@@ -44,7 +44,8 @@ lalloc_create (u8 *data, u32 limit)
     .limit = limit,
     .data = data,
   };
-  latch_init (&ret.latch);
+  error e = error_create ();
+  err_t_panic (latch_init (&ret.latch, &e), &e);
   DBG_ASSERT (lalloc, &ret);
   return ret;
 }

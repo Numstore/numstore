@@ -60,7 +60,12 @@ txnt_open (struct txn_table *dest, error *e)
   };
 
   err_t_wrap (adptv_htable_init (&dest->t, settings, e), e);
-  latch_init (&dest->l);
+  err_t ret = latch_init (&dest->l, e);
+  if (ret < SUCCESS)
+    {
+      adptv_htable_free (&dest->t);
+      return ret;
+    }
 
   return SUCCESS;
 }

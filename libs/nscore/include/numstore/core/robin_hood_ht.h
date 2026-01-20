@@ -81,7 +81,8 @@ HT_INIT (HASH_TABLE_T *dest, HENTRY_T *arr, u32 nelem)
   dest->elems = arr;
   dest->cap = nelem;
 
-  latch_init (&dest->l);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->l, &e), &e);
 }
 
 HEADER_FUNC hti_res

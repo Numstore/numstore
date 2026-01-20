@@ -45,7 +45,12 @@ clck_alloc_open (struct clck_alloc *ca, size_t elem_size, u32 nelems, error *e)
       return error_change_causef (e, ERR_NOMEM, "Failed to allocate clock allocator");
     }
 
-  latch_init (&ca->l);
+  err_t ret = latch_init (&ca->l, e);
+  if (ret < SUCCESS)
+    {
+      i_free (ca->data);
+      return ret;
+    }
 
   i_memset (ca->data, 0, total_size);
 

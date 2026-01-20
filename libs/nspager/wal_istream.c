@@ -57,7 +57,12 @@ walis_open (struct wal_istream *dest, const char *fname, error *e)
 
   dest->curlsn = 0;
   dest->lsnidx = 0;
-  latch_init (&dest->latch);
+  err_t ret = latch_init (&dest->latch, e);
+  if (ret < SUCCESS)
+    {
+      i_close (&dest->fd, e);
+      return ret;
+    }
 
   DBG_ASSERT (wal_istream, dest);
 

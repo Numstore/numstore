@@ -51,7 +51,8 @@ static void
 dpge_key_init (struct dpg_entry *dest, pgno pg)
 {
   dest->pg = pg;
-  latch_init (&dest->l);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->l, &e), &e);
   hnode_init (&dest->node, pg);
 }
 
@@ -60,7 +61,8 @@ dpge_init (struct dpg_entry *dest, pgno pg, lsn rec_lsn)
 {
   dest->pg = pg;
   dest->rec_lsn = rec_lsn;
-  latch_init (&dest->l);
+  error e = error_create ();
+  err_t_panic (latch_init (&dest->l, &e), &e);
   hnode_init (&dest->node, pg);
 }
 
@@ -111,7 +113,12 @@ dpgt_open (struct dpg_table *dest, error *e)
   };
 
   err_t_wrap (adptv_htable_init (&dest->table, settings, e), e);
-  latch_init (&dest->l);
+  err_t ret = latch_init (&dest->l, e);
+  if (ret < SUCCESS)
+    {
+      adptv_htable_free (&dest->table);
+      return ret;
+    }
 
   return SUCCESS;
 }

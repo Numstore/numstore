@@ -45,7 +45,12 @@ err_t
 wal_open (struct wal *dest, const char *fname, error *e)
 {
   err_t_wrap (walf_open (&dest->wf, fname, e), e);
-  latch_init (&dest->latch);
+  err_t ret = latch_init (&dest->latch, e);
+  if (ret < SUCCESS)
+    {
+      walf_close (&dest->wf, e);
+      return ret;
+    }
   return SUCCESS;
 }
 

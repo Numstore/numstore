@@ -52,7 +52,12 @@ dblb_create (struct dbl_buffer *dest, u32 size, u32 initial_cap, error *e)
     .data = data,
   };
 
-  latch_init (&dest->latch);
+  err_t ret = latch_init (&dest->latch, e);
+  if (ret < SUCCESS)
+    {
+      i_free (data);
+      return ret;
+    }
 
   DBG_ASSERT (dbl_buffer, dest);
 

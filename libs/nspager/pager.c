@@ -632,12 +632,12 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
   ht_init_idx (&ret->pgno_to_value, ret->_hdata, MEMORY_PAGE_LEN);
 
   // Initialize internal latch
-  latch_init (&ret->l);
+  err_t_wrap_goto (latch_init (&ret->l, e), failed, e);
 
   // Initialize page frame latches
   for (u32 i = 0; i < MEMORY_PAGE_LEN; ++i)
     {
-      latch_init (&ret->pages[i].latch);
+      err_t_wrap_goto (latch_init (&ret->pages[i].latch, e), failed, e);
     }
 
   // Simple variables

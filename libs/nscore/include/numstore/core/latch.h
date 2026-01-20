@@ -32,12 +32,16 @@ struct latch
   int holder_uuid;
 };
 
-HEADER_FUNC void
-latch_init (struct latch *latch)
+HEADER_FUNC err_t
+latch_init (struct latch *latch, error *e)
 {
-  // TODO - error handle existing latches
-  i_spinlock_create (&latch->lock, NULL);
+  err_t ret = i_spinlock_create (&latch->lock, e);
+  if (ret < SUCCESS)
+    {
+      return ret;
+    }
   latch->holder_uuid = 0;
+  return SUCCESS;
 }
 
 HEADER_FUNC void

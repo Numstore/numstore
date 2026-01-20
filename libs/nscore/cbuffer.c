@@ -38,7 +38,8 @@ cbuffer_create (void *data, u32 cap)
     .data = data,
     .isfull = 0,
   };
-  latch_init (&ret.latch);
+  error e = error_create ();
+  err_t_panic (latch_init (&ret.latch, &e), &e);
   return ret;
 }
 
@@ -55,7 +56,8 @@ cbuffer_create_with (void *data, u32 cap, u32 len)
     .data = data,
     .isfull = len == cap,
   };
-  latch_init (&ret.latch);
+  error e = error_create ();
+  err_t_panic (latch_init (&ret.latch, &e), &e);
   return ret;
 }
 

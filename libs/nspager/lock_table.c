@@ -87,7 +87,12 @@ lockt_init (struct lockt *t, error *e)
       return e->cause_code;
     }
 
-  latch_init (&t->l);
+  err_t ret = latch_init (&t->l, e);
+  if (ret < SUCCESS)
+    {
+      adptv_htable_free (&t->table);
+      return ret;
+    }
 
   return SUCCESS;
 }
