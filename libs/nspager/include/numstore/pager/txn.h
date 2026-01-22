@@ -86,8 +86,8 @@ struct txn
   struct latch l;         // Thread safety
 };
 
-void txn_init (struct txn *dest, txid tid, struct txn_data data);
-void txn_key_init (struct txn *dest, txid tid);
+err_t txn_init (struct txn *dest, txid tid, struct txn_data data, error *e);
+err_t txn_key_init (struct txn *dest, txid tid, error *e);
 
 void txn_update (struct txn *t, struct txn_data data);
 bool txn_data_equal (struct txn_data *left, struct txn_data *right);

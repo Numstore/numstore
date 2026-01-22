@@ -27,7 +27,7 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 struct cbuffer
-cbuffer_create (void *data, u32 cap)
+cbuffer_create (void *data, u32 cap, error *e)
 {
   ASSERT (data);
   ASSERT (cap > 0);
@@ -38,12 +38,12 @@ cbuffer_create (void *data, u32 cap)
     .data = data,
     .isfull = 0,
   };
-  latch_init (&ret.latch);
+  err_t_panic (latch_init (&ret.latch, e), e);
   return ret;
 }
 
 struct cbuffer
-cbuffer_create_with (void *data, u32 cap, u32 len)
+cbuffer_create_with (void *data, u32 cap, u32 len, error *e)
 {
   ASSERT (data);
   ASSERT (cap > 0);
@@ -55,7 +55,7 @@ cbuffer_create_with (void *data, u32 cap, u32 len)
     .data = data,
     .isfull = len == cap,
   };
-  latch_init (&ret.latch);
+  err_t_panic (latch_init (&ret.latch, e), e);
   return ret;
 }
 

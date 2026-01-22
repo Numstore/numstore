@@ -45,7 +45,11 @@ clck_alloc_open (struct clck_alloc *ca, size_t elem_size, u32 nelems, error *e)
       return error_change_causef (e, ERR_NOMEM, "Failed to allocate clock allocator");
     }
 
-  latch_init (&ca->l);
+  if (latch_init (&ca->l, e) < SUCCESS)
+    {
+      i_free (ca->data);
+      return e->cause_code;
+    }
 
   i_memset (ca->data, 0, total_size);
 
@@ -204,8 +208,9 @@ RANDOM_TEST (TT_UNIT, clock_allocator_random, 1)
   i32 *_ptrs[100];
   i32 _values[100];
 
-  struct cbuffer ptrs = cbuffer_create (_ptrs, sizeof (_ptrs));
-  struct cbuffer values = cbuffer_create (_values, sizeof (_values));
+  error err = error_create ();
+  struct cbuffer ptrs = cbuffer_create (_ptrs, sizeof (_ptrs), &err);
+  struct cbuffer values = cbuffer_create (_values, sizeof (_values), &err);
 
   TEST_AGENT (1, "clock allocator")
   {

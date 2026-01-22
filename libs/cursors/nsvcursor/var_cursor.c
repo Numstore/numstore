@@ -138,7 +138,8 @@ varc_initialize (struct var_cursor *v, struct pager *p, error *e)
   v->tx = NULL;
   v->vlen = 0;
   v->tlen = 0;
-  latch_init (&v->latch);
+
+  err_t_wrap (latch_init (&v->latch, e), e);
 
   DBG_ASSERT (var_cursor, v);
 

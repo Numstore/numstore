@@ -36,14 +36,16 @@ fpool_init (struct file_pool *dest, const char *base, error *e)
       err_t_wrap (i_mkdir (dest->temp_fname, e), e);
     }
 
-  ht_init_fp (&dest->table, dest->data, arrlen (dest->data));
+  error tmp_err = error_create ();
+  ht_init_fp (&dest->table, dest->data, arrlen (dest->data), &tmp_err);
   i_memset (dest->files, 0, sizeof (dest->files));
   dest->clock = 0;
-  latch_init (&dest->l);
+
+  err_t_wrap (latch_init (&dest->l, e), e);
 
   for (u32 i = 0; i < arrlen (dest->files); ++i)
     {
-      latch_init (&dest->files[i].l);
+      err_t_wrap (latch_init (&dest->files[i].l, e), e);
     }
 
   return SUCCESS;

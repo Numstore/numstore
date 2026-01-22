@@ -76,14 +76,14 @@ chunk_create (u32 size, error *e)
     {
       return NULL;
     }
-  ret->alloc = lalloc_create (ret->data, size);
+  ret->alloc = lalloc_create (ret->data, size, e);
   ret->next = NULL;
   DBG_ASSERT (chunk, ret);
   return ret;
 }
 
-void
-chunk_alloc_create_default (struct chunk_alloc *dest)
+err_t
+chunk_alloc_create_default (struct chunk_alloc *dest, error *e)
 {
   chunk_alloc_create (dest, (struct chunk_alloc_settings){
                                 .max_alloc_size = 0,
@@ -92,7 +92,8 @@ chunk_alloc_create_default (struct chunk_alloc *dest)
                                 .min_chunk_size = 0,
                                 .max_chunk_size = 0,
                                 .max_chunks = 0,
-                            });
+                            }, e);
+  return SUCCESS;
 }
 
 static inline u32
@@ -124,8 +125,8 @@ compute_new_chunk_size (struct chunk_alloc *ca, u32 alloc_size)
   return new_chunk_size;
 }
 
-void
-chunk_alloc_create (struct chunk_alloc *dest, struct chunk_alloc_settings settings)
+err_t
+chunk_alloc_create (struct chunk_alloc *dest, struct chunk_alloc_settings settings, error *e)
 {
 
   ASSERT (settings.target_chunk_mult >= 1.0f);
@@ -140,9 +141,10 @@ chunk_alloc_create (struct chunk_alloc *dest, struct chunk_alloc_settings settin
     .total_used = 0,
   };
 
-  latch_init (&dest->latch);
+  err_t_wrap (latch_init (&dest->latch, e), e);
 
   DBG_ASSERT (chunk_alloc, dest);
+  return SUCCESS;
 }
 
 void

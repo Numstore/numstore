@@ -43,11 +43,11 @@ struct cbuffer
   bool isfull;
 };
 
-#define cbuffer_create_from(data) cbuffer_create (data, sizeof data)
-#define cbuffer_create_full_from(data) cbuffer_create_with (data, sizeof data, sizeof data)
-#define cbuffer_create_from_cstr(cstr) cbuffer_create_with (cstr, i_strlen (cstr), i_strlen (cstr))
-struct cbuffer cbuffer_create (void *data, u32 cap);
-struct cbuffer cbuffer_create_with (void *data, u32 cap, u32 len);
+#define cbuffer_create_from(data, e) cbuffer_create (data, sizeof data, e)
+#define cbuffer_create_full_from(data, e) cbuffer_create_with (data, sizeof data, sizeof data, e)
+#define cbuffer_create_from_cstr(cstr, e) cbuffer_create_with (cstr, i_strlen (cstr), i_strlen (cstr), e)
+struct cbuffer cbuffer_create (void *data, u32 cap, error *e);
+struct cbuffer cbuffer_create_with (void *data, u32 cap, u32 len, error *e);
 
 ////////////////////////////////////////////////////////////
 // Utils

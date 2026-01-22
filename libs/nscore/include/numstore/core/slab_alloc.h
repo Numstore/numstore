@@ -37,7 +37,7 @@ struct slab_alloc
   u32 cap_per_slab;
 };
 
-void slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab);
+err_t slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab, error *e);
 void slab_alloc_destroy (struct slab_alloc *alloc);
 
 void *slab_alloc_alloc (struct slab_alloc *alloc, error *e);

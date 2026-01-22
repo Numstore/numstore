@@ -52,8 +52,8 @@ struct chunk_alloc
   u32 total_used;
 };
 
-void chunk_alloc_create (struct chunk_alloc *dest, struct chunk_alloc_settings settings);
-void chunk_alloc_create_default (struct chunk_alloc *dest);
+err_t chunk_alloc_create (struct chunk_alloc *dest, struct chunk_alloc_settings settings, error *e);
+err_t chunk_alloc_create_default (struct chunk_alloc *dest, error *e);
 void chunk_alloc_free_all (struct chunk_alloc *ca);  // Free's everything and starts from 0
 void chunk_alloc_reset_all (struct chunk_alloc *ca); // Doesn't free anything - keeps chunks around
 

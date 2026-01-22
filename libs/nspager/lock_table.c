@@ -72,7 +72,7 @@ lockt_frame_eq (const struct hnode *left, const struct hnode *right)
 err_t
 lockt_init (struct lockt *t, error *e)
 {
-  slab_alloc_init (&t->lock_alloc, sizeof (struct lockt_frame), 1000);
+  err_t_wrap (slab_alloc_init (&t->lock_alloc, sizeof (struct lockt_frame), 1000, e), e);
 
   struct adptv_htable_settings settings = {
     .max_load_factor = 8,
@@ -87,7 +87,7 @@ lockt_init (struct lockt *t, error *e)
       return e->cause_code;
     }
 
-  latch_init (&t->l);
+  err_t_wrap (latch_init (&t->l, e), e);
 
   return SUCCESS;
 }

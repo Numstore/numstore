@@ -33,9 +33,9 @@ struct lalloc
   u8 *data;
 };
 
-#define lalloc_create_from(buf) lalloc_create ((u8 *)buf, sizeof (buf))
+#define lalloc_create_from(buf, e) lalloc_create ((u8 *)buf, sizeof (buf), e)
 
-struct lalloc lalloc_create (u8 *data, u32 limit);
+struct lalloc lalloc_create (u8 *data, u32 limit, error *e);
 u32 lalloc_get_state (const struct lalloc *l);
 void lalloc_reset_to_state (struct lalloc *l, u32 state);
 void *lmalloc (struct lalloc *a, u32 req, u32 size, error *e);

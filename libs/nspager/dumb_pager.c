@@ -26,7 +26,11 @@ alloc_page_frame (error *e)
       pf->pin = 0;
       pf->flags = 0;
       pf->wsibling = -1;
-      latch_init (&pf->latch);
+      if (latch_init (&pf->latch, e) < SUCCESS)
+        {
+          i_free (pf);
+          return NULL;
+        }
     }
   return pf;
 }

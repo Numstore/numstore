@@ -34,14 +34,14 @@ DEFINE_DBG_ASSERT (
     })
 
 struct deserializer
-dsrlizr_create (const u8 *data, u32 dlen)
+dsrlizr_create (const u8 *data, u32 dlen, error *e)
 {
   struct deserializer ret = (struct deserializer){
     .data = data,
     .head = 0,
     .dlen = dlen,
   };
-  latch_init (&ret.latch);
+  err_t_panic (latch_init (&ret.latch, e), e);
   return ret;
 }
 

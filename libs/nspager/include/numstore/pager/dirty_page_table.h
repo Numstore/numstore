@@ -46,21 +46,21 @@ void dpgt_foreach (struct dpg_table *t, void (*action) (pgno pg, lsn rec_lsn, vo
 u32 dpgt_get_size (struct dpg_table *d);
 
 // Main Methods
-bool dpgt_exists (struct dpg_table *t, pgno pg);
+bool dpgt_exists (struct dpg_table *t, pgno pg, error *e);
 
 // INSERT
 err_t dpgt_add (struct dpg_table *t, pgno pg, lsn rec_lsn, error *e);
 
 // GET
-bool dpgt_get (lsn *dest, struct dpg_table *t, pgno pg);
-void dpgt_get_expect (lsn *dest, struct dpg_table *t, pgno pg);
+bool dpgt_get (lsn *dest, struct dpg_table *t, pgno pg, error *e);
+err_t dpgt_get_expect (lsn *dest, struct dpg_table *t, pgno pg, error *e);
 
 // REMOVE
 err_t dpgt_remove (bool *exists, struct dpg_table *t, pgno pg, error *e);
 err_t dpgt_remove_expect (struct dpg_table *t, pgno pg, error *e);
 
 // UPDATE
-void dpgt_update (struct dpg_table *d, pgno pg, lsn new_rec_lsn);
+err_t dpgt_update (struct dpg_table *d, pgno pg, lsn new_rec_lsn, error *e);
 
 // SERIALIZATION
 u32 dpgt_get_serialize_size (struct dpg_table *t);
@@ -69,7 +69,7 @@ err_t dpgt_deserialize (struct dpg_table *dest, const u8 *src, u32 slen, error *
 u32 dpgtlen_from_serialized (u32 slen);
 
 #ifndef NTEST
-bool dpgt_equal (struct dpg_table *left, struct dpg_table *right);
+bool dpgt_equal (struct dpg_table *left, struct dpg_table *right, error *e);
 err_t dpgt_rand_populate (struct dpg_table *t, error *e);
 void dpgt_crash (struct dpg_table *t);
 #endif

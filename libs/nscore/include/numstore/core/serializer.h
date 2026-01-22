@@ -33,7 +33,7 @@ struct serializer
   const u32 dcap;
 };
 
-struct serializer srlizr_create (u8 *data, u32 dcap);
+struct serializer srlizr_create (u8 *data, u32 dcap, error *e);
 
 bool srlizr_write (struct serializer *dest, const void *src, u32 len);
 #define srlizr_write_expect(dest, src, len)     \

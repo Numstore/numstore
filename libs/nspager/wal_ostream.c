@@ -59,9 +59,14 @@ walos_open (const char *fname, error *e)
       return NULL;
     }
 
-  latch_init (&ret->l);
+  if (latch_init (&ret->l, e) < SUCCESS)
+    {
+      i_close (&ret->fd, e);
+      i_free (ret);
+      return NULL;
+    }
 
-  ret->buffer = cbuffer_create (ret->_buffer, sizeof (ret->_buffer));
+  ret->buffer = cbuffer_create (ret->_buffer, sizeof (ret->_buffer), e);
   ret->flushed_lsn = len;
 
   DBG_ASSERT (wal_ostream, ret);

@@ -47,21 +47,31 @@ struct dpg_entry
 
 #define DPGT_SERIAL_UNIT (sizeof (pgno) + sizeof (lsn))
 
-static void
-dpge_key_init (struct dpg_entry *dest, pgno pg)
+static err_t
+dpge_key_init (struct dpg_entry *dest, pgno pg, error *e)
 {
   dest->pg = pg;
-  latch_init (&dest->l);
+  err_t ret = latch_init (&dest->l, e);
+  if (ret < SUCCESS)
+    {
+      return ret;
+    }
   hnode_init (&dest->node, pg);
+  return SUCCESS;
 }
 
-static void
-dpge_init (struct dpg_entry *dest, pgno pg, lsn rec_lsn)
+static err_t
+dpge_init (struct dpg_entry *dest, pgno pg, lsn rec_lsn, error *e)
 {
   dest->pg = pg;
   dest->rec_lsn = rec_lsn;
-  latch_init (&dest->l);
+  err_t ret = latch_init (&dest->l, e);
+  if (ret < SUCCESS)
+    {
+      return ret;
+    }
   hnode_init (&dest->node, pg);
+  return SUCCESS;
 }
 
 static bool
@@ -111,7 +121,7 @@ dpgt_open (struct dpg_table *dest, error *e)
   };
 
   err_t_wrap (adptv_htable_init (&dest->table, settings, e), e);
-  latch_init (&dest->l);
+  err_t_wrap (latch_init (&dest->l, e), e);
 
   return SUCCESS;
 }
@@ -254,10 +264,13 @@ dpgt_get_size (struct dpg_table *d)
 }
 
 bool
-dpgt_exists (struct dpg_table *t, pgno pg)
+dpgt_exists (struct dpg_table *t, pgno pg, error *e)
 {
   struct dpg_entry entry;
-  dpge_key_init (&entry, pg);
+  if (dpge_key_init (&entry, pg, e) < SUCCESS)
+    {
+      return false;
+    }
 
   struct hnode *ret = adptv_htable_lookup (&t->table, &entry.node, dpge_equals);
 
@@ -277,7 +290,10 @@ dpgt_add (struct dpg_table *t, pgno pg, lsn rec_lsn, error *e)
       goto theend;
     }
 
-  dpge_init (v, pg, rec_lsn);
+  if (dpge_init (v, pg, rec_lsn, e) < SUCCESS)
+    {
+      goto theend;
+    }
 
   if (adptv_htable_insert (&t->table, &v->node, e))
     {
@@ -290,12 +306,15 @@ theend:
 }
 
 bool
-dpgt_get (lsn *dest, struct dpg_table *t, pgno pg)
+dpgt_get (lsn *dest, struct dpg_table *t, pgno pg, error *e)
 {
   DBG_ASSERT (dirty_pg_table, t);
 
   struct dpg_entry key;
-  dpge_key_init (&key, pg);
+  if (dpge_key_init (&key, pg, e) < SUCCESS)
+    {
+      return false;
+    }
 
   latch_lock (&t->l);
 
@@ -310,20 +329,22 @@ dpgt_get (lsn *dest, struct dpg_table *t, pgno pg)
   return node != NULL;
 }
 
-void
-dpgt_get_expect (lsn *dest, struct dpg_table *t, pgno pg)
+err_t
+dpgt_get_expect (lsn *dest, struct dpg_table *t, pgno pg, error *e)
 {
   DBG_ASSERT (dirty_pg_table, t);
 
   struct dpg_entry key;
-  dpge_key_init (&key, pg);
+  err_t_wrap (dpge_key_init (&key, pg, e), e);
 
   latch_lock (&t->l);
 
   struct hnode *node = adptv_htable_lookup (&t->table, &key.node, dpge_equals);
   ASSERT (node != NULL);
+  *dest = container_of (node, struct dpg_entry, node)->rec_lsn;
 
   latch_unlock (&t->l);
+  return SUCCESS;
 }
 
 err_t
@@ -332,7 +353,7 @@ dpgt_remove (bool *exists, struct dpg_table *t, pgno pg, error *e)
   DBG_ASSERT (dirty_pg_table, t);
 
   struct dpg_entry key;
-  dpge_key_init (&key, pg);
+  err_t_wrap (dpge_key_init (&key, pg, e), e);
 
   latch_lock (&t->l);
 
@@ -360,7 +381,7 @@ dpgt_remove_expect (struct dpg_table *t, pgno pg, error *e)
   DBG_ASSERT (dirty_pg_table, t);
 
   struct dpg_entry key;
-  dpge_key_init (&key, pg);
+  err_t_wrap (dpge_key_init (&key, pg, e), e);
 
   latch_lock (&t->l);
 
@@ -377,11 +398,11 @@ theend:
   return e->cause_code;
 }
 
-void
-dpgt_update (struct dpg_table *t, pgno pg, lsn new_rec_lsn)
+err_t
+dpgt_update (struct dpg_table *t, pgno pg, lsn new_rec_lsn, error *e)
 {
   struct dpg_entry key;
-  dpge_key_init (&key, pg);
+  err_t_wrap (dpge_key_init (&key, pg, e), e);
 
   latch_lock (&t->l);
   {
@@ -399,6 +420,7 @@ dpgt_update (struct dpg_table *t, pgno pg, lsn new_rec_lsn)
   }
 
   latch_unlock (&t->l);
+  return SUCCESS;
 }
 
 u32
@@ -497,6 +519,7 @@ struct dpgt_eq_ctx
 {
   struct dpg_table *other;
   bool ret;
+  error *e;
 };
 
 static void
@@ -513,7 +536,12 @@ dpgt_eq_foreach (struct hnode *node, void *_ctx)
 
   latch_lock (&entry->l);
   {
-    dpge_key_init (&candidate, entry->pg);
+    if (dpge_key_init (&candidate, entry->pg, ctx->e) < SUCCESS)
+      {
+        ctx->ret = false;
+        latch_unlock (&entry->l);
+        return;
+      }
 
     struct hnode *other_node = adptv_htable_lookup (&ctx->other->table, &candidate.node, dpge_equals);
 
@@ -537,7 +565,7 @@ dpgt_eq_foreach (struct hnode *node, void *_ctx)
 }
 
 bool
-dpgt_equal (struct dpg_table *left, struct dpg_table *right)
+dpgt_equal (struct dpg_table *left, struct dpg_table *right, error *e)
 {
   latch_lock (&left->l);
   latch_lock (&right->l);
@@ -552,6 +580,7 @@ dpgt_equal (struct dpg_table *left, struct dpg_table *right)
   struct dpgt_eq_ctx ctx = {
     .other = right,
     .ret = true,
+    .e = e,
   };
   adptv_htable_foreach (&left->table, dpgt_eq_foreach, &ctx);
 

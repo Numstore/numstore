@@ -54,7 +54,12 @@ rptm_new (error *e)
   ret->vcap = 1000;
   ret->vlen = 0;
 
-  latch_init (&ret->latch);
+  if (latch_init (&ret->latch, e) < SUCCESS)
+    {
+      i_free (ret->view);
+      i_free (ret);
+      return NULL;
+    }
 
   return ret;
 }

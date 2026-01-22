@@ -772,7 +772,8 @@ rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, error *e)
   r->lidx = 0;
   r->stack_state.sp = 0;
   r->state = RPTS_UNSEEKED;
-  latch_init (&r->latch);
+
+  err_t_wrap (latch_init (&r->latch, e), e);
 
   // Fetch root page
   page_h root_pg = page_h_create ();
@@ -814,7 +815,8 @@ rptc_new (struct rptree_cursor *r, struct txn *tx, struct pager *p, error *e)
   r->stack_state.sp = 0;
 
   r->state = RPTS_UNSEEKED;
-  latch_init (&r->latch);
+
+  err_t_wrap (latch_init (&r->latch, e), e);
 
   DBG_ASSERT (rptc_unseeked, r);
 

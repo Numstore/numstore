@@ -60,7 +60,7 @@ txnt_open (struct txn_table *dest, error *e)
   };
 
   err_t_wrap (adptv_htable_init (&dest->t, settings, e), e);
-  latch_init (&dest->l);
+  err_t_wrap (latch_init (&dest->l, e), e);
 
   return SUCCESS;
 }
@@ -1005,7 +1005,7 @@ txnt_deserialize (struct txn_table *dest, const u8 *src, struct txn *txn_bank, u
       return SUCCESS;
     }
 
-  struct deserializer d = dsrlizr_create (src, slen);
+  struct deserializer d = dsrlizr_create (src, slen, e);
 
   ASSERT (slen % TXN_SERIAL_UNIT == 0);
   u32 tlen = slen / TXN_SERIAL_UNIT;
@@ -1020,11 +1020,11 @@ txnt_deserialize (struct txn_table *dest, const u8 *src, struct txn *txn_bank, u
       dsrlizr_read_expect (&last_lsn, sizeof (last_lsn), &d);
       dsrlizr_read_expect (&undo_next_lsn, sizeof (undo_next_lsn), &d);
 
-      txn_init (&txn_bank[i], tid, (struct txn_data){
+      err_t_wrap (txn_init (&txn_bank[i], tid, (struct txn_data){
                                        .last_lsn = last_lsn,
                                        .undo_next_lsn = undo_next_lsn,
                                        .state = TX_CANDIDATE_FOR_UNDO,
-                                   });
+                                   }, e), e);
 
       if (txnt_insert_txn (dest, &txn_bank[i], e))
         {

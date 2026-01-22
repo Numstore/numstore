@@ -72,7 +72,7 @@ typedef struct
 } HASH_TABLE_T;
 
 HEADER_FUNC void
-HT_INIT (HASH_TABLE_T *dest, HENTRY_T *arr, u32 nelem)
+HT_INIT (HASH_TABLE_T *dest, HENTRY_T *arr, u32 nelem, error *e)
 {
   ASSERT (dest);
   ASSERT (arr);
@@ -81,7 +81,7 @@ HT_INIT (HASH_TABLE_T *dest, HENTRY_T *arr, u32 nelem)
   dest->elems = arr;
   dest->cap = nelem;
 
-  latch_init (&dest->l);
+  err_t_panic (latch_init (&dest->l, e), e);
 }
 
 HEADER_FUNC hti_res

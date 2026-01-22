@@ -93,7 +93,7 @@ walf_open (struct wal_file *dest, const char *fname, error *e)
   dest->istream_open = false;
   dest->fname = fname;
 
-  latch_init (&dest->l);
+  err_t_wrap (latch_init (&dest->l, e), e);
 
   DBG_ASSERT (wal_file, dest);
 

@@ -502,7 +502,7 @@ struct_t_deserialize (
   ASSERT (dest);
 
   u8 working[2048];
-  struct lalloc balloc = lalloc_create (working, sizeof (working));
+  struct lalloc balloc = lalloc_create (working, sizeof (working), e);
   struct kvt_builder unb = kvb_create (&balloc, a);
 
   /**

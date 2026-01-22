@@ -36,7 +36,7 @@ DEFINE_DBG_ASSERT (
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 struct lalloc
-lalloc_create (u8 *data, u32 limit)
+lalloc_create (u8 *data, u32 limit, error *e)
 {
   ASSERT (limit > 0);
   struct lalloc ret = {
@@ -44,7 +44,7 @@ lalloc_create (u8 *data, u32 limit)
     .limit = limit,
     .data = data,
   };
-  latch_init (&ret.latch);
+  err_t_panic (latch_init (&ret.latch, e), e);
   DBG_ASSERT (lalloc, &ret);
   return ret;
 }

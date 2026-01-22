@@ -11,8 +11,8 @@ struct slab
   u8 data[];
 };
 
-void
-slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab)
+err_t
+slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab, error *e)
 {
   ASSERT (size >= sizeof (void *));
   ASSERT (cap_per_slab > 0);
@@ -26,7 +26,8 @@ slab_alloc_init (struct slab_alloc *dest, u32 size, u32 cap_per_slab)
     .size = size,
     .cap_per_slab = cap_per_slab,
   };
-  latch_init (&dest->l);
+  err_t_wrap (latch_init (&dest->l, e), e);
+  return SUCCESS;
 }
 
 void
@@ -258,7 +259,7 @@ TEST (TT_UNIT, slab_alloc_simple)
   struct slab_alloc alloc;
   error e = error_create ();
 
-  slab_alloc_init (&alloc, sizeof (struct test_item), 5);
+  slab_alloc_init (&alloc, sizeof (struct test_item), 5, &e);
 
   // Allocate 20 items (will span 4 slabs)
   struct test_item *items[20];

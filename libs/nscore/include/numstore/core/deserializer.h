@@ -33,7 +33,7 @@ struct deserializer
   const u32 dlen;
 };
 
-struct deserializer dsrlizr_create (const u8 *data, u32 dlen);
+struct deserializer dsrlizr_create (const u8 *data, u32 dlen, error *e);
 
 bool dsrlizr_read (void *dest, u32 dlen, struct deserializer *src);
 #define dsrlizr_read_expect(dest, dlen, src)     \

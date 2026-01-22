@@ -24,24 +24,24 @@
 #include <numstore/core/hash_table.h>
 #include <numstore/core/latch.h>
 
-void txn_key_init (struct txn *dest, txid tid);
-
-void
-txn_init (struct txn *dest, txid tid, struct txn_data data)
+err_t
+txn_init (struct txn *dest, txid tid, struct txn_data data, error *e)
 {
   dest->data = data;
   dest->tid = tid;
   dest->locks = NULL;
   hnode_init (&dest->node, tid);
-  latch_init (&dest->l);
+  err_t_wrap (latch_init (&dest->l, e), e);
+  return SUCCESS;
 }
 
-void
-txn_key_init (struct txn *dest, txid tid)
+err_t
+txn_key_init (struct txn *dest, txid tid, error *e)
 {
   dest->tid = tid;
   hnode_init (&dest->node, tid);
-  latch_init (&dest->l);
+  err_t_wrap (latch_init (&dest->l, e), e);
+  return SUCCESS;
 }
 
 void

@@ -33,14 +33,14 @@ DEFINE_DBG_ASSERT (struct serializer, serializer, s,
                    })
 
 struct serializer
-srlizr_create (u8 *data, u32 dcap)
+srlizr_create (u8 *data, u32 dcap, error *e)
 {
   struct serializer ret = (struct serializer){
     .data = data,
     .dlen = 0,
     .dcap = dcap,
   };
-  latch_init (&ret.latch);
+  err_t_panic (latch_init (&ret.latch, e), e);
   return ret;
 }
 
