@@ -29,8 +29,8 @@
 #include <config.h>
 
 /**
- * A lt_lock is a handle on a gr_lock. There is a N -> 1 relationship between lt_lock and 
- * gr_locks. lt_locks are NOT to be copied. Their addresses are used by other locks. And 
+ * A lt_lock is a handle on a gr_lock. There is a N -> 1 relationship between lt_lock and
+ * gr_locks. lt_locks are NOT to be copied. Their addresses are used by other locks. And
  * are interacted with constantly
  *
  * The lock hierarchy goes:

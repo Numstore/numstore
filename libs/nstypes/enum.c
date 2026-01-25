@@ -152,7 +152,7 @@ enum_t_snprintf (char *str, u32 size, const struct enum_t *st)
             }
         }
 
-      if ((u16) (i + 1) < st->len)
+      if ((u16)(i + 1) < st->len)
         {
           n = i_snprintf (out, avail, ", ");
           if (n < 0)

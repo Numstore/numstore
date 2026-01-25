@@ -80,6 +80,8 @@ err_t_to_str (err_t e)
       case_ENUM_RETURN_STRING (ERR_INVALID_ARGUMENT);
       case_ENUM_RETURN_STRING (ERR_DUPLICATE_COMMIT);
 
+      case_ENUM_RETURN_STRING (ERR_TOO_MANY_FILES);
+
 #ifndef NTEST
       case_ENUM_RETURN_STRING (ERR_FAILED_TEST);
 #endif

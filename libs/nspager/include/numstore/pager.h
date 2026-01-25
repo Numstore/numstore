@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   Main pager interface providing page management, transaction support, and database file operations with write-ahead logging for crash recovery.
+ *   Main pager interface providing page management, transaction support,
+ *   and database file operations with write-ahead logging for crash recovery.
  */
 
 #include <numstore/core/threadpool.h>
@@ -43,21 +44,27 @@ err_t pgr_checkpoint (struct pager *p, error *e); // Blocking - should be called
 
 // Page fetching
 err_t pgr_get (page_h *dest, int flags, pgno pgno, struct pager *p, error *e);
-err_t pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type ptype, error *e);
 err_t pgr_get_unverified (page_h *dest, pgno pgno, struct pager *p, error *e);
-err_t pgr_new_blank (page_h *dest, struct pager *p, struct txn *tx, enum page_type ptype, error *e);
+err_t pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type ptype, error *e);
+
+// Make writable
 err_t pgr_make_writable (struct pager *p, struct txn *tx, page_h *h, error *e);
 err_t pgr_maybe_make_writable (struct pager *p, struct txn *tx, page_h *cur, error *e);
+err_t pgr_make_writable_no_tx (struct pager *p, page_h *h, error *e);
 
-// Shorthands
+// Shorthand (get + make writable)
 err_t pgr_get_writable (page_h *dest, struct txn *tx, int flags, pgno pg, struct pager *p, error *e);
 err_t pgr_get_writable_no_tx (page_h *dest, int flags, pgno pg, struct pager *p, error *e);
 
 // Save and log changes to WAL if any
 err_t pgr_save (struct pager *p, page_h *h, int flags, error *e);
 err_t pgr_delete_and_release (struct pager *p, struct txn *tx, page_h *h, error *e);
+
+// Release
 err_t pgr_release_if_exists (struct pager *p, page_h *h, int flags, error *e);
 err_t pgr_release (struct pager *p, page_h *h, int flags, error *e);
+err_t pgr_release_no_tx (struct pager *p, page_h *h, int flags, error *e);
+
 err_t pgr_flush_wall (struct pager *p, error *e);
 
 // ARIES

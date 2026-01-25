@@ -942,6 +942,14 @@ walf_flush_to (struct wal_file *w, lsn l, error *e)
   return walos_flush_to (w->current_ostream, l, e);
 }
 
+err_t
+walf_flush_all (struct wal_file *w, error *e)
+{
+  DBG_ASSERT (wal_file, w);
+  err_t_wrap (walf_lazy_ostream_init (w, e), e);
+  return walos_flush_all (w->current_ostream, e);
+}
+
 #ifndef NTEST
 err_t
 walf_crash (struct wal_file *w, error *e)

@@ -24,7 +24,8 @@
 
 #include <numstore/intf/types.h>
 
-#define PAGE_SIZE ((p_size)2048)
+#define PAGE_POW 12
+#define PAGE_SIZE ((p_size)1 << PAGE_POW)
 #define MEMORY_PAGE_LEN ((u32)20)
 #define MAX_VSTR 10000
 #define MAX_TSTR 10000
@@ -34,6 +35,14 @@
 #define CURSOR_POOL_SIZE 100
 #define CLI_MAX_FILTERS 32
 #define MAX_TIDS 1000
+#define MAX_OPEN_FILES 10
+#define MAX_FILE_NAME 4096
+#define WAL_SEGMENT_SIZE (16 * 1024 * 1024) // 16 MB
+
+// Address: [ file type ] [ file number ] [ file offset ]
+#define FILE_TYPE_BITS 4
+#define FILE_NUM_BITS 36
+#define FILE_OFST_BITS 24
 
 // #define DUMB_PAGER
 

@@ -133,6 +133,12 @@ walos_flush_to (struct wal_ostream *w, lsn l, error *e)
 }
 
 err_t
+walos_flush_all (struct wal_ostream *w, error *e)
+{
+  return walos_flush_to_impl (w, w->flushed_lsn + cbuffer_len (&w->buffer), true, e);
+}
+
+err_t
 walos_write_all (struct wal_ostream *w, u32 *checksum, const void *data, u32 len, error *e)
 {
   DBG_ASSERT (wal_ostream, w);

@@ -301,12 +301,6 @@ pgr_get_unverified (page_h *dest, pgno pg, struct pager *p, error *e)
 }
 
 err_t
-pgr_new_blank (page_h *dest, struct pager *p, struct txn *tx, enum page_type ptype, error *e)
-{
-  return pgr_new (dest, p, tx, ptype, e);
-}
-
-err_t
 pgr_make_writable (struct pager *p, struct txn *tx, page_h *h, error *e)
 {
   (void)p;
