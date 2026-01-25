@@ -1,4 +1,6 @@
+#include "numstore/core/dbl_buffer.h"
 #include "numstore/core/error.h"
+#include "numstore/core/slab_alloc.h"
 #include "numstore/pager/txn.h"
 #include <aries.h>
 
@@ -9,9 +11,10 @@ aries_ctx_create (struct aries_ctx *dest, lsn master_lsn, error *e)
 {
   bool txt_open = false;
   bool dpt_open = false;
-  bool txns_open = false;
+  bool txn_ptrs_open = false;
   dest->master_lsn = master_lsn;
   dest->max_tid = 0;
+  slab_alloc_init (&dest->alloc, sizeof (struct txn), 1000);
 
   if (txnt_open (&dest->txt, e))
     {
@@ -25,20 +28,22 @@ aries_ctx_create (struct aries_ctx *dest, lsn master_lsn, error *e)
     }
   dpt_open = true;
 
-  err_t_wrap_goto (dblb_create (&dest->txns, sizeof (struct txn), 100, e), failed, e);
-  txns_open = true;
+  err_t_wrap_goto (dblb_create (&dest->txn_ptrs, sizeof (struct txn *), 100, e), failed, e);
+  txn_ptrs_open = true;
 
   return SUCCESS;
 
 failed:
 
+  slab_alloc_destroy (&dest->alloc);
+
   if (txt_open)
     {
       txnt_close (&dest->txt);
     }
-  if (txns_open)
+  if (txn_ptrs_open)
     {
-      dblb_free (&dest->txns);
+      dblb_free (&dest->txn_ptrs);
     }
   if (dpt_open)
     {
@@ -52,9 +57,10 @@ void
 aries_ctx_free (struct aries_ctx *ctx)
 {
   ASSERT (ctx);
+  slab_alloc_destroy (&ctx->alloc);
   txnt_close (&ctx->txt);
   dpgt_close (&ctx->dpt);
-  dblb_free (&ctx->txns);
+  dblb_free (&ctx->txn_ptrs);
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -289,7 +295,7 @@ aries_append_end_records (struct txn *tx, void *ctx)
  * previous time the db was open
  */
 static err_t
-pgr_analysis_finish_some_open_txns (struct pager *p, struct aries_ctx *ctx, error *e)
+pgr_analysis_finish_some_open_txn_ptrs (struct pager *p, struct aries_ctx *ctx, error *e)
 {
   // Loop through and append end records
   struct wal_txnt_error _ctx = {
@@ -306,12 +312,12 @@ pgr_analysis_finish_some_open_txns (struct pager *p, struct aries_ctx *ctx, erro
     }
 
   // Remove them all from the table
-  struct txn *txns = ctx->txns.data;
-  for (u32 i = 0; i < ctx->txns.nelem; ++i)
+  struct txn *txn_ptrs = ctx->txn_ptrs.data;
+  for (u32 i = 0; i < ctx->txn_ptrs.nelem; ++i)
     {
-      if (txns[i].data.state == TX_DONE)
+      if (txn_ptrs[i].data.state == TX_DONE)
         {
-          err_t_wrap (txnt_remove_txn_expect (&ctx->txt, &txns[i], e), e);
+          err_t_wrap (txnt_remove_txn_expect (&ctx->txt, &txn_ptrs[i], e), e);
         }
     }
 
@@ -378,8 +384,12 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
           if (!txnt_get (&tx, &ctx->txt, tid))
             {
               // Create a new transaction object
-              tx = dblb_append_alloc (&ctx->txns, 1, e);
+              tx = slab_alloc_alloc (&ctx->alloc, e);
               if (tx == NULL)
+                {
+                  return e->cause_code;
+                }
+              if (dblb_append (&ctx->txn_ptrs, &tx, 1, e))
                 {
                   return e->cause_code;
                 }
@@ -436,7 +446,7 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
         case WL_CKPT_END:
           {
             // FOR each entry in LogRec.Tran_Table
-            if (txnt_merge_into (&ctx->txt, &log_rec->ckpt_end.att, &ctx->txns, e))
+            if (txnt_merge_into (&ctx->txt, &log_rec->ckpt_end.att, &ctx->txn_ptrs, e))
               {
                 goto theend;
               }
@@ -489,7 +499,7 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
 theend:
   // FOR EACH Trans_Table entry with (State == 'U') & (UndoNxtLSN = 0) DO
   //    write end record and remove entry from Trans_Table
-  err_t_wrap (pgr_analysis_finish_some_open_txns (p, ctx, e), e);
+  err_t_wrap (pgr_analysis_finish_some_open_txn_ptrs (p, ctx, e), e);
 
   ctx->redo_lsn = dpgt_min_rec_lsn (&ctx->dpt);
 

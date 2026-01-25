@@ -10,7 +10,7 @@
     <header>
         <img src="logo.svg" alt="Numstore Logo" class="logo">
         <h1>Numstore</h1>
-        <p>A high-performance database for contiguous byte streams</p>
+        <p>A high-performance database for raster data and contiguous byte streams</p>
     </header>
 
     <nav>
@@ -27,17 +27,79 @@
     </nav>
 
     <main>
-        <section class="section">
+
+      <section class="section">
             <h2>What is Numstore?</h2>
             <p>
-                Numstore is a database for contiguous bytes. It's essentially a file system,
-                but in database format with log N mutations in the middle.
+                You're a solar physicist with this typical workflow:
+                <ul>
+                  <li>
+                    Pull massive image blobs from JSOC's collection of solar active regions.
+                    Store them as FITS files scattered across your filesystem.
+                  </li>
+                  <li>
+                    Iterate through thousands of files, rewriting the same boilerplate:
+                    <pre><code>data = fits.getdata('hmi.sharp_720s.7115.20170906_000000_TAI.magnetogram.fits')
+plt.imshow(data)  # Does this look right?</code></pre>
+                  </li>
+                  <li>
+                    Build a dataset of specific subregions—say, all 512×512 patches where the
+                    magnetic field exceeds 1000 Gauss. Now you're managing indices in spreadsheets
+                    and praying your filenames stay consistent.
+                  </li>
+                </ul>
+                Numstore stores your magnetograms as contiguous byte arrays with spatial indexing built in.
+                Query by bounding box, magnetic field threshold, timestamp—O(log N) every time. No filesystem
+                archaeology required.
             </p>
             <p>
-                Numstore uses an "R+Tree" - a rope equivalent to a B+Tree that keeps track
-                of the count of bytes each node stores. It's designed for efficient operations
-                on byte streams with logarithmic time complexity for insertions, deletions,
-                and reads anywhere in the stream.
+                You're a DSP engineer building a software-defined radio:
+                <ul>
+                  <li>
+                    Your application captures IQ samples at 100 MHz for 10 seconds. That's 2 billion
+                    float32 values (8 GB of complex samples).
+                  </li>
+                  <li>
+                    Where do you store this? Postgres with 2 billion rows? Insane. A single BYTEA blob?
+                    Sure, but now you can't efficiently extract "samples 50M through 51M" without reading
+                    the entire 8 GB into memory.
+                  </li>
+                  <li>
+                    You need random access to arbitrary ranges. You need to insert calibration samples
+                    or apply filters without rewriting the whole file. Traditional databases weren't
+                    built for this.
+                  </li>
+                </ul>
+                Numstore ingests binary streams at 640+ MB/s and indexes them for O(log N) random access.
+                Read samples [50000000:51000000]. Overwrite bytes at offset 12345678. Insert a header
+                in the middle. It's a B+Tree that thinks in bytes, not rows.
+            </p>
+            <p>
+                You're an embedded engineer parsing telemetry:
+                <ul>
+                  <li>
+                    Your CAN bus packets arrive as <code>[5 bytes header][10 bytes payload][11 bytes footer]</code>.
+                  </li>
+                  <li>
+                    You're storing millions of these. You need to query "all packets where byte 7 equals 0xFF"
+                    or "extract the footer from packets 1000-2000."
+                  </li>
+                  <li>
+                    Flat files work until you need to search. Relational databases work until you realize
+                    you're fighting the type system to store raw binary. You end up writing your own
+                    index in a JSON file.
+                  </li>
+                </ul>
+                Numstore lets you define your packet as a 26-byte record and store millions of them.
+                Spatial indexing means "find all packets with header[2] &gt; 128" runs in logarithmic time.
+                The database understands byte offsets natively—no ORM impedance mismatch.
+            </p>
+            <p>
+                Numstore uses an R+Tree—a spatial index optimized for one-dimensional byte ranges.
+                Think B+Tree, but every node tracks its byte count for O(log N) operations anywhere
+                in the stream. Insert 1 MB at offset 500 GB? Rebalance a few nodes. Delete bytes
+                [12000000:13000000]? Logarithmic. It's designed for data that traditional databases
+                treat as an afterthought: raw binary streams that need database-grade indexing.
             </p>
         </section>
 
