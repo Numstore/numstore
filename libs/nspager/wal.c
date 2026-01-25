@@ -255,6 +255,13 @@ wal_flush_to (struct wal *w, lsn l, error *e)
   return walf_flush_to (&w->wf, l, e);
 }
 
+err_t
+wal_flush_all (struct wal *w, error *e)
+{
+  DBG_ASSERT (wal, w);
+  return walf_flush_all (&w->wf, e);
+}
+
 //////////////////////////////////////////////////////////////
 //////// Read Primitive
 

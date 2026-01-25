@@ -94,7 +94,6 @@ struct wal_ckpt_end_write
 
 enum wal_rec_hdr_type
 {
-  WL_EOF = 0,
   WL_BEGIN = 1,
   WL_COMMIT = 2,
   WL_END = 3,
@@ -102,6 +101,7 @@ enum wal_rec_hdr_type
   WL_CLR = 5,
   WL_CKPT_BEGIN = 6,
   WL_CKPT_END = 7,
+  WL_EOF = 8,
 };
 
 struct wal_rec_hdr_read

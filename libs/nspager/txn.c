@@ -45,10 +45,64 @@ txn_key_init (struct txn *dest, txid tid)
 }
 
 void
-txn_update (struct txn *t, struct txn_data data)
+txn_update_data (struct txn *t, struct txn_data data)
 {
   latch_lock (&t->l);
   t->data = data;
+  latch_unlock (&t->l);
+}
+
+void
+txn_update (struct txn *t, enum tx_state state, lsn last, lsn undo_next)
+{
+  latch_lock (&t->l);
+  t->data = (struct txn_data){
+    .state = TX_CANDIDATE_FOR_UNDO,
+    .last_lsn = last,
+    .undo_next_lsn = undo_next,
+  };
+  latch_unlock (&t->l);
+}
+
+void
+txn_update_state (struct txn *t, enum tx_state new_state)
+{
+  latch_lock (&t->l);
+  t->data.state = new_state;
+  latch_unlock (&t->l);
+}
+
+void
+txn_update_last_undo (struct txn *t, lsn last_lsn, lsn undo_next_lsn)
+{
+  latch_lock (&t->l);
+  t->data.last_lsn = last_lsn;
+  t->data.undo_next_lsn = undo_next_lsn;
+  latch_unlock (&t->l);
+}
+
+void
+txn_update_last_state (struct txn *t, lsn last_lsn, enum tx_state new_state)
+{
+  latch_lock (&t->l);
+  t->data.last_lsn = last_lsn;
+  t->data.state = new_state;
+  latch_unlock (&t->l);
+}
+
+void
+txn_update_last (struct txn *t, lsn last_lsn)
+{
+  latch_lock (&t->l);
+  t->data.last_lsn = last_lsn;
+  latch_unlock (&t->l);
+}
+
+void
+txn_update_undo_next (struct txn *t, lsn undo_next)
+{
+  latch_lock (&t->l);
+  t->data.undo_next_lsn = undo_next;
   latch_unlock (&t->l);
 }
 

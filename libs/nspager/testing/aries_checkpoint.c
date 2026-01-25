@@ -60,15 +60,13 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
   u8 data[5][DL_DATA_SIZE];
   rand_bytes (data, DL_DATA_SIZE * 5);
 
-  // Create and commit some data
   {
+    // BEGIN TXN
     struct txn tx;
     test_err_t_wrap (pgr_begin_txn (&tx, p, &e), &e);
 
     for (int i = 0; i < 5; ++i)
       {
-        i_log_lockt (LOG_INFO, &lt);
-        i_log_txn (LOG_INFO, &tx);
         page_h dl_page = page_h_create ();
         test_fail_if (pgr_new (&dl_page, p, &tx, PG_DATA_LIST, &e));
         dl_set_data (page_h_w (&dl_page), (struct dl_data){ .data = data[i], .blen = DL_DATA_SIZE });
@@ -77,6 +75,7 @@ TEST (TT_UNIT, aries_checkpoint_basic_recovery)
         test_fail_if (pgr_release (p, &dl_page, PG_DATA_LIST, &e));
       }
 
+    // COMMIT
     test_err_t_wrap (pgr_commit (p, &tx, &e), &e);
   }
 
@@ -174,8 +173,6 @@ TEST_disabled (TT_UNIT, aries_checkpoint_with_active_transactions)
       }
     // NOTE: tx2 is NOT committed - this is a fuzzy checkpoint test
   }
-
-  i_log_lockt (LOG_INFO, &lt);
 
   // Take checkpoint while tx2 is still active
   test_fail_if (pgr_checkpoint (p, &e));

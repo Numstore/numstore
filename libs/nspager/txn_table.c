@@ -747,7 +747,7 @@ TEST (TT_UNIT, txnt_update_last_lsn)
 
   struct txn_data new_data = retrieved->data;
   new_data.last_lsn = 200;
-  txn_update (retrieved, new_data);
+  txn_update_data (retrieved, new_data);
 
   // Verify update
   found = txnt_get (&retrieved, &t, 600);
@@ -781,7 +781,7 @@ TEST (TT_UNIT, txnt_state_transitions_all_types)
   // Transition to CANDIDATE_FOR_UNDO
   struct txn_data new_data = retrieved->data;
   new_data.state = TX_CANDIDATE_FOR_UNDO;
-  txn_update (retrieved, new_data);
+  txn_update_data (retrieved, new_data);
 
   test_assert (txnt_get (&retrieved, &t, 2000));
   test_assert (retrieved->data.state == TX_CANDIDATE_FOR_UNDO);
@@ -789,7 +789,7 @@ TEST (TT_UNIT, txnt_state_transitions_all_types)
   // Transition to COMMITTED
   new_data = retrieved->data;
   new_data.state = TX_COMMITTED;
-  txn_update (retrieved, new_data);
+  txn_update_data (retrieved, new_data);
 
   test_assert (txnt_get (&retrieved, &t, 2000));
   test_assert (retrieved->data.state == TX_COMMITTED);
@@ -1451,7 +1451,7 @@ txnt_updater_thread (void *arg)
         {
           struct txn_data new_data = retrieved->data;
           new_data.last_lsn = ctx->start_tid + i + 1000;
-          txn_update (retrieved, new_data);
+          txn_update_data (retrieved, new_data);
           __sync_fetch_and_add (&ctx->counter, 1);
         }
     }
@@ -1480,7 +1480,7 @@ TEST (TT_UNIT, txnt_update_undo_next)
 
   struct txn_data new_data = retrieved->data;
   new_data.undo_next_lsn = 150;
-  txn_update (retrieved, new_data);
+  txn_update_data (retrieved, new_data);
 
   found = txnt_get (&retrieved, &t, 700);
   test_assert (found);
@@ -1510,7 +1510,7 @@ TEST (TT_UNIT, txnt_update_state)
 
   struct txn_data new_data = retrieved->data;
   new_data.state = TX_COMMITTED;
-  txn_update (retrieved, new_data);
+  txn_update_data (retrieved, new_data);
 
   found = txnt_get (&retrieved, &t, 800);
   test_assert (found);
@@ -1578,14 +1578,14 @@ txnt_state_transition_thread (void *arg)
           // TX_RUNNING -> TX_CANDIDATE_FOR_UNDO
           struct txn_data new_data = retrieved->data;
           new_data.state = TX_CANDIDATE_FOR_UNDO;
-          txn_update (retrieved, new_data);
+          txn_update_data (retrieved, new_data);
 
           __sync_fetch_and_add (&ctx->counter, 1);
           usleep (100);
 
           // -> TX_COMMITTED
           new_data.state = TX_COMMITTED;
-          txn_update (retrieved, new_data);
+          txn_update_data (retrieved, new_data);
         }
     }
 

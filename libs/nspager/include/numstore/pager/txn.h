@@ -89,17 +89,24 @@ struct txn
 void txn_init (struct txn *dest, txid tid, struct txn_data data);
 void txn_key_init (struct txn *dest, txid tid);
 
-void txn_update (struct txn *t, struct txn_data data);
+// Atomic Updates
+void txn_update_data (struct txn *t, struct txn_data data);
+void txn_update (struct txn *t, enum tx_state state, lsn last, lsn undo_next);
+void txn_update_state (struct txn *t, enum tx_state new_state);
+void txn_update_last_undo (struct txn *t, lsn last_lsn, lsn undo_next_lsn);
+void txn_update_last_state (struct txn *t, lsn last_lsn, enum tx_state new_state);
+void txn_update_last (struct txn *t, lsn last_lsn);
+void txn_update_undo_next (struct txn *t, lsn undo_next);
+
+// Equality
 bool txn_data_equal (struct txn_data *left, struct txn_data *right);
 
+// Locking
+typedef err_t (*lock_func) (struct lt_lock lock, enum lock_mode mode, void *ctx, error *e);
 err_t txn_newlock (struct txn *t, struct lt_lock lock, enum lock_mode mode, error *e);
 bool txn_haslock (struct txn *t, struct lt_lock lock);
 void txn_free_all_locks (struct txn *t);
+err_t txn_foreach_lock (struct txn *t, lock_func func, void *ctx, error *e);
 
-err_t txn_foreach_lock (
-    struct txn *t,
-    err_t (*func) (struct lt_lock lock, enum lock_mode mode, void *ctx, error *e),
-    void *ctx,
-    error *e);
-
+// Utilities
 void i_log_txn (int log_level, struct txn *tx);
