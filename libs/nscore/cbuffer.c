@@ -17,6 +17,7 @@
  *   Implements cbuffer.h. Circular buffer with read/write operations.
  */
 
+#include "numstore/core/latch.h"
 #include <numstore/core/cbuffer.h>
 
 #include <numstore/core/error.h>
@@ -37,6 +38,8 @@ cbuffer_create (void *data, u32 cap)
     .cap = cap,
     .data = data,
     .isfull = 0,
+    .mark = -1,
+    .isfullmark = 0,
   };
   latch_init (&ret.latch);
   return ret;
@@ -54,9 +57,34 @@ cbuffer_create_with (void *data, u32 cap, u32 len)
     .cap = cap,
     .data = data,
     .isfull = len == cap,
+    .mark = -1,
+    .isfullmark = 0,
   };
   latch_init (&ret.latch);
   return ret;
+}
+
+void
+cbuffer_mark (struct cbuffer *c)
+{
+  // TODO - what to do when mark when head overrides tail on write
+  ASSERT (c->mark == -1);
+  latch_lock (&c->latch);
+  c->mark = c->tail;
+  c->isfullmark = c->isfull;
+  latch_unlock (&c->latch);
+}
+
+void
+cbuffer_reset (struct cbuffer *c)
+{
+  ASSERT (c->mark >= 0);
+  latch_lock (&c->latch);
+  c->tail = c->mark;
+  c->isfull = c->isfullmark;
+  c->mark = -1;
+  c->isfullmark = false;
+  latch_unlock (&c->latch);
 }
 
 ////////////////////////////////////////////////////////////
@@ -72,9 +100,34 @@ TEST (TT_UNIT, cbuffer_isempty)
   cbuffer_push_back (&next, 1, &b);
   test_assert_int_equal (cbuffer_isempty (&b), 0);
 }
-#endif
 
-#ifndef NTEST
+TEST (TT_UNIT, cbuffer_mark_reset)
+{
+  u8 buf[3];
+  struct cbuffer b = cbuffer_create (buf, 3);
+  u8 out[3];
+
+  /* read from empty: returns 0 */
+  u32 r1 = cbuffer_read (out, 1, 1, &b);
+  test_assert_int_equal (r1, 0);
+
+  for (u32 i = 0; i < 2; ++i)
+    {
+      cbuffer_mark (&b);
+
+      /* read after write */
+      u8 src[3] = { 7, 8, 9 };
+      cbuffer_write (src, 1, 3, &b);
+      u32 r2 = cbuffer_read (out, 1, 2, &b);
+      test_assert_int_equal (r2, 2);
+      test_assert_int_equal (out[0], 7);
+      test_assert_int_equal (out[1], 8);
+      test_assert_int_equal (cbuffer_len (&b), 1);
+
+      cbuffer_reset (&b);
+    }
+}
+
 TEST (TT_UNIT, cbuffer_len)
 {
   u8 buf[4];
@@ -84,9 +137,7 @@ TEST (TT_UNIT, cbuffer_len)
   cbuffer_pushb_back_expect (2, &b);
   test_assert_int_equal (cbuffer_len (&b), 2);
 }
-#endif
 
-#ifndef NTEST
 TEST (TT_UNIT, cbuffer_avail)
 {
   u8 buf[4];
@@ -107,6 +158,8 @@ cbuffer_discard_all (struct cbuffer *b)
   b->tail = 0;
   b->head = 0;
   b->isfull = 0;
+  b->mark = -1;
+  b->isfullmark = false;
 
   latch_unlock (&b->latch);
 }
