@@ -22,20 +22,7 @@ When I say log N, I really mean it takes log N to find the location. Once it's f
 
 It's written entirely in C with just the lemon parser as a dependency and some posix apis (with a wrapper - I haven't prioritized testing cross platform, but I designed it in a way to work cross platform. That feature will come soon).
 
-## 🚀 Features
-
-- **Persistent Storage**: Automatic persistence with undo redo write-ahead logging (WAL) using ARIES
-- **Flexible Access Patterns**: Support for strided reads/writes and offset-based operations
-- **Transaction Support**: ACID transactions for data consistency
-- **Crash Recovery**: Automatic recovery from unexpected failures
-- **Multi-Language Support**: Native C library with Python and Java bindings
-
-## 🛠 Quick Start
-
-### Prerequisites
-
-- C Compiler (GCC or Clang)
-- CMake 3.10+
+## Quick Start
 
 ### Building from Source
 
@@ -46,41 +33,29 @@ cd numstore
 
 make 
 
-./build/debug/apps/test
+$ ./build/debug/apps/test                                               # Run tests
+$ ./build/debug/apps/examples/nsfslite/example1_basic_persistence       # Run example
 ```
 
-## 🏗 Project Structure
+## Project Structure
 
 ```
 numstore/
-├── libs/              # Core libraries
-│   ├── nscore/        # Core utilities and error handling
-│   ├── nspager/       # Page-based storage engine
-│   └── apps/          # Application libraries
-│       ├── nsfslite/  # Lightweight file storage API
-├── apps/              # Example applications and tools
-│   └── examples/      # 15+ comprehensive examples
-├── wrappers/          # Other language wrappers of numstore
-│   └── python/        # python wrapper
-│   └── java/          # Java wrapper
+├── libs/              # All libraries
+│   ├── nscore/        # Numstore agnostic code and utilities
+│   ├── nspager/       # Pager / WAL / Cursor code
+│   └── apps/          # Specific user aware libraries
+├── apps/              # Applications and tools
 ├── docs/              # Documentation
 └── cmake/             # CMake build modules
 ```
 
-Run examples:
-```bash
-# Build examples
-make 
-
-# Run an example
-./build/debug/apps/examples/nsfslite/example1_basic_persistence
-```
-
-## 🌱 Contributing
+## Contributing
 
 I welcome contributions. This project is early, so to whoever is reading this, please just be considerate. 
+I don't have the bandwidth to tell people what to contribute to yet. Feel free to ask me questions though
 
-## 📝 License
+## License
 
 NumStore is licensed under the [Apache License 2.0](LICENSE).
 
