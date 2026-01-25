@@ -16,7 +16,8 @@
  * limitations under the License.
  *
  * Description:
- *   Transaction table managing active transactions with locking and concurrency control mechanisms.
+ *   Transaction table managing active transactions with locking and
+ *   concurrency control mechanisms.
  */
 
 #include <numstore/core/adptv_hash_table.h>
@@ -26,6 +27,7 @@
 #include <numstore/core/dbl_buffer.h>
 #include <numstore/core/error.h>
 #include <numstore/core/latch.h>
+#include <numstore/core/slab_alloc.h>
 #include <numstore/pager/txn.h>
 
 struct txn_table
@@ -40,7 +42,12 @@ void txnt_close (struct txn_table *t);
 
 // Utils
 void i_log_txnt (int log_level, struct txn_table *t);
-err_t txnt_merge_into (struct txn_table *dest, struct txn_table *src, struct dbl_buffer *txn_dest, error *e);
+err_t txnt_merge_into (
+    struct txn_table *dest,
+    struct txn_table *src,
+    struct dbl_buffer *txn_dest,
+    struct slab_alloc *alloc,
+    error *e);
 slsn txnt_max_u_undo_lsn (struct txn_table *t);
 void txnt_foreach (struct txn_table *t, void (*action) (struct txn *, void *ctx), void *ctx);
 u32 txnt_get_size (struct txn_table *dest);

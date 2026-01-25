@@ -446,7 +446,7 @@ pgr_restart_analysis (struct pager *p, struct aries_ctx *ctx, error *e)
         case WL_CKPT_END:
           {
             // FOR each entry in LogRec.Tran_Table
-            if (txnt_merge_into (&ctx->txt, &log_rec->ckpt_end.att, &ctx->txn_ptrs, e))
+            if (txnt_merge_into (&ctx->txt, &log_rec->ckpt_end.att, &ctx->txn_ptrs, &ctx->alloc, e))
               {
                 goto theend;
               }

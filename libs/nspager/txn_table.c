@@ -31,6 +31,7 @@
 #include <numstore/core/latch.h>
 #include <numstore/core/random.h>
 #include <numstore/core/serializer.h>
+#include <numstore/core/slab_alloc.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
 #include <numstore/pager/txn.h>
@@ -143,6 +144,7 @@ struct merge_ctx
   struct txn_table *dest;
   error *e;
   struct dbl_buffer *txn_dest;
+  struct slab_alloc *alloc;
 };
 
 static void
@@ -163,12 +165,17 @@ merge_txn (struct txn *tx, void *vctx)
       goto theend;
     }
 
-  // Allocate a new transaction to copy over
   struct txn *target_txn = tx;
-  if (ctx->txn_dest)
+
+  // If provided, allocate a new transaction to copy over
+  if (ctx->txn_dest && ctx->alloc)
     {
-      target_txn = dblb_append_alloc (ctx->txn_dest, 1, ctx->e);
+      target_txn = slab_alloc_alloc (ctx->alloc, ctx->e);
       if (target_txn == NULL)
+        {
+          goto theend;
+        }
+      if (dblb_append (ctx->txn_dest, &target_txn, 1, ctx->e))
         {
           goto theend;
         }
@@ -191,6 +198,7 @@ txnt_merge_into (
     struct txn_table *dest,
     struct txn_table *src,
     struct dbl_buffer *txn_dest,
+    struct slab_alloc *alloc,
     error *e)
 {
   struct merge_ctx ctx = {
@@ -214,7 +222,7 @@ TEST (TT_UNIT, txnt_merge_into_empty_to_empty)
   test_err_t_wrap (txnt_open (&dest, &e), &e);
   test_err_t_wrap (txnt_open (&src, &e), &e);
 
-  err_t result = txnt_merge_into (&dest, &src, NULL, &e);
+  err_t result = txnt_merge_into (&dest, &src, NULL, NULL, &e);
   test_assert (result == SUCCESS);
 
   txnt_close (&dest);
@@ -254,7 +262,7 @@ TEST (TT_UNIT, txnt_merge_into_with_data)
       test_assert (result == SUCCESS);
     }
 
-  err_t result = txnt_merge_into (&dest, &src, NULL, &e);
+  err_t result = txnt_merge_into (&dest, &src, NULL, NULL, &e);
   test_assert (result == SUCCESS);
 
   // Verify all exist in dest
@@ -293,7 +301,7 @@ TEST (TT_UNIT, txnt_merge_into_no_duplicate_insert)
   result = txnt_insert_txn (&src, &src_tx, &e);
   test_assert (result == SUCCESS);
 
-  result = txnt_merge_into (&dest, &src, NULL, &e);
+  result = txnt_merge_into (&dest, &src, NULL, NULL, &e);
   test_assert (result == SUCCESS);
 
   // Dest should keep its original value
