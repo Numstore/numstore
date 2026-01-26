@@ -21,6 +21,7 @@
  */
 
 #include <nslite.h>
+#include <numstore/core/threadpool.h>
 
 #include <numstore/core/clock_allocator.h>
 #include <numstore/core/error.h>
@@ -32,6 +33,7 @@
 #include <numstore/rptree/rptree_cursor.h>
 
 #include <pthread.h>
+#include <unistd.h>
 
 struct nslite_s
 {
@@ -47,6 +49,22 @@ DEFINE_DBG_ASSERT (
       ASSERT (n);
       ASSERT (n->p);
     })
+
+static void
+nslite_checkpoint_job (void *ctx)
+{
+  struct pager *p = ctx;
+  error e = error_create ();
+
+  while (true)
+    {
+      sleep (10);
+      if (pgr_checkpoint (p, &e))
+        {
+          break;
+        }
+    }
+}
 
 nslite *
 nslite_open (const char *fname, const char *recovery, error *e)
@@ -91,6 +109,16 @@ nslite_open (const char *fname, const char *recovery, error *e)
       tp_free (ret->tp, e);
       lockt_destroy (&ret->lt);
       i_free (ret);
+      goto failed;
+    }
+
+  if (tp_add_task (ret->tp, nslite_checkpoint_job, ret, e))
+    {
+      pgr_close (ret->p, e);
+      tp_free (ret->tp, e);
+      lockt_destroy (&ret->lt);
+      i_free (ret);
+      clck_alloc_close (&ret->cursors);
       goto failed;
     }
 
@@ -265,6 +293,45 @@ theend:
     }
 
   return length;
+}
+
+err_t
+nslite_validate (nslite *n, pgno id, error *e)
+{
+  DBG_ASSERT (nslite, n);
+
+  // INIT
+  struct rptree_cursor *c = clck_alloc_alloc (&n->cursors, e);
+  if (c == NULL)
+    {
+      goto theend;
+    }
+
+  // INIT RPTREE CURSOR with rpt_root page ID
+  if (rptc_open (c, id, n->p, &n->lt, e))
+    {
+      goto theend;
+    }
+
+  if (rptc_validate (c, e))
+    {
+      rptc_cleanup (c, e);
+      goto theend;
+    }
+
+  // CLEANUP
+  if (rptc_cleanup (c, e))
+    {
+      goto theend;
+    }
+
+theend:
+  if (c)
+    {
+      clck_alloc_free (&n->cursors, c);
+    }
+
+  return e->cause_code;
 }
 
 nslite_txn *

@@ -20,6 +20,8 @@ function(add_ns_library TARGET)
         list(APPEND ALL_SOURCES ${ARG_TEST_SOURCES})
     endif()
 
+    message(${ALL_SOURCES})
+
     # Create object library
     add_library(${TARGET}_objects OBJECT ${ALL_SOURCES})
     target_include_directories(${TARGET}_objects PUBLIC include)

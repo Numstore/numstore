@@ -21,12 +21,14 @@
  */
 
 // numstore
+#include "numstore/core/slab_alloc.h"
+#include <numstore/core/dbl_buffer.h>
 #include <numstore/core/error.h>
 #include <numstore/core/latch.h>
 #include <numstore/intf/types.h>
 #include <numstore/rptree/attr.h>
 
-struct rptree_mem
+struct rptree_segment
 {
   struct latch latch;
   u8 *view;
@@ -34,44 +36,69 @@ struct rptree_mem
   u32 vlen;
 };
 
+#define VTYPE struct rptree_segment *
+#define KTYPE pgno
+#define SUFFIX rptm
+#include <numstore/core/robin_hood_ht.h>
+#undef VTYPE
+#undef KTYPE
+#undef SUFFIX
+
+struct rptree_mem
+{
+  struct slab_alloc alloc;
+  struct latch l;
+
+  hentry_rptm _hdata[256];
+  hash_table_rptm pgno_to_segment;
+};
+
 ////////////////////////////////////////////////////////////
 /// MANAGEMENT
 
-struct rptree_mem *rptm_new (error *e);
+struct rptree_mem *rptm_open (error *e);
 void rptm_close (struct rptree_mem *r);
 
 ////////////////////////////////////////////////////////////
 /// ONE OFF
 
-struct rptrd
+struct rptm_stride
 {
-  struct read_attr attr;
-  t_size bsize;
-  void *dest;
+  b_size bstart;
+  u32 stride;
+  b_size nelems;
 };
 
-struct rptrm
-{
-  struct remove_attr attr;
-  t_size bsize;
-  void *dest;
-};
+err_t rptm_new (struct rptree_mem *n, pgno pg, error *e);
+void rptm_delete (struct rptree_mem *n, pgno start);
+b_size rptm_size (struct rptree_mem *n, pgno id);
 
-struct rpti
-{
-  struct insert_attr attr;
-  t_size bsize;
-  void *src;
-};
+err_t rptm_insert (
+    struct rptree_mem *n,
+    pgno id,
+    const void *src,
+    b_size bofst,
+    t_size size,
+    b_size nelem,
+    error *e);
 
-struct rptw
-{
-  struct write_attr attr;
-  t_size bsize;
-  void *src;
-};
+b_size rptm_write (
+    struct rptree_mem *n,
+    pgno id,
+    const void *src,
+    t_size size,
+    struct rptm_stride stride);
 
-b_size rptm_read (struct rptree_mem *r, struct rptrd params);
-b_size rptm_remove (struct rptree_mem *r, struct rptrm params);
-err_t rptm_insert (struct rptree_mem *r, struct rpti params, error *e);
-b_size rptm_write (struct rptree_mem *r, struct rptw params);
+b_size rptm_read (
+    struct rptree_mem *n,
+    pgno id,
+    void *dest,
+    t_size size,
+    struct rptm_stride stride);
+
+b_size rptm_remove (
+    struct rptree_mem *n,
+    pgno id,
+    void *dest,
+    t_size size,
+    struct rptm_stride stride);

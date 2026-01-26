@@ -9,6 +9,7 @@ if(NOT ENABLE_NTEST)
         $<TARGET_OBJECTS:nsfslite_objects>
         $<TARGET_OBJECTS:nsusecase_objects>
         $<TARGET_OBJECTS:nscompiler_objects>
+        $<TARGET_OBJECTS:nslite_objects>
     )
 
     target_include_directories(test PRIVATE
@@ -20,6 +21,7 @@ if(NOT ENABLE_NTEST)
         ../libs/apps/nsfslite/include
         ../libs/nsusecase/include
         ../libs/nscompiler_objects/include
+        ../libs/nslite/include
     )
 
     target_link_libraries(test PRIVATE m backtrace pthread)

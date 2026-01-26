@@ -100,6 +100,7 @@ lockt_destroy (struct lockt *t)
   adptv_htable_free (&t->table);
 }
 
+#ifndef NDEBUG
 static bool
 is_tx_lock (enum lock_mode mode)
 {
@@ -123,6 +124,7 @@ is_tx_lock (enum lock_mode mode)
     }
   UNREACHABLE ();
 }
+#endif
 
 static err_t
 lockt_lock_once (

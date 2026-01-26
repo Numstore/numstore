@@ -44,6 +44,7 @@ err_t nslite_rollback (nslite *n, nslite_txn *tx, error *e);
 spgno nslite_new (nslite *n, nslite_txn *tx, error *e);
 err_t nslite_delete (nslite *n, nslite_txn *tx, pgno start, error *e);
 sb_size nslite_size (nslite *n, pgno id, error *e);
+err_t nslite_validate (nslite *n, pgno id, error *e);
 
 err_t nslite_insert (
     nslite *n,
