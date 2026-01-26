@@ -5,7 +5,7 @@ add_ns_library(nslite
   SOURCES
     ${NSLITE_SRC}
   TEST_SOURCES
-  ${NSLITE_TEST_SRC}
+    ${NSLITE_TEST_SRC}
   DEPENDENCIES
     ${LIBS}/nscore
     ${LIBS}/nspager
