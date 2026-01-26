@@ -18,6 +18,7 @@
  *   initialization, cleanup, transaction handling, tree balancing, and validation.
  */
 
+#include "numstore/pager/lock_table.h"
 #include <numstore/rptree/rptree_cursor.h>
 
 #include <numstore/core/assert.h>
@@ -85,7 +86,7 @@ TEST (TT_UNIT, rptc_load_new_root)
   test_err_t_wrap (pgr_begin_txn (&tx, f.p, &f.e), &f.e);
 
   struct rptree_cursor r;
-  test_err_t_wrap (rptc_new (&r, &tx, f.p, &f.e), &f.e);
+  test_err_t_wrap (rptc_new (&r, &tx, f.p, &f.lt, &f.e), &f.e);
 
   rptc_enter_transaction (&r, &tx);
 
@@ -763,7 +764,7 @@ rptc_leave_transaction (struct rptree_cursor *r)
 }
 
 err_t
-rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, error *e)
+rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, struct lockt *lt, error *e)
 {
   r->pager = p;
   r->meta_root = root;
@@ -772,13 +773,17 @@ rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, error *e)
   r->lidx = 0;
   r->stack_state.sp = 0;
   r->state = RPTS_UNSEEKED;
+  r->lt = lt;
   latch_init (&r->latch);
 
   // Fetch root page
+  //
+  err_t_wrap (lockt_lock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, NULL, e), e);
   page_h root_pg = page_h_create ();
   err_t_wrap (pgr_get (&root_pg, PG_RPT_ROOT, root, p, e), e);
   r->root = rr_get_root (page_h_ro (&root_pg));
   err_t_wrap (pgr_release (r->pager, &root_pg, PG_RPT_ROOT, e), e);
+  lockt_unlock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, NULL);
 
   // Fetch data size
   if (r->root != PGNO_NULL)
@@ -798,7 +803,7 @@ rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, error *e)
 }
 
 err_t
-rptc_new (struct rptree_cursor *r, struct txn *tx, struct pager *p, error *e)
+rptc_new (struct rptree_cursor *r, struct txn *tx, struct pager *p, struct lockt *lt, error *e)
 {
   page_h root_pg = page_h_create ();
   err_t_wrap (pgr_new (&root_pg, p, tx, PG_RPT_ROOT, e), e);
@@ -806,6 +811,7 @@ rptc_new (struct rptree_cursor *r, struct txn *tx, struct pager *p, error *e)
   err_t_wrap (pgr_release (p, &root_pg, PG_RPT_ROOT, e), e);
 
   r->pager = p;
+  r->lt = lt;
   r->root = PGNO_NULL;
   r->tx = tx;
   r->cur = page_h_create ();
@@ -837,7 +843,7 @@ TEST (TT_UNIT, rptree_cursor_init_teardown)
 
   struct txn tx;
   test_err_t_wrap (pgr_begin_txn (&tx, pf.p, &pf.e), &pf.e);
-  test_err_t_wrap (rptc_new (&r, &tx, pf.p, &pf.e), &pf.e);
+  test_err_t_wrap (rptc_new (&r, &tx, pf.p, &pf.lt, &pf.e), &pf.e);
   test_err_t_wrap (rptc_cleanup (&r, &pf.e), &pf.e);
 
   test_err_t_wrap (pgr_commit (pf.p, &tx, &pf.e), &pf.e);
@@ -1074,7 +1080,7 @@ TEST (TT_UNIT, rptc_validate)
     test_err_t_wrap (page_tree_builder_release_all (&builder, &f.e), &f.e);
 
     struct rptree_cursor r;
-    test_err_t_wrap (rptc_new (&r, &tx, f.p, &f.e), &f.e);
+    test_err_t_wrap (rptc_new (&r, &tx, f.p, &f.lt, &f.e), &f.e);
     r.root = rpg;
 
     test_err_t_wrap (rptc_validate (&r, &f.e), &f.e);

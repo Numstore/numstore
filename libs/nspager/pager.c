@@ -731,7 +731,7 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
   tx->data.state = TX_DONE;
 
-  err_t_wrap (lockt_unlock (p->lt, tx, e), e);
+  err_t_wrap (lockt_unlock_tx (p->lt, tx, e), e);
 
   latch_unlock (&tx->l);
 
