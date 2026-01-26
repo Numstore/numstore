@@ -131,7 +131,7 @@ randu32r (u32 lower, u32 upper)
       return lower;
     }
 
-  u32 r = (u32)((upper - lower) * ((f32)rand () / (f32)RAND_MAX));
+  u32 r = (u32) ((upper - lower) * ((f32)rand () / (f32)RAND_MAX));
 
   return lower + r;
 }
@@ -162,8 +162,8 @@ TEST (TT_UNIT, randu32r)
   /* random ranges */
   for (int i = 0; i < 10; ++i)
     {
-      u32 lo = (u32)(rand () % 10000);
-      u32 hi = lo + (u32)(rand () % 10000);
+      u32 lo = (u32) (rand () % 10000);
+      u32 hi = lo + (u32) (rand () % 10000);
       u32 v = randu32r (lo, hi);
       test_assert (v >= lo);
       test_assert (v <= hi);
@@ -181,7 +181,7 @@ randi32r (i32 lower, i32 upper)
       return lower;
     }
 
-  u64 range = (u64)((int64_t)upper - (int64_t)lower + 1);
+  u64 range = (u64) ((int64_t)upper - (int64_t)lower + 1);
   u64 r = randu64r (0, range - 1);
   return lower + (i32)r;
 }
@@ -209,8 +209,8 @@ TEST (TT_UNIT, randi32r)
 
   for (int i = 0; i < 100; ++i)
     {
-      i32 lo = (i32)(rand () % 10000) - 5000;
-      i32 hi = lo + (i32)(rand () % 10000);
+      i32 lo = (i32) (rand () % 10000) - 5000;
+      i32 hi = lo + (i32) (rand () % 10000);
       i32 v = randi32r (lo, hi);
       test_assert (v >= lo);
       test_assert (v <= hi);
@@ -255,7 +255,7 @@ randu64r (u64 lower, u64 upper)
 #else
   __uint128_t range = (__uint128_t)upper - (__uint128_t)lower + 1u;
   __uint128_t prod = (__uint128_t)randu64 () * range;
-  u64 r = (u64)(prod >> 64);
+  u64 r = (u64) (prod >> 64);
   return lower + r;
 #endif
 }
@@ -283,7 +283,7 @@ TEST (TT_UNIT, randu64r)
   for (int i = 0; i < 50; ++i)
     {
       u64 lo = ((u64)randu32 () << 16);
-      u64 hi = lo + (u64)(randu32 () % 100000);
+      u64 hi = lo + (u64) (randu32 () % 100000);
       u64 v = randu64r (lo, hi);
       test_assert (v >= lo);
       test_assert (v <= hi);
@@ -301,15 +301,15 @@ randi64r (i64 lower, i64 upper)
 #ifdef _MSC_VER
   // MSVC doesn't support __uint128_t, use _umul128 intrinsic
   // Cast to unsigned for multiplication, then cast back
-  u64 range_u = (u64)((u64)upper - (u64)lower + 1u);
+  u64 range_u = (u64) ((u64)upper - (u64)lower + 1u);
   u64 rand_val = randu64 ();
   u64 high_bits;
   _umul128 (rand_val, range_u, &high_bits);
   return lower + (i64)high_bits;
 #else
-  __uint128_t range = (__uint128_t)((__int128_t)upper - (__int128_t)lower + 1);
+  __uint128_t range = (__uint128_t) ((__int128_t)upper - (__int128_t)lower + 1);
   __uint128_t prod = (__uint128_t)randu64 () * range;
-  i64 r = (i64)(prod >> 64);
+  i64 r = (i64) (prod >> 64);
   return lower + r;
 #endif
 }
@@ -323,8 +323,8 @@ TEST (TT_UNIT, randi64r)
   test_assert_type_equal (randi64r (I64_MAX, I64_MAX), I64_MAX, i64, PRId64);
   for (int i = 0; i < 10; ++i)
     {
-      i64 lo = (i64)(rand () % 100000) - 50000;
-      i64 hi = lo + (i64)(rand () % 100000);
+      i64 lo = (i64) (rand () % 100000) - 50000;
+      i64 hi = lo + (i64) (rand () % 100000);
       i64 v = randi64r (lo, hi);
       test_assert (v >= lo && v <= hi);
     }
@@ -377,7 +377,7 @@ rand_bytes (void *dest, u32 len)
   u8 *p = (u8 *)dest;
   for (u32 i = 0; i < len; ++i)
     {
-      p[i] = (u8)(rand () & 0xFF);
+      p[i] = (u8) (rand () & 0xFF);
     }
 }
 

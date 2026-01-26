@@ -220,7 +220,7 @@ nsfslite_new (nsfslite *n, nsfslite_txn *tx, const char *name)
 
   // CREATE RPT ROOT
   {
-    if (rptc_new (&rc->rptc, tx, n->p, &n->e))
+    if (rptc_new (&rc->rptc, tx, n->p, &n->lt, &n->e))
       {
         varc_cleanup (&vc->vpc, &n->e);
         rptc_cleanup (&rc->rptc, &n->e);
@@ -424,7 +424,7 @@ nsfslite_fsize (nsfslite *n, uint64_t id)
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (&c->rptc, id, n->p, &n->e))
+  if (rptc_open (&c->rptc, id, n->p, &n->lt, &n->e))
     {
       goto failed;
     }
@@ -502,7 +502,7 @@ nsfslite_insert (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (&c->rptc, id, n->p, &n->e))
+  if (rptc_open (&c->rptc, id, n->p, &n->lt, &n->e))
     {
       i_log_warn ("nsfslite_insert failed: rptc_open error id=%" PRIu64 "\n", id);
       goto failed;
@@ -585,7 +585,7 @@ nsfslite_write (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (&c->rptc, id, n->p, &n->e))
+  if (rptc_open (&c->rptc, id, n->p, &n->lt, &n->e))
     {
       goto failed;
     }
@@ -665,7 +665,7 @@ nsfslite_read (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (&c->rptc, id, n->p, &n->e))
+  if (rptc_open (&c->rptc, id, n->p, &n->lt, &n->e))
     {
       goto failed;
     }
@@ -718,7 +718,7 @@ nsfslite_remove (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (&c->rptc, id, n->p, &n->e))
+  if (rptc_open (&c->rptc, id, n->p, &n->lt, &n->e))
     {
       goto failed;
     }

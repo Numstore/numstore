@@ -779,10 +779,12 @@ rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, struct lockt *lt
   // Fetch root page
   //
   err_t_wrap (lockt_lock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, NULL, e), e);
+
   page_h root_pg = page_h_create ();
   err_t_wrap (pgr_get (&root_pg, PG_RPT_ROOT, root, p, e), e);
   r->root = rr_get_root (page_h_ro (&root_pg));
   err_t_wrap (pgr_release (r->pager, &root_pg, PG_RPT_ROOT, e), e);
+
   lockt_unlock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, NULL);
 
   // Fetch data size

@@ -145,7 +145,7 @@ nslite_new (nslite *n, nslite_txn *tx, error *e)
 
   // CREATE RPT ROOT
   {
-    if (rptc_new (rc, tx, n->p, e))
+    if (rptc_new (rc, tx, n->p, &n->lt, e))
       {
         rptc_cleanup (rc, e);
         goto theend;
@@ -240,7 +240,7 @@ nslite_size (nslite *n, pgno id, error *e)
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (c, id, n->p, e))
+  if (rptc_open (c, id, n->p, &n->lt, e))
     {
       goto theend;
     }
@@ -318,7 +318,7 @@ nslite_insert (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (c, id, n->p, e))
+  if (rptc_open (c, id, n->p, &n->lt, e))
     {
       goto theend;
     }
@@ -397,7 +397,7 @@ nslite_write (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (c, id, n->p, e))
+  if (rptc_open (c, id, n->p, &n->lt, e))
     {
       goto theend;
     }
@@ -472,7 +472,7 @@ nslite_read (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (c, id, n->p, e))
+  if (rptc_open (c, id, n->p, &n->lt, e))
     {
       goto theend;
     }
@@ -523,7 +523,7 @@ nslite_remove (
     }
 
   // INIT RPTREE CURSOR with rpt_root page ID
-  if (rptc_open (c, id, n->p, e))
+  if (rptc_open (c, id, n->p, &n->lt, e))
     {
       goto theend;
     }
