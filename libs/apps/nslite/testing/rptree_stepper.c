@@ -45,7 +45,6 @@ err_t
 rptv_stepper_close (struct rptv_stepper *s, error *e)
 {
   err_t ret = rptv_close (s->v, e);
-  i_free (s);
   return ret;
 }
 
@@ -309,11 +308,11 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_insert (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 100, 1000001), e);
+                                  rand_range (&s->seed, 100, 10000001), e);
           }
         else
           {
-            ret = execute_insert (s, 0, rand_range (&s->seed, 100, 1000001), e);
+            ret = execute_insert (s, 0, rand_range (&s->seed, 100, 10000001), e);
           }
         break;
       }
@@ -386,7 +385,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_write (s, rand_range (&s->seed, 0, current_size),
-                                 rand_range (&s->seed, 100, 1000001), 1, e);
+                                 rand_range (&s->seed, 100, 10000001), 1, e);
           }
         break;
       }
@@ -458,7 +457,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_remove (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 10, 10001), 1, e);
+                                  rand_range (&s->seed, 100, 10001), 1, e);
           }
         break;
       }
@@ -467,8 +466,8 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
       {
         if (current_size > 0)
           {
-            ret = execute_remove (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 100, 1000001), 1, e);
+            ret = execute_remove (
+                s, rand_range (&s->seed, 0, current_size), rand_range (&s->seed, 10000, 10000001), 1, e);
           }
         break;
       }

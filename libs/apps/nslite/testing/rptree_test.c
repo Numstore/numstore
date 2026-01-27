@@ -5,7 +5,7 @@
 #include <numstore/test/testing.h>
 
 #ifndef NTEST
-RANDOM_TEST (TT_UNIT, rptree_random, 1)
+RANDOM_TEST (TT_UNIT, rptree_random, 10)
 {
   error e = error_create ();
   test_err_t_wrap (i_remove_quiet ("test.db", &e), &e);
@@ -17,5 +17,7 @@ RANDOM_TEST (TT_UNIT, rptree_random, 1)
   {
     test_err_t_wrap (rptv_stepper_execute (&stepper, &e), &e);
   }
+
+  test_err_t_wrap (rptv_stepper_close (&stepper, &e), &e);
 }
 #endif
