@@ -84,9 +84,10 @@ rptv_size (struct rptree_validator *v, pgno id, error *e)
   b_size mem_size = rptm_size (v->mem, id);
   if ((b_size)ns_size != mem_size)
     {
-      return error_causef (e, ERR_FAILED_TEST,
-                           "Size mismatch: nslite=%lld, rptree_mem=%llu",
-                           (long long)ns_size, (unsigned long long)mem_size);
+      return error_causef (
+          e, ERR_FAILED_TEST,
+          "Size mismatch: nslite=%" PRb_size ", rptree_mem=%" PRb_size,
+          ns_size, mem_size);
     }
 
   i_log_debug ("Validator size. pgno: %" PRpgno " size: %" PRb_size "\n", id, mem_size);
@@ -256,8 +257,7 @@ rptv_read (
       return ns_read;
     }
 
-  b_size mem_read = rptm_read (v->mem, id, mem_buf, size,
-                               nslite_to_rptm_stride (stride));
+  b_size mem_read = rptm_read (v->mem, id, mem_buf, size, nslite_to_rptm_stride (stride));
 
   if ((b_size)ns_read != mem_read)
     {

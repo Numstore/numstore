@@ -1,7 +1,6 @@
 #include <numstore/test/rptree_stepper.h>
 #include <numstore/test/testing.h>
 
-// Simple LCG random number generator for reproducibility
 static u32
 rand_next (u32 *seed)
 {
@@ -283,8 +282,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
       {
         if (current_size > 0)
           {
-            ret = execute_insert (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 1, 11), e);
+            ret = execute_insert (s, rand_range (&s->seed, 0, current_size), rand_range (&s->seed, 1, 11), e);
           }
         else
           {
@@ -297,12 +295,11 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
       {
         if (current_size > 0)
           {
-            ret = execute_insert (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 10, 101), e);
+            ret = execute_insert (s, rand_range (&s->seed, 0, current_size), rand_range (&s->seed, 10, 10001), e);
           }
         else
           {
-            ret = execute_insert (s, 0, rand_range (&s->seed, 10, 101), e);
+            ret = execute_insert (s, 0, rand_range (&s->seed, 10, 10001), e);
           }
         break;
       }
@@ -312,11 +309,11 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_insert (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 100, 1001), e);
+                                  rand_range (&s->seed, 100, 1000001), e);
           }
         else
           {
-            ret = execute_insert (s, 0, rand_range (&s->seed, 100, 1001), e);
+            ret = execute_insert (s, 0, rand_range (&s->seed, 100, 1000001), e);
           }
         break;
       }
@@ -379,7 +376,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_write (s, rand_range (&s->seed, 0, current_size),
-                                 rand_range (&s->seed, 10, 101), 1, e);
+                                 rand_range (&s->seed, 10, 10001), 1, e);
           }
         break;
       }
@@ -389,7 +386,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_write (s, rand_range (&s->seed, 0, current_size),
-                                 rand_range (&s->seed, 100, 1001), 1, e);
+                                 rand_range (&s->seed, 100, 1000001), 1, e);
           }
         break;
       }
@@ -461,7 +458,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_remove (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 10, 101), 1, e);
+                                  rand_range (&s->seed, 10, 10001), 1, e);
           }
         break;
       }
@@ -471,7 +468,7 @@ rptv_stepper_execute (struct rptv_stepper *s, error *e)
         if (current_size > 0)
           {
             ret = execute_remove (s, rand_range (&s->seed, 0, current_size),
-                                  rand_range (&s->seed, 100, 1001), 1, e);
+                                  rand_range (&s->seed, 100, 1000001), 1, e);
           }
         break;
       }

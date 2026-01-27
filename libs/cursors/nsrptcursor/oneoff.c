@@ -41,7 +41,6 @@ rptof_insert (
           err_t_wrap (rptc_insert_execute (c, e), e);
         }
 
-      // REBALANCE
       while (c->state == RPTS_IN_REBALANCING)
         {
           err_t_wrap (rptc_rebalance_execute (c, e), e);
