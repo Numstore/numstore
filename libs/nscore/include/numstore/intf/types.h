@@ -67,18 +67,18 @@ typedef int32_t i32;
 typedef int64_t i64;
 
 /* ABS_MAX is the max of abs(value) */
-#define I8_MAX ((i8) (U8_MAX >> 1))
-#define I8_ABS_MAX ((u8) (I8_MAX) + 1)
-#define I16_MAX ((i16) (U16_MAX >> 1))
-#define I16_ABS_MAX ((u16) (I16_MAX) + 1)
-#define I32_MAX ((i32) (U32_MAX >> 1))
-#define I32_ABS_MAX ((u32) (I32_MAX) + 1)
-#define I64_MAX ((i64) (U64_MAX >> 1))
-#define I64_ABS_MAX ((u64) (I64_MAX) + 1)
-#define I8_MIN ((i8) (~I8_MAX))
-#define I16_MIN ((i16) (~I16_MAX))
-#define I32_MIN ((i32) (~I32_MAX))
-#define I64_MIN ((i64) (~I64_MAX))
+#define I8_MAX ((i8)(U8_MAX >> 1))
+#define I8_ABS_MAX ((u8)(I8_MAX) + 1)
+#define I16_MAX ((i16)(U16_MAX >> 1))
+#define I16_ABS_MAX ((u16)(I16_MAX) + 1)
+#define I32_MAX ((i32)(U32_MAX >> 1))
+#define I32_ABS_MAX ((u32)(I32_MAX) + 1)
+#define I64_MAX ((i64)(U64_MAX >> 1))
+#define I64_ABS_MAX ((u64)(I64_MAX) + 1)
+#define I8_MIN ((i8)(~I8_MAX))
+#define I16_MIN ((i16)(~I16_MAX))
+#define I32_MIN ((i32)(~I32_MAX))
+#define I64_MIN ((i64)(~I64_MAX))
 
 #define F16_MAX 65504.0f
 #define F16_MIN (-65504.0f)

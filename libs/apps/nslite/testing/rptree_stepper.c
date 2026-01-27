@@ -19,35 +19,27 @@ rand_range (u32 *seed, u32 min, u32 max)
   return min + (rand_next (seed) % (max - min));
 }
 
-struct rptv_stepper *
-rptv_stepper_open (const char *fname, const char *recovery, u32 seed, error *e)
+err_t
+rptv_stepper_open (struct rptv_stepper *s, const char *fname, const char *recovery, u32 seed, error *e)
 {
-  struct rptv_stepper *s = i_malloc (sizeof (*s), 1, e);
-  if (!s)
-    {
-      return NULL;
-    }
-
   s->v = rptv_open (fname, recovery, e);
   if (!s->v)
     {
-      i_free (s);
-      return NULL;
+      return e->cause_code;
     }
 
   spgno pg = rptv_new (s->v, e);
   if (pg < 0)
     {
       rptv_close (s->v, e);
-      i_free (s);
-      return NULL;
+      return e->cause_code;
     }
 
   s->current_page = (pgno)pg;
   s->step_count = 0;
   s->seed = seed ? seed : (u32)time (NULL);
 
-  return s;
+  return SUCCESS;
 }
 
 err_t

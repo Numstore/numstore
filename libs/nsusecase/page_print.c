@@ -61,7 +61,7 @@ page_print (char *fname, pp_params params)
   struct thread_pool *tp = tp_open (&e);
   test_fail_if_null (tp);
 
-  struct pager *p = pgr_open (fname, NULL, &lt, tp, &e);
+  struct pager *p = pgr_open (fname, "test.wal", &lt, tp, &e);
   if (p == NULL)
     {
       error_log_consume (&e);

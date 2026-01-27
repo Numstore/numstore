@@ -219,7 +219,7 @@ reset_local_coverage (void)
   do                                                    \
     {                                                   \
       (ename)->print_trace = true;                      \
-      err_t __ret = (err_t) (expr);                     \
+      err_t __ret = (err_t)(expr);                      \
       if ((__ret) < SUCCESS)                            \
         {                                               \
           fail_test ("Expression: %s failed\n", #expr); \
@@ -461,7 +461,7 @@ global_coverage_log (const char *label)
 /// RANDOM TEST
 
 #ifndef RANDOM_TEST_DEFAULT_UNIT_SECONDS
-#define RANDOM_TEST_DEFAULT_UNIT_SECONDS 1
+#define RANDOM_TEST_DEFAULT_UNIT_SECONDS 100
 #endif
 
 HEADER_FUNC void

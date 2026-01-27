@@ -74,6 +74,7 @@ rptv_delete (struct rptree_validator *v, pgno start, error *e)
 sb_size
 rptv_size (struct rptree_validator *v, pgno id, error *e)
 {
+
   sb_size ns_size = nslite_size (v->ns, id, e);
   if (ns_size < 0)
     {
@@ -83,11 +84,12 @@ rptv_size (struct rptree_validator *v, pgno id, error *e)
   b_size mem_size = rptm_size (v->mem, id);
   if ((b_size)ns_size != mem_size)
     {
-      error_causef (e, ERR_FAILED_TEST,
-                    "Size mismatch: nslite=%lld, rptree_mem=%llu",
-                    (long long)ns_size, (unsigned long long)mem_size);
-      return -1;
+      return error_causef (e, ERR_FAILED_TEST,
+                           "Size mismatch: nslite=%lld, rptree_mem=%llu",
+                           (long long)ns_size, (unsigned long long)mem_size);
     }
+
+  i_log_debug ("Validator size. pgno: %" PRpgno " size: %" PRb_size "\n", id, mem_size);
 
   return ns_size;
 }
@@ -102,6 +104,10 @@ rptv_insert (
     b_size nelem,
     error *e)
 {
+  i_log_debug ("Validator inserting. pgno: %" PRpgno " nelem: %" PRb_size
+               " at offset: %" PRb_size " Elements of size: %" PRt_size "\n",
+               id, nelem, bofst, size);
+
   // Perform insert on both
   err_t_wrap (nslite_insert (v->ns, id, NULL, src, bofst, size, nelem, e), e);
 
@@ -168,6 +174,10 @@ rptv_write (
     struct nslite_stride stride,
     error *e)
 {
+  i_log_debug ("Validator writing. pgno: %" PRpgno " size: %" PRt_size
+               " bstart: %" PRb_size " stride: %d nelems: %" PRb_size "\n",
+               id, size, stride.bstart, stride.stride, stride.nelems);
+
   // Perform write on both
   err_t_wrap (nslite_write (v->ns, id, NULL, src, size, stride, e), e);
 
@@ -229,6 +239,10 @@ rptv_read (
     struct nslite_stride stride,
     error *e)
 {
+  i_log_debug ("Validator reading. pgno: %" PRpgno " size: %" PRt_size
+               " bstart: %" PRb_size " stride: %d nelems: %" PRb_size "\n",
+               id, size, stride.bstart, stride.stride, stride.nelems);
+
   void *mem_buf = i_malloc (size * stride.nelems, 1, e);
   if (!mem_buf)
     {
@@ -274,6 +288,10 @@ rptv_remove (
     struct nslite_stride stride,
     error *e)
 {
+  i_log_debug ("Validator removing. pgno: %" PRpgno " size: %" PRt_size
+               " bstart: %" PRb_size " stride: %d nelems: %" PRb_size "\n",
+               id, size, stride.bstart, stride.stride, stride.nelems);
+
   b_size total_bytes = size * stride.nelems;
   void *mem_buf = i_malloc (total_bytes, 1, e);
 

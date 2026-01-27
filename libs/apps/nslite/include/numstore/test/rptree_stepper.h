@@ -47,6 +47,6 @@ struct rptv_stepper
   u32 seed;
 };
 
-struct rptv_stepper *rptv_stepper_open (const char *fname, const char *recovery, u32 seed, error *e);
+err_t rptv_stepper_open (struct rptv_stepper *stepper, const char *fname, const char *recovery, u32 seed, error *e);
 err_t rptv_stepper_close (struct rptv_stepper *s, error *e);
 err_t rptv_stepper_execute (struct rptv_stepper *s, error *e);

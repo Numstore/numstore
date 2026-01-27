@@ -189,7 +189,7 @@ lockt_lock (
     struct txn *tx,
     error *e)
 {
-  ASSERT (tx || is_tx_lock (mode));
+  ASSERT (tx || !is_tx_lock (mode));
 
   // First you need to obtain a lock on the parent
   struct lt_lock parent;

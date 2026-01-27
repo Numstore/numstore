@@ -117,12 +117,13 @@ rptc_pop_all (struct rptree_cursor *r, error *e)
 }
 
 err_t
-rptc_update_meta_root (struct rptree_cursor *r, error *e)
+rptc_update_meta (struct rptree_cursor *r, error *e)
 {
   DBG_ASSERT (rptc_unseeked, r);
 
   err_t_wrap (pgr_get_writable (&r->cur, r->tx, PG_RPT_ROOT, r->meta_root, r->pager, e), e);
   rr_set_root (page_h_w (&r->cur), r->root);
+  rr_set_nbytes (page_h_w (&r->cur), r->total_size);
   err_t_wrap (pgr_release (r->pager, &r->cur, PG_RPT_ROOT, e), e);
 
   return SUCCESS;
@@ -777,7 +778,6 @@ rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, struct lockt *lt
   latch_init (&r->latch);
 
   // Fetch root page
-  //
   err_t_wrap (lockt_lock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, NULL, e), e);
 
   page_h root_pg = page_h_create ();
@@ -785,7 +785,7 @@ rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, struct lockt *lt
   r->root = rr_get_root (page_h_ro (&root_pg));
   err_t_wrap (pgr_release (r->pager, &root_pg, PG_RPT_ROOT, e), e);
 
-  lockt_unlock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, NULL);
+  err_t_wrap (lockt_unlock (r->lt, (struct lt_lock){ .type = LOCK_ROOT }, LM_S, e), e);
 
   // Fetch data size
   if (r->root != PGNO_NULL)
