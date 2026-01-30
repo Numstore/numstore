@@ -296,7 +296,6 @@ theend:
   return length;
 }
 
-<<<<<<< HEAD
 err_t
 nslite_validate (nslite *n, pgno id, error *e)
 {

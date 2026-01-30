@@ -1,7 +1,7 @@
 #include <numstore/test/rptree_validator.h>
 
 static struct rptm_stride
-nslite_to_rptm_stride (struct nslite_stride s)
+nslite_to_rptm_stride (struct stride s)
 {
   return (struct rptm_stride){
     .bstart = s.bstart,
@@ -126,7 +126,7 @@ rptv_insert (
       return e->cause_code;
     }
 
-  struct nslite_stride stride = {
+  struct stride stride = {
     .bstart = bofst,
     .stride = 1,
     .nelems = nelem,
@@ -172,7 +172,7 @@ rptv_write (
     pgno id,
     const void *src,
     t_size size,
-    struct nslite_stride stride,
+    struct stride stride,
     error *e)
 {
   i_log_debug ("Validator writing. pgno: %" PRpgno " size: %" PRt_size
@@ -237,7 +237,7 @@ rptv_read (
     pgno id,
     void *dest,
     t_size size,
-    struct nslite_stride stride,
+    struct stride stride,
     error *e)
 {
   i_log_debug ("Validator reading. pgno: %" PRpgno " size: %" PRt_size
@@ -285,7 +285,7 @@ rptv_remove (
     pgno id,
     void *dest,
     t_size size,
-    struct nslite_stride stride,
+    struct stride stride,
     error *e)
 {
   i_log_debug ("Validator removing. pgno: %" PRpgno " size: %" PRt_size

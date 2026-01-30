@@ -112,7 +112,7 @@ execute_write (struct rptv_stepper *s, b_size bstart, b_size nelem, u32 stride, 
       data[i] = (u8)rand_next (&s->seed);
     }
 
-  struct nslite_stride str = {
+  struct stride str = {
     .bstart = bstart,
     .stride = stride,
     .nelems = nelem,
@@ -161,7 +161,7 @@ execute_remove (struct rptv_stepper *s, b_size bstart, b_size nelem, u32 stride,
       return e->cause_code;
     }
 
-  struct nslite_stride str = {
+  struct stride str = {
     .bstart = bstart,
     .stride = stride,
     .nelems = nelem,
@@ -209,7 +209,7 @@ execute_read (struct rptv_stepper *s, b_size bstart, b_size nelem, u32 stride, e
       return e->cause_code;
     }
 
-  struct nslite_stride str = {
+  struct stride str = {
     .bstart = bstart,
     .stride = stride,
     .nelems = nelem,
