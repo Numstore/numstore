@@ -19,6 +19,7 @@
  *   with type serialization.
  */
 
+#include "numstore/core/chunk_alloc.h"
 #include <numstore/var/var_cursor.h>
 
 #include <numstore/core/assert.h>
@@ -522,7 +523,7 @@ theend:
 }
 
 err_t
-vpc_get (struct var_cursor *v, struct lalloc *dalloc, struct var_get_params *dest, error *e)
+vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params *dest, error *e)
 {
   DBG_ASSERT (var_cursor, v);
   ASSERT (dest);
@@ -796,8 +797,8 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_wrap (vpc_get (&v, &alloc, &dest, &f.e), &f.e);
     }
 
@@ -870,8 +871,8 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_check (vpc_get (&v, &alloc, &dest, &f.e), ERR_VARIABLE_NE, &f.e);
     }
 
@@ -927,8 +928,8 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_wrap (vpc_get (&v, &alloc, &dest, &f.e), &f.e);
     }
 
@@ -982,8 +983,8 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_check (vpc_get (&v, &alloc, &dest, &f.e), ERR_VARIABLE_NE, &f.e);
     }
 

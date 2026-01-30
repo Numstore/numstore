@@ -38,12 +38,16 @@ struct kvt_builder
   u16 klen;
   u16 tlen;
 
-  struct lalloc *alloc; // Place to allocate worker stuff
-  struct lalloc *dest;  // Place to allocate the result
+  struct chunk_alloc *temp;       // worker data
+  struct chunk_alloc *persistent; // persistent memory data
 };
 
-struct kvt_builder kvb_create (struct lalloc *alloc, struct lalloc *dest);
-err_t kvb_accept_key (struct kvt_builder *ub, const struct string key, error *e);
+void kvb_create (struct kvt_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
+
+// Accept stuff
+err_t kvb_accept_key (struct kvt_builder *ub, struct string key, error *e);
 err_t kvb_accept_type (struct kvt_builder *eb, struct type t, error *e);
+
+// Build
 err_t kvb_union_t_build (struct union_t *dest, struct kvt_builder *eb, error *e);
 err_t kvb_struct_t_build (struct struct_t *dest, struct kvt_builder *eb, error *e);

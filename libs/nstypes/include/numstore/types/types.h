@@ -22,9 +22,9 @@
  */
 
 // core
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
-#include <numstore/core/lalloc.h>
 #include <numstore/core/serializer.h>
 #include <numstore/types/enum.h>
 #include <numstore/types/prim.h>
@@ -60,7 +60,7 @@ i32 type_snprintf (char *str, u32 size, struct type *t);
 u32 type_byte_size (const struct type *t);
 u32 type_get_serial_size (const struct type *t);
 void type_serialize (struct serializer *dest, const struct type *src);
-err_t type_deserialize (struct type *dest, struct deserializer *src, struct lalloc *alloc, error *e);
-err_t type_random (struct type *dest, struct lalloc *alloc, u32 depth, error *e);
+err_t type_deserialize (struct type *dest, struct deserializer *src, struct chunk_alloc *alloc, error *e);
+err_t type_random (struct type *dest, struct chunk_alloc *alloc, u32 depth, error *e);
 bool type_equal (const struct type *left, const struct type *right);
 err_t i_log_type (struct type t, error *e);

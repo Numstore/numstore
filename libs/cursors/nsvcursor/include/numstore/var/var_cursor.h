@@ -22,7 +22,7 @@
  */
 
 #include <numstore/core/assert.h>
-#include <numstore/core/lalloc.h>
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/latch.h>
 #include <numstore/pager.h>
 #include <numstore/pager/page_h.h>
@@ -74,7 +74,7 @@ err_t vpc_new (
 
 err_t vpc_get (
     struct var_cursor *v,
-    struct lalloc *dalloc,
+    struct chunk_alloc *dalloc,
     struct var_get_params *dest,
     error *e);
 

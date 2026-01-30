@@ -18,6 +18,8 @@
  *   serialization, deserialization, random generation, and builder functions.
  */
 
+#include "numstore/core/chunk_alloc.h"
+#include "numstore/core/error.h"
 #include <numstore/types/enum.h>
 
 #include <numstore/core/assert.h>
@@ -265,7 +267,7 @@ TEST (TT_UNIT, enum_t_get_serial_size)
 #endif
 
 void
-enum_t_serialize (struct serializer *dest, const struct enum_t *src)
+enum_t_serialize (struct serializer *persistent, const struct enum_t *src)
 {
   /**
    * Program correctness: You have enough room in the serializer
@@ -277,16 +279,16 @@ enum_t_serialize (struct serializer *dest, const struct enum_t *src)
   /**
    * LEN (DLEN DATA) (DLEN DATA) (DLEN DATA) ...
    */
-  ret = srlizr_write (dest, (const u8 *)&src->len, sizeof (u16));
+  ret = srlizr_write (persistent, (const u8 *)&src->len, sizeof (u16));
   ASSERT (ret);
 
   for (u32 i = 0; i < src->len; ++i)
     {
       struct string next = src->keys[i];
-      ret = srlizr_write (dest, (const u8 *)&next.len, sizeof (u16));
+      ret = srlizr_write (persistent, (const u8 *)&next.len, sizeof (u16));
       ASSERT (ret);
 
-      ret = srlizr_write (dest, (u8 *)next.data, next.len);
+      ret = srlizr_write (persistent, (u8 *)next.data, next.len);
       ASSERT (ret);
     }
 }
@@ -342,9 +344,9 @@ TEST (TT_UNIT, enum_t_serialize)
 #endif
 
 err_t
-enum_t_deserialize (struct enum_t *dest, struct deserializer *src, struct lalloc *a, error *e)
+enum_t_deserialize (struct enum_t *persistent, struct deserializer *src, struct chunk_alloc *a, error *e)
 {
-  ASSERT (dest);
+  ASSERT (persistent);
 
   struct enum_t en = { 0 };
 
@@ -356,7 +358,7 @@ enum_t_deserialize (struct enum_t *dest, struct deserializer *src, struct lalloc
       goto early_termination;
     }
 
-  struct string *keys = lcalloc (a, en.len, sizeof *keys, e);
+  struct string *keys = chunk_calloc (a, en.len, sizeof *keys, e);
   if (keys == NULL)
     {
       return e->cause_code;
@@ -376,7 +378,7 @@ enum_t_deserialize (struct enum_t *dest, struct deserializer *src, struct lalloc
 
       en.keys[i] = (struct string){
         .len = (u32)klen,
-        .data = lmalloc (a, klen, 1, e),
+        .data = chunk_malloc (a, klen, 1, e),
       };
 
       if (en.keys[i].data == NULL)
@@ -395,7 +397,7 @@ enum_t_deserialize (struct enum_t *dest, struct deserializer *src, struct lalloc
 
   err_t_wrap (enum_t_validate (&en, e), e);
 
-  *dest = en;
+  *persistent = en;
   return SUCCESS;
 
 early_termination:
@@ -421,15 +423,15 @@ TEST (TT_UNIT, enum_t_deserialize_green_path)
   i_memcpy (&data[11], &l3, sizeof (u16));
   i_memcpy (&data[17], &l4, sizeof (u16));
 
-  char _backing[2000];
-  struct lalloc en_alloc = lalloc_create ((u8 *)_backing, sizeof (_backing));
+  struct chunk_alloc en_temp;
+  chunk_alloc_create_default (&en_temp);
 
   struct deserializer d = dsrlizr_create (data, sizeof (data));
 
   error e = error_create ();
 
   struct enum_t eret;
-  err_t ret = enum_t_deserialize (&eret, &d, &en_alloc, &e);
+  err_t ret = enum_t_deserialize (&eret, &d, &en_temp, &e);
 
   test_assert_int_equal (ret, SUCCESS);
 
@@ -446,6 +448,8 @@ TEST (TT_UNIT, enum_t_deserialize_green_path)
 
   test_assert_int_equal (eret.keys[3].len, 5);
   test_assert_int_equal (i_memcmp (eret.keys[3].data, "bazbi", 5), 0);
+
+  chunk_alloc_free_all (&en_temp);
 }
 #endif
 
@@ -469,25 +473,27 @@ TEST (TT_UNIT, enum_t_deserialize_red_path)
   i_memcpy (&data[18], &l4, sizeof (u16));
 
   struct enum_t eret;
-  char _backing[2000];
-  struct lalloc alloc = lalloc_create ((u8 *)_backing, sizeof (_backing));
+  struct chunk_alloc temp;
+  chunk_alloc_create_default (&temp);
   struct deserializer d = dsrlizr_create (data, sizeof (data));
 
   error e = error_create ();
-  err_t ret = enum_t_deserialize (&eret, &d, &alloc, &e);
+  err_t ret = enum_t_deserialize (&eret, &d, &temp, &e);
 
   test_assert_int_equal (ret, ERR_INTERP); /* Duplicate */
+
+  chunk_alloc_free_all (&temp);
 }
 #endif
 
 err_t
-enum_t_random (struct enum_t *en, struct lalloc *alloc, error *e)
+enum_t_random (struct enum_t *en, struct chunk_alloc *temp, error *e)
 {
   ASSERT (en);
 
   en->len = (u16)randu32r (1, 5);
 
-  en->keys = (struct string *)lmalloc (alloc, en->len, sizeof (struct string), e);
+  en->keys = (struct string *)chunk_malloc (temp, en->len, sizeof (struct string), e);
   if (!en->keys)
     {
       return e->cause_code;
@@ -495,7 +501,7 @@ enum_t_random (struct enum_t *en, struct lalloc *alloc, error *e)
 
   for (u16 i = 0; i < en->len; ++i)
     {
-      err_t_wrap (rand_str (&en->keys[i], alloc, 5, 11, e), e);
+      err_t_wrap (rand_str (&en->keys[i], temp, 5, 11, e), e);
     }
 
   return SUCCESS;
@@ -505,13 +511,15 @@ enum_t_random (struct enum_t *en, struct lalloc *alloc, error *e)
 TEST (TT_UNIT, enum_t_random)
 {
   error err = error_create ();
-  char backing[512];
-  struct lalloc arena = lalloc_create ((u8 *)backing, sizeof backing);
+  struct chunk_alloc arena;
+  chunk_alloc_create_default (&arena);
 
   struct enum_t en;
   test_assert_int_equal (enum_t_random (&en, &arena, &err), SUCCESS);
   /* Generated enum must be valid according to enum_t_validate */
   test_assert_int_equal (enum_t_validate (&en, &err), SUCCESS);
+
+  chunk_alloc_free_all (&arena);
 }
 #endif
 
@@ -546,15 +554,14 @@ DEFINE_DBG_ASSERT (
       ASSERT (s);
     })
 
-struct enum_builder
-enb_create (struct lalloc *alloc, struct lalloc *dest)
+void
+enb_create (struct enum_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent)
 {
-  struct enum_builder builder = {
+  *dest = (struct enum_builder){
     .head = NULL,
-    .alloc = alloc,
-    .dest = dest,
+    .temp = temp,
+    .persistent = persistent,
   };
-  return builder;
 }
 
 static bool
@@ -572,7 +579,7 @@ enb_has_key_been_used (const struct enum_builder *eb, struct string key)
 }
 
 err_t
-enb_accept_key (struct enum_builder *eb, const struct string key, error *e)
+enb_accept_key (struct enum_builder *eb, struct string key, error *e)
 {
   DBG_ASSERT (enum_builder, eb);
 
@@ -591,6 +598,13 @@ enb_accept_key (struct enum_builder *eb, const struct string key, error *e)
           key.len, key.data);
     }
 
+  // Move key data into persistent memory
+  key.data = chunk_alloc_move_mem (eb->persistent, key.data, key.len, e);
+  if (key.data == NULL)
+    {
+      return e->cause_code;
+    }
+
   u16 idx = (u16)list_length (eb->head);
   struct llnode *slot = llnode_get_n (eb->head, idx);
   struct k_llnode *node;
@@ -600,7 +614,7 @@ enb_accept_key (struct enum_builder *eb, const struct string key, error *e)
     }
   else
     {
-      node = lmalloc (eb->alloc, 1, sizeof *node, e);
+      node = chunk_malloc (eb->temp, 1, sizeof *node, e);
       if (!node)
         {
           return e->cause_code;
@@ -622,20 +636,18 @@ enb_accept_key (struct enum_builder *eb, const struct string key, error *e)
 }
 
 err_t
-enb_build (struct enum_t *dest, struct enum_builder *eb, error *e)
+enb_build (struct enum_t *persistent, struct enum_builder *eb, error *e)
 {
   DBG_ASSERT (enum_builder, eb);
-  ASSERT (dest);
+  ASSERT (persistent);
 
   u16 len = (u16)list_length (eb->head);
   if (len == 0)
     {
-      return error_causef (
-          e, ERR_INTERP,
-          "no keys to build");
+      return error_causef (e, ERR_INTERP, "no keys to build");
     }
 
-  struct string *keys = lmalloc (eb->dest, len, sizeof *keys, e);
+  struct string *keys = chunk_malloc (eb->persistent, len, sizeof *keys, e);
   if (!keys)
     {
       return e->cause_code;
@@ -648,8 +660,9 @@ enb_build (struct enum_t *dest, struct enum_builder *eb, error *e)
       keys[i++] = kn->key;
     }
 
-  dest->len = len;
-  dest->keys = keys;
+  persistent->len = len;
+  persistent->keys = keys;
+
   return SUCCESS;
 }
 
@@ -657,15 +670,16 @@ enb_build (struct enum_t *dest, struct enum_builder *eb, error *e)
 TEST (TT_UNIT, enum_builder)
 {
   error err = error_create ();
-  u8 _alloc[2048];
-  u8 _dest[2048];
+  u8 _temp[2048];
+  u8 _persistent[2048];
 
-  /* provide two simple heap allocators for builder + strings */
-  struct lalloc alloc = lalloc_create_from (_alloc);
-  struct lalloc dest = lalloc_create_from (_dest);
+  /* provide two simple heap tempators for builder + strings */
+  struct chunk_alloc persistent;
+  chunk_alloc_create_default (&persistent);
 
   /* 0. freshly‑created builder must be clean */
-  struct enum_builder eb = enb_create (&alloc, &dest);
+  struct enum_builder eb;
+  enb_create (&eb, &persistent, &persistent);
   test_fail_if (eb.head != NULL);
 
   /* 1. rejecting empty key */
@@ -692,13 +706,15 @@ TEST (TT_UNIT, enum_builder)
   test_assert_int_equal (string_equal (en.keys[0], A) || string_equal (en.keys[1], A), true);
   test_assert_int_equal (string_equal (en.keys[0], B) || string_equal (en.keys[1], B), true);
 
-  lalloc_reset (&alloc);
-  lalloc_reset (&dest);
+  chunk_alloc_reset_all (&persistent);
 
   /* 6. build with empty builder must fail */
-  struct enum_builder empty = enb_create (&alloc, &dest);
+  struct enum_builder empty;
+  enb_create (&empty, &persistent, &persistent);
   struct enum_t en2 = { 0 };
   test_assert_int_equal (enb_build (&en2, &empty, &err), ERR_INTERP);
   err.cause_code = SUCCESS;
+
+  chunk_alloc_free_all (&persistent);
 }
 #endif

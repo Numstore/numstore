@@ -34,7 +34,6 @@
 struct nsfile_s
 {
   nslite *n;
-  pgno root;
 };
 
 DEFINE_DBG_ASSERT (
@@ -59,15 +58,17 @@ nsfile_open (const char *fname, const char *recovery, error *e)
       goto failed;
     }
 
-  spgno root = nslite_new (ret->n, NULL, e);
-  if (root < 0)
+  if (nslite_isnew (ret->n))
     {
-      nslite_close (ret->n, e);
-      i_free (ret);
-      goto failed;
+      spgno root = nslite_new (ret->n, NULL, e);
+      if (root < 0)
+        {
+          nslite_close (ret->n, e);
+          i_free (ret);
+          goto failed;
+        }
+      ASSERT (root == 1);
     }
-
-  ret->root = root;
 
   return ret;
 
@@ -89,7 +90,7 @@ nsfile_close (nsfile *n, error *e)
 sb_size
 nsfile_size (nsfile *n, error *e)
 {
-  return nslite_size (n->n, n->root, e);
+  return nslite_size (n->n, 1, e);
 }
 
 struct txn *
@@ -120,7 +121,7 @@ nsfile_insert (
     b_size nelem,
     error *e)
 {
-  return nslite_insert (n->n, n->root, tx, src, bofst, size, nelem, e);
+  return nslite_insert (n->n, 1, tx, src, bofst, size, nelem, e);
 }
 
 err_t
@@ -132,7 +133,7 @@ nsfile_write (
     struct stride stride,
     error *e)
 {
-  return nslite_write (n->n, n->root, tx, src, size, stride, e);
+  return nslite_write (n->n, 1, tx, src, size, stride, e);
 }
 
 sb_size
@@ -143,7 +144,7 @@ nsfile_read (
     struct stride stride,
     error *e)
 {
-  return nslite_read (n->n, n->root, dest, size, stride, e);
+  return nslite_read (n->n, 1, dest, size, stride, e);
 }
 
 err_t
@@ -155,5 +156,5 @@ nsfile_remove (
     struct stride stride,
     error *e)
 {
-  return nslite_remove (n->n, n->root, tx, dest, size, stride, e);
+  return nslite_remove (n->n, 1, tx, dest, size, stride, e);
 }

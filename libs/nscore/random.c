@@ -17,6 +17,7 @@
  *   Implements random.h. Random number generation for all integer types and utilities.
  */
 
+#include "numstore/core/chunk_alloc.h"
 #include <numstore/core/random.h>
 
 #include <numstore/core/assert.h>
@@ -332,13 +333,13 @@ TEST (TT_UNIT, randi64r)
 #endif
 
 err_t
-rand_str (struct string *dest, struct lalloc *alloc, u32 minlen, u32 maxlen, error *e)
+rand_str (struct string *dest, struct chunk_alloc *alloc, u32 minlen, u32 maxlen, error *e)
 {
   ASSERT (dest);
   ASSERT (maxlen > minlen);
 
   u32 len = randu32r (minlen, maxlen);
-  char *data = (char *)lmalloc (alloc, len, sizeof *data, e);
+  char *data = (char *)chunk_malloc (alloc, len, sizeof *data, e);
   if (!data)
     {
       return e->cause_code;

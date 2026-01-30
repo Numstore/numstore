@@ -30,6 +30,7 @@ typedef struct nslite_s nslite;
 
 nslite *nslite_open (const char *fname, const char *recovery, error *e);
 err_t nslite_close (nslite *n, error *e);
+bool nslite_isnew (nslite *n);
 
 struct txn *nslite_begin_txn (nslite *n, error *e);
 err_t nslite_commit (nslite *n, struct txn *tx, error *e);

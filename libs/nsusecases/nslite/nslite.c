@@ -142,6 +142,12 @@ nslite_close (nslite *n, error *e)
   return e->cause_code;
 }
 
+bool
+nslite_isnew (nslite *n)
+{
+  return pgr_isnew (n->p);
+}
+
 // Higher Order Operations
 spgno
 nslite_new (nslite *n, struct txn *tx, error *e)

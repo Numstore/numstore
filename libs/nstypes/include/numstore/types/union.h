@@ -21,9 +21,9 @@
  */
 
 // core
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
-#include <numstore/core/lalloc.h>
 #include <numstore/core/serializer.h>
 #include <numstore/core/string.h>
 
@@ -42,6 +42,6 @@ i32 union_t_snprintf (char *str, u32 size, const struct union_t *p);
 u32 union_t_byte_size (const struct union_t *t);
 u32 union_t_get_serial_size (const struct union_t *t);
 void union_t_serialize (struct serializer *dest, const struct union_t *src);
-err_t union_t_deserialize (struct union_t *dest, struct deserializer *src, struct lalloc *a, error *e);
-err_t union_t_random (struct union_t *un, struct lalloc *alloc, u32 depth, error *e);
+err_t union_t_deserialize (struct union_t *dest, struct deserializer *src, struct chunk_alloc *a, error *e);
+err_t union_t_random (struct union_t *un, struct chunk_alloc *alloc, u32 depth, error *e);
 bool union_t_equal (const struct union_t *left, const struct union_t *right);

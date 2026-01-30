@@ -91,11 +91,11 @@ add_subdirectory(libs/nstypes)
 add_subdirectory(libs/cursors/nsrptcursor)
 add_subdirectory(libs/cursors/nsvcursor)
 add_subdirectory(libs/nspager)
-add_subdirectory(libs/nsusecase)
-#add_subdirectory(libs/apps/nsdblite)
-add_subdirectory(libs/apps/nsfslite)
-add_subdirectory(libs/apps/nslite)
-add_subdirectory(libs/apps/nsfile)
+add_subdirectory(libs/nsroutines)
+#add_subdirectory(libs/nsroutiness/nsdblite)
+add_subdirectory(libs/nsusecases/nsfslite)
+add_subdirectory(libs/nsusecases/nslite)
+add_subdirectory(libs/nsusecases/nsfile)
 add_subdirectory(libs/nscompiler)
 add_subdirectory(apps)
 
@@ -108,7 +108,7 @@ add_library(numstore STATIC
     $<TARGET_OBJECTS:nsrptcursor_objects>
     $<TARGET_OBJECTS:nsvcursor_objects>
     $<TARGET_OBJECTS:nspager_objects>
-    $<TARGET_OBJECTS:nsusecase_objects>
+    $<TARGET_OBJECTS:nsroutines_objects>
     $<TARGET_OBJECTS:nsfslite_objects>
     $<TARGET_OBJECTS:nslite_objects>
     $<TARGET_OBJECTS:nsfile_objects>
@@ -122,10 +122,10 @@ target_include_directories(numstore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/cursors/nsrptcursor/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/cursors/nsvcursor/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nspager/include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecase/include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/apps/nsfslite/include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/apps/nslite/include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/apps/nsfile/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsroutines/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecases/nsfslite/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecases/nslite/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecases/nsfile/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nscompiler/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -147,10 +147,10 @@ install(DIRECTORY
     libs/nstypes/include/
     libs/cursors/nsrptcursor/include/
     libs/nspager/include/
-    libs/nsusecase/include/
-    libs/apps/nsfslite/include/
-    libs/apps/nslite/include/
-    libs/apps/nsfile/include/
+    libs/nsroutines/include/
+    libs/nsusecases/nsfslite/include/
+    libs/nsusecases/nslite/include/
+    libs/nsusecases/nsfile/include/
     libs/nscompiler/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"

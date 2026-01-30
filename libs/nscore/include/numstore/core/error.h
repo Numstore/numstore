@@ -83,12 +83,18 @@ typedef struct
   u32 cmlen;
   bool print_trace;
   bool print_msg_on_error;
+
+  bool prev_print_trace;
+  bool prev_print_msg_on_error;
 } error;
 
 ////////////////////////////////////////////////////////////
 // /
 /// Main API
 error error_create (void);
+
+void error_silence (error *e);
+void error_silence_reset (error *e);
 
 err_t error_causef (
     error *e,

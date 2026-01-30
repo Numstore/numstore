@@ -239,7 +239,7 @@ type_serialize (struct serializer *dest, const struct type *src)
 }
 
 err_t
-type_deserialize (struct type *dest, struct deserializer *src, struct lalloc *alloc, error *e)
+type_deserialize (struct type *dest, struct deserializer *src, struct chunk_alloc *alloc, error *e)
 {
   u8 header;
   bool ret = dsrlizr_read ((u8 *)&header, sizeof (u8), src);
@@ -268,15 +268,13 @@ type_deserialize (struct type *dest, struct deserializer *src, struct lalloc *al
       }
     default:
       {
-        return error_causef (
-            e, ERR_INTERP,
-            "Unknown type code: %d", ret);
+        return error_causef (e, ERR_INTERP, "Unknown type code: %d", ret);
       }
     }
 }
 
 err_t
-type_random (struct type *dest, struct lalloc *alloc, u32 depth, error *e)
+type_random (struct type *dest, struct chunk_alloc *alloc, u32 depth, error *e)
 {
   ASSERT (dest);
 

@@ -144,10 +144,6 @@ error_causef (error *e, err_t c, const char *fmt, ...)
           i_print_stack_trace ();
         }
     }
-  else
-    {
-      i_log_error ("%s\n", tmpbuf);
-    }
 
   va_end (ap);
 
@@ -259,4 +255,21 @@ error_equal (const error *left, const error *right)
     }
 
   return true;
+}
+
+void
+error_silence (error *e)
+{
+  e->prev_print_msg_on_error = e->print_msg_on_error;
+  e->prev_print_trace = e->print_trace;
+
+  e->print_trace = false;
+  e->print_msg_on_error = false;
+}
+
+void
+error_silence_reset (error *e)
+{
+  e->print_trace = e->prev_print_trace;
+  e->print_msg_on_error = e->prev_print_msg_on_error;
 }

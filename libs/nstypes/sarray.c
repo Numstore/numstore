@@ -18,6 +18,7 @@
  *   byte size calculations, serialization, deserialization, and builder functions.
  */
 
+#include "numstore/core/chunk_alloc.h"
 #include <numstore/types/sarray.h>
 
 #include <numstore/core/assert.h>
@@ -215,7 +216,7 @@ TEST (TT_UNIT, sarray_t_get_serial_size)
 #endif
 
 void
-sarray_t_serialize (struct serializer *dest, const struct sarray_t *src)
+sarray_t_serialize (struct serializer *persistent, const struct sarray_t *src)
 {
   DBG_ASSERT (valid_sarray_t, src);
   bool ret;
@@ -223,7 +224,7 @@ sarray_t_serialize (struct serializer *dest, const struct sarray_t *src)
   /**
    * RANK DIM0 DIM1 DIM2 ... TYPE
    */
-  ret = srlizr_write (dest, (const u8 *)&src->rank, sizeof (u16));
+  ret = srlizr_write (persistent, (const u8 *)&src->rank, sizeof (u16));
   ASSERT (ret);
 
   for (u32 i = 0; i < src->rank; ++i)
@@ -231,14 +232,14 @@ sarray_t_serialize (struct serializer *dest, const struct sarray_t *src)
       /**
        * DIMi
        */
-      ret = srlizr_write (dest, (const u8 *)&src->dims[i], sizeof (u32));
+      ret = srlizr_write (persistent, (const u8 *)&src->dims[i], sizeof (u32));
       ASSERT (ret);
     }
 
   /**
    * (TYPE)
    */
-  type_serialize (dest, src->t);
+  type_serialize (persistent, src->t);
 }
 
 #ifndef NTEST
@@ -277,9 +278,9 @@ TEST (TT_UNIT, sarray_t_serialize)
 #endif
 
 err_t
-sarray_t_deserialize (struct sarray_t *dest, struct deserializer *src, struct lalloc *a, error *e)
+sarray_t_deserialize (struct sarray_t *persistent, struct deserializer *src, struct chunk_alloc *a, error *e)
 {
-  ASSERT (dest);
+  ASSERT (persistent);
 
   struct sarray_t sa = { 0 };
 
@@ -294,7 +295,7 @@ sarray_t_deserialize (struct sarray_t *dest, struct deserializer *src, struct la
   /**
    * Allocate dimensions buffer
    */
-  u32 *dims = lmalloc (a, sa.rank, sizeof *dims, e);
+  u32 *dims = chunk_malloc (a, sa.rank, sizeof *dims, e);
   if (dims == NULL)
     {
       return e->cause_code;
@@ -304,7 +305,7 @@ sarray_t_deserialize (struct sarray_t *dest, struct deserializer *src, struct la
   /**
    * Allocate type
    */
-  struct type *t = lmalloc (a, 1, sizeof *t, e);
+  struct type *t = chunk_malloc (a, 1, sizeof *t, e);
   if (t == NULL)
     {
       return e->cause_code;
@@ -332,7 +333,7 @@ sarray_t_deserialize (struct sarray_t *dest, struct deserializer *src, struct la
   err_t_wrap (type_deserialize (sa.t, src, a, e), e);
   err_t_wrap (sarray_t_validate_shallow (&sa, e), e);
 
-  *dest = sa;
+  *persistent = sa;
   return SUCCESS;
 
 early_terimination:
@@ -356,15 +357,15 @@ TEST (TT_UNIT, sarray_t_deserialize_green_path)
   i_memcpy (data + 6, &d1, 4);
   i_memcpy (data + 10, &d2, 4);
 
-  u8 *_backing[2000];
-  struct lalloc sab_alloc = lalloc_create ((u8 *)_backing, sizeof (_backing));
+  struct chunk_alloc sab_temp;
+  chunk_alloc_create_default (&sab_temp);
 
   struct deserializer d = dsrlizr_create (data, sizeof (data));
 
   error e = error_create ();
 
   struct sarray_t sret;
-  err_t ret = sarray_t_deserialize (&sret, &d, &sab_alloc, &e);
+  err_t ret = sarray_t_deserialize (&sret, &d, &sab_temp, &e);
 
   test_assert_int_equal (ret, SUCCESS);
 
@@ -373,6 +374,8 @@ TEST (TT_UNIT, sarray_t_deserialize_green_path)
   test_assert_int_equal (sret.dims[0], 10);
   test_assert_int_equal (sret.dims[1], 11);
   test_assert_int_equal (sret.dims[2], 12);
+
+  chunk_alloc_free_all (&sab_temp);
 }
 #endif
 
@@ -394,25 +397,27 @@ TEST (TT_UNIT, sarray_t_deserialize_red_path)
   i_memcpy (data + 10, &d2, 4);
 
   struct sarray_t eret;
-  u8 *_backing[2000];
-  struct lalloc alloc = lalloc_create ((u8 *)_backing, sizeof (_backing));
+  struct chunk_alloc temp;
+  chunk_alloc_create_default (&temp);
   struct deserializer d = dsrlizr_create (data, sizeof (data));
 
   error e = error_create ();
-  err_t ret = sarray_t_deserialize (&eret, &d, &alloc, &e);
+  err_t ret = sarray_t_deserialize (&eret, &d, &temp, &e);
 
   test_assert_int_equal (ret, ERR_INTERP); /* 0 value */
+
+  chunk_alloc_free_all (&temp);
 }
 #endif
 
 err_t
-sarray_t_random (struct sarray_t *sa, struct lalloc *alloc, u32 depth, error *e)
+sarray_t_random (struct sarray_t *sa, struct chunk_alloc *temp, u32 depth, error *e)
 {
   ASSERT (sa);
 
   sa->rank = (u16)randu32r (1, 4);
 
-  sa->dims = (u32 *)lmalloc (alloc, sa->rank, sizeof (u32), e);
+  sa->dims = (u32 *)chunk_malloc (temp, sa->rank, sizeof (u32), e);
   if (!sa->dims)
     {
       return e->cause_code;
@@ -423,13 +428,13 @@ sarray_t_random (struct sarray_t *sa, struct lalloc *alloc, u32 depth, error *e)
       sa->dims[i] = randu32r (1, 11);
     }
 
-  sa->t = (struct type *)lmalloc (alloc, 1, sizeof (struct type), e);
+  sa->t = (struct type *)chunk_malloc (temp, 1, sizeof (struct type), e);
   if (!sa->t)
     {
       return e->cause_code;
     }
 
-  err_t_wrap (type_random (sa->t, alloc, depth - 1, e), e);
+  err_t_wrap (type_random (sa->t, temp, depth - 1, e), e);
 
   return SUCCESS;
 }
@@ -462,19 +467,17 @@ DEFINE_DBG_ASSERT (
       ASSERT (s);
     })
 
-struct sarray_builder
-sab_create (struct lalloc *alloc, struct lalloc *dest)
+void
+sab_create (struct sarray_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent)
 {
-  struct sarray_builder builder = {
+  *dest = (struct sarray_builder){
     .head = NULL,
     .type = NULL,
-    .alloc = alloc,
-    .dest = dest,
+    .temp = temp,
+    .persistent = persistent,
   };
 
-  DBG_ASSERT (sarray_builder, &builder);
-
-  return builder;
+  DBG_ASSERT (sarray_builder, dest);
 }
 
 err_t
@@ -492,7 +495,7 @@ sab_accept_dim (struct sarray_builder *eb, u32 dim, error *e)
     }
   else
     {
-      node = lmalloc (eb->alloc, 1, sizeof *node, e);
+      node = chunk_malloc (eb->temp, 1, sizeof *node, e);
       if (!node)
         {
           return e->cause_code;
@@ -524,7 +527,7 @@ sab_accept_type (struct sarray_builder *eb, struct type t, error *e)
           "type already set");
     }
 
-  struct type *tp = lmalloc (eb->alloc, 1, sizeof *tp, e);
+  struct type *tp = chunk_malloc (eb->temp, 1, sizeof *tp, e);
   if (!tp)
     {
       return e->cause_code;
@@ -536,10 +539,10 @@ sab_accept_type (struct sarray_builder *eb, struct type t, error *e)
 }
 
 err_t
-sab_build (struct sarray_t *dest, struct sarray_builder *eb, error *e)
+sab_build (struct sarray_t *persistent, struct sarray_builder *eb, error *e)
 {
   DBG_ASSERT (sarray_builder, eb);
-  ASSERT (dest);
+  ASSERT (persistent);
 
   if (!eb->type)
     {
@@ -556,7 +559,7 @@ sab_build (struct sarray_t *dest, struct sarray_builder *eb, error *e)
           "no dims to build");
     }
 
-  u32 *dims = lmalloc (eb->dest, rank, sizeof *dims, e);
+  u32 *dims = chunk_malloc (eb->persistent, rank, sizeof *dims, e);
   if (!dims)
     {
       return e->cause_code;
@@ -569,9 +572,9 @@ sab_build (struct sarray_t *dest, struct sarray_builder *eb, error *e)
       dims[i++] = dn->dim;
     }
 
-  dest->rank = rank;
-  dest->dims = dims;
-  dest->t = eb->type;
+  persistent->rank = rank;
+  persistent->dims = dims;
+  persistent->t = eb->type;
 
   return SUCCESS;
 }
@@ -580,15 +583,14 @@ sab_build (struct sarray_t *dest, struct sarray_builder *eb, error *e)
 TEST (TT_UNIT, sarray_builder)
 {
   error err = error_create ();
-  u8 _alloc[2048];
-  u8 _dest[2048];
 
-  /* provide two fixed‑size allocators for nodes + dims array */
-  struct lalloc alloc = lalloc_create_from (_alloc);
-  struct lalloc dest = lalloc_create_from (_dest);
+  /* provide two fixed‑size tempators for nodes + dims array */
+  struct chunk_alloc persistent;
+  chunk_alloc_create_default (&persistent);
 
   /* 0. freshly‑created builder must be clean */
-  struct sarray_builder sb = sab_create (&alloc, &dest);
+  struct sarray_builder sb;
+  sab_create (&sb, &persistent, &persistent);
   test_fail_if (sb.head != NULL);
   test_fail_if (sb.type != NULL);
 
@@ -626,5 +628,7 @@ TEST (TT_UNIT, sarray_builder)
   test_assert_int_equal (sar.dims[0], 10);
   test_assert_int_equal (sar.dims[1], 4);
   test_assert_int_equal (sar.dims[2], 2);
+
+  chunk_alloc_free_all (&persistent);
 }
 #endif

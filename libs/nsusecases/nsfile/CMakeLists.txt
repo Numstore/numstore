@@ -7,6 +7,6 @@ add_ns_library(nsfile
     ${LIBS}/nscore
     ${LIBS}/nspager
     ${LIBS}/cursors/nsrptcursor
-    ${LIBS}/apps/nslite
+    ${LIBS}/nsusecases/nslite
 )
 

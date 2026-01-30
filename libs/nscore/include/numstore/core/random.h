@@ -21,8 +21,8 @@
  */
 
 // core
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
-#include <numstore/core/lalloc.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
 
@@ -51,7 +51,7 @@ i64 randi64r (i64 lower, i64 upper);
 
 err_t rand_str (
     struct string *dest,
-    struct lalloc *alloc,
+    struct chunk_alloc *alloc,
     u32 minlen,
     u32 maxlen,
     error *e);
