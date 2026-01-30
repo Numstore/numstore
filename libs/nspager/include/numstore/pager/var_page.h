@@ -46,11 +46,11 @@
 
 // OFFSETS and _Static_asserts
 #define VP_NEXT_OFST PG_COMMN_END
-#define VP_OVNX_OFST ((p_size)(VP_NEXT_OFST + sizeof (pgno)))
-#define VP_VLEN_OFST ((p_size)(VP_OVNX_OFST + sizeof (pgno)))
-#define VP_TLEN_OFST ((p_size)(VP_VLEN_OFST + sizeof (u16)))
-#define VP_ROOT_OFST ((p_size)(VP_TLEN_OFST + sizeof (u16)))
-#define VP_VNME_OFST ((p_size)(VP_ROOT_OFST + sizeof (pgno)))
+#define VP_OVNX_OFST ((p_size) (VP_NEXT_OFST + sizeof (pgno)))
+#define VP_VLEN_OFST ((p_size) (VP_OVNX_OFST + sizeof (pgno)))
+#define VP_TLEN_OFST ((p_size) (VP_VLEN_OFST + sizeof (u16)))
+#define VP_ROOT_OFST ((p_size) (VP_TLEN_OFST + sizeof (u16)))
+#define VP_VNME_OFST ((p_size) (VP_ROOT_OFST + sizeof (pgno)))
 #define VP_MAX_LEN (PAGE_SIZE - VP_VNME_OFST)
 
 // Initialization

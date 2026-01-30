@@ -104,7 +104,15 @@ varh_init_hash_page (struct pager *p, error *e)
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
 
   // See if we already initialized the hash page
+  // TODO - make htis error stuff better
+  bool print_msg_on_error = e->print_msg_on_error;
+  bool print_trace = e->print_trace;
+  e->print_msg_on_error = false;
+  e->print_trace = false;
   err_t ret = pgr_get (&hp, PG_VAR_HASH_PAGE, VHASH_PGNO, p, e);
+  e->print_msg_on_error = print_msg_on_error;
+  e->print_trace = print_trace;
+
   if (ret == ERR_PG_OUT_OF_RANGE)
     {
       error_reset (e);

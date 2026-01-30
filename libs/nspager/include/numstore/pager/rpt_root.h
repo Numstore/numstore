@@ -32,7 +32,7 @@
 
 // OFFSETS and _Static_asserts
 #define RR_ROOT_OFST PG_COMMN_END
-#define RR_NBYT_OFST ((p_size)(RR_ROOT_OFST + sizeof (pgno)))
+#define RR_NBYT_OFST ((p_size) (RR_ROOT_OFST + sizeof (pgno)))
 
 // Initialization
 void rr_init_empty (page *p);

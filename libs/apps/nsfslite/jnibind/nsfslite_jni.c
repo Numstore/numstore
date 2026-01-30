@@ -93,7 +93,7 @@ Java_com_numstore_nsfslite_NsfsliteNative_open (JNIEnv *env, jclass cls,
       return 0;
     }
 
-  return (jlong)(intptr_t)handle;
+  return (jlong) (intptr_t)handle;
 }
 
 JNIEXPORT void JNICALL
@@ -610,7 +610,7 @@ Java_com_numstore_nsfslite_NsfsliteNative_beginTransaction (JNIEnv *env, jclass 
       return 0;
     }
 
-  return (jlong)(intptr_t)txn;
+  return (jlong) (intptr_t)txn;
 }
 
 JNIEXPORT void JNICALL

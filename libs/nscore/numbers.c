@@ -24,29 +24,83 @@
 #include <numstore/core/macros.h>
 #include <numstore/test/testing.h>
 
-// core
 err_t
-parse_i32_expect (i32 *dest, const struct string data, error *e)
+parse_i64_expect (i64 *dest, const char *data, u32 len, error *e)
 {
-  ASSERT (data.data);
-  ASSERT (data.len > 0);
+  ASSERT (data);
+  ASSERT (len > 0);
   ASSERT (dest);
 
   u32 i = 0;
   bool neg = false;
 
-  if (data.data[i] == '+' || data.data[i] == '-')
+  if (data[i] == '+' || data[i] == '-')
     {
-      neg = (data.data[i] == '-');
+      neg = (data[i] == '-');
       i++;
-      ASSERT (i < data.len); /* We expect string to be valid */
+      ASSERT (i < len);
+    }
+
+  i64 acc = 0;
+
+  for (; i < len; i++)
+    {
+      char c = data[i];
+      ASSERT (is_num (c));
+
+      i64 digit = c - '0';
+
+      if (!SAFE_MUL_I64 (&acc, acc, 10L))
+        {
+          goto failed;
+        }
+
+      if (!SAFE_SUB_I64 (&acc, acc, digit))
+        {
+          goto failed;
+        }
+    }
+
+  if (!neg)
+    {
+      if (acc == I64_MIN)
+        {
+          goto failed;
+        }
+      acc = -acc;
+    }
+
+  *dest = acc;
+  return SUCCESS;
+
+failed:
+  return error_causef (
+      e, ERR_ARITH,
+      "Parse I64: Arithmetic Exception");
+}
+
+err_t
+parse_i32_expect (i32 *dest, const char *data, u32 len, error *e)
+{
+  ASSERT (data);
+  ASSERT (len > 0);
+  ASSERT (dest);
+
+  u32 i = 0;
+  bool neg = false;
+
+  if (data[i] == '+' || data[i] == '-')
+    {
+      neg = (data[i] == '-');
+      i++;
+      ASSERT (i < len); /* We expect string to be valid */
     }
 
   i32 acc = 0;
 
-  for (; i < data.len; i++)
+  for (; i < len; i++)
     {
-      char c = data.data[i];
+      char c = data[i];
       ASSERT (is_num (c));
 
       i32 digit = c - '0';
@@ -86,38 +140,24 @@ TEST (TT_UNIT, parse_i32_expect)
   i32 out = -1;
   error e = error_create ();
 
-  const struct string s1 = (struct string){
-    .data = "1234",
-    .len = i_strlen ("1234"),
-  };
-  test_assert_int_equal (parse_i32_expect (&out, s1, &e), SUCCESS);
+  test_assert_int_equal (parse_i32_expect (&out, "1234", 4, &e), SUCCESS);
   test_assert_int_equal (out, 1234);
 
-  const struct string s2 = (struct string){
-    .data = "-56",
-    .len = i_strlen ("-56"),
-  };
-  test_assert_int_equal (parse_i32_expect (&out, s2, &e), SUCCESS);
+  test_assert_int_equal (parse_i32_expect (&out, "-56", 3, &e), SUCCESS);
   test_assert_int_equal (out, -56);
 
-  char *big = "999999999999999999999999999999999999999999";
-  const struct string s3 = (struct string){
-    .data = big,
-    .len = i_strlen (big),
-  };
-  test_assert_int_equal (parse_i32_expect (&out, s3, &e), ERR_ARITH);
+  const char *big = "999999999999999999999999999999999999999999";
+  test_assert_int_equal (parse_i32_expect (&out, big, strlen (big), &e), ERR_ARITH);
 }
 #endif
 
 err_t
-parse_f32_expect (f32 *dest, const struct string src, error *e)
+parse_f32_expect (f32 *dest, const char *s, u32 len, error *e)
 {
-  ASSERT (src.data);
+  ASSERT (s);
   ASSERT (dest);
-  ASSERT (src.len > 0);
+  ASSERT (len > 0);
 
-  u32 len = src.len;
-  char *s = src.data;
   u32 i = 0;
   bool neg = false;
 
@@ -133,7 +173,7 @@ parse_f32_expect (f32 *dest, const struct string src, error *e)
   bool saw_digit = false;
   while (i < len && s[i] >= '0' && s[i] <= '9')
     {
-      f32 d = (f32)(s[i] - '0');
+      f32 d = (f32) (s[i] - '0');
       if (!SAFE_MUL_F32 (&acc, acc, 10.0f))
         {
           goto failed;
@@ -154,7 +194,7 @@ parse_f32_expect (f32 *dest, const struct string src, error *e)
       f32 frac = 0.0f, scale = 1.0f;
       while (i < len && s[i] >= '0' && s[i] <= '9')
         {
-          f32 d = (f32)(s[i] - '0');
+          f32 d = (f32) (s[i] - '0');
           if (!SAFE_MUL_F32 (&frac, frac, 10.0f))
             {
               goto failed;
@@ -199,7 +239,7 @@ parse_f32_expect (f32 *dest, const struct string src, error *e)
       bool saw_exp = false;
       while (i < len && s[i] >= '0' && s[i] <= '9')
         {
-          u32 d = (u32)(s[i] - '0');
+          u32 d = (u32) (s[i] - '0');
           ASSERT (exp <= (UINT32_MAX - d) / 10);
           exp = exp * 10 + d;
           i++;
@@ -248,39 +288,19 @@ TEST (TT_UNIT, parse_f32_expect)
   f32 out = NAN;
   error e = error_create ();
 
-  const struct string s1 = {
-    .data = "3.14",
-    .len = i_strlen ("3.14"),
-  };
-  test_assert_int_equal (parse_f32_expect (&out, s1, &e), SUCCESS);
+  test_assert_int_equal (parse_f32_expect (&out, "3.14", 4, &e), SUCCESS);
   test_assert_int_equal (fabsf (out - 3.14f) < EPSILON, true);
 
-  const struct string s2 = {
-    .data = "-0.5",
-    .len = i_strlen ("-0.5"),
-  };
-  test_assert_int_equal (parse_f32_expect (&out, s2, &e), SUCCESS);
+  test_assert_int_equal (parse_f32_expect (&out, "-0.5", 4, &e), SUCCESS);
   test_assert_int_equal (fabsf (out + 0.5f) < EPSILON, true);
 
-  const struct string s3 = {
-    .data = "1.23e3",
-    .len = i_strlen ("1.23e3"),
-  };
-  test_assert_int_equal (parse_f32_expect (&out, s3, &e), SUCCESS);
+  test_assert_int_equal (parse_f32_expect (&out, "1.23e3", 6, &e), SUCCESS);
   test_assert_int_equal (fabsf (out - 1230.0f) < EPSILON, true);
 
-  const struct string s4 = {
-    .data = ".25",
-    .len = i_strlen (".25"),
-  };
-  test_assert_int_equal (parse_f32_expect (&out, s4, &e), SUCCESS);
+  test_assert_int_equal (parse_f32_expect (&out, ".25", 3, &e), SUCCESS);
   test_assert_int_equal (fabsf (out - 0.25f) < EPSILON, true);
 
-  const struct string s5 = {
-    .data = "1e40",
-    .len = i_strlen ("1e40"),
-  };
-  test_assert_int_equal (parse_f32_expect (&out, s5, &e), ERR_ARITH);
+  test_assert_int_equal (parse_f32_expect (&out, "1e40", 4, &e), ERR_ARITH);
 }
 #endif
 

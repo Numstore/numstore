@@ -109,13 +109,14 @@ nslite_close (nslite *n, error *e)
   clck_alloc_close (&n->cursors);
   tp_free (n->tp, e);
   lockt_destroy (&n->lt);
+  i_free (n);
 
   return e->cause_code;
 }
 
 // Higher Order Operations
 spgno
-nslite_new (nslite *n, nslite_txn *tx, error *e)
+nslite_new (nslite *n, struct txn *tx, error *e)
 {
   DBG_ASSERT (nslite, n);
 
@@ -182,7 +183,7 @@ theend:
 }
 
 err_t
-nslite_delete (nslite *n, nslite_txn *tx, pgno id, error *e)
+nslite_delete (nslite *n, struct txn *tx, pgno id, error *e)
 {
   DBG_ASSERT (nslite, n);
 
@@ -267,7 +268,7 @@ theend:
   return length;
 }
 
-nslite_txn *
+struct txn *
 nslite_begin_txn (nslite *n, error *e)
 {
   struct txn *tx = i_malloc (1, sizeof *tx, e);
@@ -285,13 +286,13 @@ nslite_begin_txn (nslite *n, error *e)
 }
 
 err_t
-nslite_commit (nslite *n, nslite_txn *tx, error *e)
+nslite_commit (nslite *n, struct txn *tx, error *e)
 {
   return pgr_commit (n->p, tx, e);
 }
 
 err_t
-nslite_rollback (nslite *n, nslite_txn *tx, error *e)
+nslite_rollback (nslite *n, struct txn *tx, error *e)
 {
   return pgr_rollback (n->p, tx, 0, e);
 }
@@ -300,7 +301,7 @@ err_t
 nslite_insert (
     nslite *n,
     pgno id,
-    nslite_txn *tx,
+    struct txn *tx,
     const void *src,
     b_size bofst,
     t_size size,
@@ -379,10 +380,10 @@ err_t
 nslite_write (
     nslite *n,
     pgno id,
-    nslite_txn *tx,
+    struct txn *tx,
     const void *src,
     t_size size,
-    struct nslite_stride stride,
+    struct stride stride,
     error *e)
 {
   bool need_lock = (tx == NULL);
@@ -459,7 +460,7 @@ nslite_read (
     pgno id,
     void *dest,
     t_size size,
-    struct nslite_stride stride,
+    struct stride stride,
     error *e)
 {
   DBG_ASSERT (nslite, n);
@@ -507,10 +508,10 @@ err_t
 nslite_remove (
     nslite *n,
     pgno id,
-    nslite_txn *tx,
+    struct txn *tx,
     void *dest,
     t_size size,
-    struct nslite_stride stride,
+    struct stride stride,
     error *e)
 {
   DBG_ASSERT (nslite, n);

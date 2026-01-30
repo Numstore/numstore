@@ -101,7 +101,7 @@ compute_new_chunk_size (struct chunk_alloc *ca, u32 alloc_size)
   DBG_ASSERT (chunk_alloc, ca);
 
   // Target chunk size based on multiplier
-  u32 new_chunk_size = (u32)(alloc_size * ca->settings.target_chunk_mult);
+  u32 new_chunk_size = (u32) (alloc_size * ca->settings.target_chunk_mult);
 
   // Clamp to minimum
   if (new_chunk_size < ca->settings.min_chunk_size)

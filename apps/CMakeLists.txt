@@ -36,6 +36,19 @@ add_ns_executable(nspprint
         pthread
 )
 
+
+#add_ns_executable(nscat
+#    SOURCES
+#        tools/nsfile.c
+#    DEPENDENCIES
+#        ${LIBS}/nsusecase
+#        ${LIBS}/nspager
+#        ${LIBS}/apps/nsfile
+#    EXTERNAL_LIBS
+#        backtrace
+#        pthread
+#)
+
 add_ns_executable(walfprint
     SOURCES
         tools/walfprint.c
@@ -47,4 +60,4 @@ add_ns_executable(walfprint
         pthread
 )
 
-add_subdirectory(examples/nsfslite)
+#add_subdirectory(examples/nsfslite)

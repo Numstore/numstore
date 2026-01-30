@@ -36,7 +36,11 @@ token_equal (const struct token *left, const struct token *right)
     /*      Other */
     case TT_STRING:
     case TT_IDENTIFIER:
-      return string_equal (left->str, right->str);
+      {
+        return string_equal (
+            (struct string){ left->str.len, (char *)left->str.data },
+            (struct string){ left->str.len, (char *)right->str.data });
+      }
 
     /* Tokens that start with a number or +/- */
     case TT_INTEGER:
@@ -44,17 +48,10 @@ token_equal (const struct token *left, const struct token *right)
     case TT_FLOAT:
       return left->floating == right->floating;
 
-    /*      Literal Operations */
-    case TT_CREATE:
-    case TT_DELETE:
-    case TT_INSERT:
-      return query_equal (&left->stmt->q, &right->stmt->q);
-
-    case TT_ERROR:
-      return error_equal (&left->e, &right->e);
-
     default:
-      return true;
+      {
+        return true;
+      }
     }
 }
 
@@ -120,8 +117,7 @@ tt_tostr (enum token_t t)
       /*      Bools */
       case_ENUM_RETURN_STRING (TT_TRUE);
       case_ENUM_RETURN_STRING (TT_FALSE);
-
-      case_ENUM_RETURN_STRING (TT_ERROR);
+      case_ENUM_RETURN_STRING (TT_EOF);
     }
 
   UNREACHABLE ();
