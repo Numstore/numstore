@@ -1,5 +1,3 @@
-#pragma once
-
 /*
  * Copyright 2025 Theo Lincke
  *
@@ -16,20 +14,22 @@
  * limitations under the License.
  *
  * Description:
- *   Shell insert query data structure. Defines the query type for inserting
- *   data to variables via shell interface, including variable name, start
- *   offset, and length.
+ *   Public C API header for NumStore Lite (nslite). Provides a simplified
+ *   interface for managing named variables in a transactional database with support for
+ *   create, read, write, insert, remove operations using stride-based access patterns.
+ *   Supports both implicit and explicit transaction management.
  */
 
-// numstore
-#include <numstore/types/types.h>
+#pragma once
 
-///////////////////////////
-// NET INSERT
+#include <numstore/core/error.h>
+#include <numstore/intf/types.h>
 
-struct shell_insert_query
+struct stride
 {
-  struct string vname;
-  b_size start;
-  b_size len;
+  b_size bstart;
+  u32 stride;
+  b_size nelems;
 };
+
+err_t parse_stride (struct stride *dest, const char *src, error *e);

@@ -14,10 +14,7 @@
  * limitations under the License.
  *
  * Description:
- *   Public C API header for NumStore Lite (nslite). Provides a simplified
- *   interface for managing named variables in a transactional database with support for
- *   create, read, write, insert, remove operations using stride-based access patterns.
- *   Supports both implicit and explicit transaction management.
+ *   Public C API header for NumStore File (nsfile). 
  */
 
 #pragma once
@@ -26,22 +23,18 @@
 #include <numstore/core/stride.h>
 #include <numstore/intf/types.h>
 
-typedef struct nslite_s nslite;
+typedef struct nsfile_s nsfile;
 
-nslite *nslite_open (const char *fname, const char *recovery, error *e);
-err_t nslite_close (nslite *n, error *e);
+nsfile *nsfile_open (const char *fname, const char *recovery, error *e);
+err_t nsfile_close (nsfile *n, error *e);
 
-struct txn *nslite_begin_txn (nslite *n, error *e);
-err_t nslite_commit (nslite *n, struct txn *tx, error *e);
-err_t nslite_rollback (nslite *n, struct txn *tx, error *e);
-spgno nslite_new (nslite *n, struct txn *tx, error *e);
-err_t nslite_delete (nslite *n, struct txn *tx, pgno start, error *e);
-sb_size nslite_size (nslite *n, pgno id, error *e);
-err_t nslite_validate (nslite *n, pgno id, error *e);
+struct txn *nsfile_begin_txn (nsfile *n, error *e);
+err_t nsfile_commit (nsfile *n, struct txn *tx, error *e);
+err_t nsfile_rollback (nsfile *n, struct txn *tx, error *e);
+sb_size nsfile_size (nsfile *n, error *e);
 
-err_t nslite_insert (
-    nslite *n,
-    pgno id,
+err_t nsfile_insert (
+    nsfile *n,
     struct txn *tx,
     const void *src,
     b_size bot,
@@ -49,26 +42,23 @@ err_t nslite_insert (
     b_size nelem,
     error *e);
 
-err_t nslite_write (
-    nslite *n,
-    pgno id,
+err_t nsfile_write (
+    nsfile *n,
     struct txn *tx,
     const void *src,
     t_size size,
     struct stride stride,
     error *e);
 
-sb_size nslite_read (
-    nslite *n,
-    pgno id,
+sb_size nsfile_read (
+    nsfile *n,
     void *dest,
     t_size size,
     struct stride stride,
     error *e);
 
-err_t nslite_remove (
-    nslite *n,
-    pgno id,
+err_t nsfile_remove (
+    nsfile *n,
     struct txn *tx,
     void *dest,
     t_size size,
