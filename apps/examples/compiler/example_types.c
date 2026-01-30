@@ -14,7 +14,12 @@ main (void)
 
   const char *str = "struct { b union { d i32, e [8]i32, f enum { FOO, BAR, BIZ } } }";
   lex_tokens (str, i_strlen (str), &l, &e);
-  parse_type (l.tokens, l.ntokens, &p, &e);
+
+  err_t ret = parse_type (l.tokens, l.ntokens, &p, &e);
+  if (ret < SUCCESS)
+    {
+      return 1;
+    }
 
   i_log_type (p.dest, &e);
 

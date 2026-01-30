@@ -565,6 +565,14 @@ sab_build (struct sarray_t *persistent, struct sarray_builder *eb, error *e)
       return e->cause_code;
     }
 
+  /* Copy type to persistent memory (eb->type is on temp) */
+  struct type *t = chunk_malloc (eb->persistent, 1, sizeof *t, e);
+  if (!t)
+    {
+      return e->cause_code;
+    }
+  *t = *eb->type;
+
   u16 i = 0;
   for (struct llnode *it = eb->head; it; it = it->next)
     {
@@ -574,7 +582,7 @@ sab_build (struct sarray_t *persistent, struct sarray_builder *eb, error *e)
 
   persistent->rank = rank;
   persistent->dims = dims;
-  persistent->t = eb->type;
+  persistent->t = t;
 
   return SUCCESS;
 }

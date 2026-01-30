@@ -338,16 +338,24 @@ parse_type (struct token *src, u32 src_len, struct type_parser *parser, error *e
   chunk_alloc_create_default (&parser->alloc);
 
   /* Parse type */
-  err_t_wrap (parse_type_inner (parser, &parser->dest, e), e);
+  err_t ret = parse_type_inner (parser, &parser->dest, e);
+  if (ret < SUCCESS)
+    {
+      chunk_alloc_free_all (&parser->temp);
+      chunk_alloc_free_all (&parser->alloc);
+      return e->cause_code;
+    }
 
-  /* Check for EOF */
-  if (parser->pos >= parser->src_len)
+  /* Check for leftover tokens - next token should be EOF */
+  struct token *tok = peek (parser);
+  if (tok != NULL && tok->type != TT_EOF)
     {
       chunk_alloc_free_all (&parser->temp);
       chunk_alloc_free_all (&parser->alloc);
       return error_causef (e, ERR_SYNTAX, "Unexpected tokens after type declaration at position %u", parser->pos);
     }
 
+  /* Success - free temp, caller frees alloc */
   chunk_alloc_free_all (&parser->temp);
 
   return SUCCESS;
