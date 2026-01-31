@@ -1,5 +1,6 @@
 #pragma once
 
+#include "numstore/types/types.h"
 #include <numstore/core/cbuffer.h>
 
 enum type_accessor_type
@@ -9,38 +10,46 @@ enum type_accessor_type
   TA_RANGE
 };
 
-struct byte_accessor
+struct sarray_index
 {
-  enum type_accessor_type type;
+  enum sarray_accessor_t
+  {
+    SA_INTEGER,
+    SA_SLICE,
+  } type;
+
   union
   {
     struct
     {
-      t_size size;
-    } take;
-    struct
-    {
-      struct byte_accessor *query;
-      t_size offset;
-    } select;
-    struct
-    {
-      struct byte_accessor *query;
-      t_size start;  // Start element index
-      t_size stride; // Element stride (1 = every element, 2 = every other, etc)
-      t_size end;    // End element index (exclusive)
-    } range;
+      t_size start;
+      t_size step;
+      t_size stop;
+    } slice;
+
+    t_size integer;
   };
 };
 
-void ta_memcpy_from (
-    struct cbuffer *dest,
-    struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+// Type aware accessor
+struct type_accessor
+{
+  enum type_accessor_type type;
 
-void ta_memcpy_to (
-    u8 *dest,
-    struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+  union
+  {
+    struct
+    {
+      const char *name;
+      u32 nlen;
+      struct type_accessor *next_accessor;
+    } select;
+
+    struct
+    {
+      struct sarray_index *indexes;
+      u32 ilen;
+      struct type_accessor *next_accessor;
+    } range;
+  };
+};

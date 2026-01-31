@@ -34,6 +34,9 @@ expect (struct type_parser *parser, enum token_t type, error *e)
   return SUCCESS;
 }
 
+/* Forward declare only parse_type_inner since it's mutually recursive */
+static err_t parse_type_inner (struct type_parser *parser, struct type *out, error *e);
+
 /* primitive_type ::= IDENTIFIER */
 static err_t
 parse_primitive_type (struct type_parser *parser, struct type *out, error *e)
@@ -52,38 +55,40 @@ parse_primitive_type (struct type_parser *parser, struct type *out, error *e)
   return SUCCESS;
 }
 
-/* Forward declare only parse_type_inner since it's mutually recursive */
-static err_t parse_type_inner (struct type_parser *parser, struct type *out, error *e);
-
 /* sarray_type ::= '[' NUMBER ']' type */
 static err_t
 parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
 {
   err_t err;
 
-  err_t_wrap (expect (parser, TT_LEFT_BRACKET, e), e);
+  struct sarray_builder builder;
+  sab_create (&builder, &parser->temp, &parser->alloc);
 
-  const struct token *tok = peek (parser);
-  if (!match (tok, TT_INTEGER) || tok->integer < 0)
+  /* Parse all [N] brackets and accept dimensions */
+  while (match (peek (parser), TT_LEFT_BRACKET))
     {
-      return error_causef (e, ERR_SYNTAX, "Expected array size at position %u", parser->pos);
+      err_t_wrap (expect (parser, TT_LEFT_BRACKET, e), e);
+      const struct token *tok = peek (parser);
+
+      if (!match (tok, TT_INTEGER) || tok->integer < 0)
+        {
+          return error_causef (e, ERR_SYNTAX, "Expected array size at position %u", parser->pos);
+        }
+
+      err_t_wrap (sab_accept_dim (&builder, tok->integer, e), e);
+      parser->pos++;
+
+      err_t_wrap (expect (parser, TT_RIGHT_BRACKET, e), e);
     }
-
-  u32 size = tok->integer;
-  parser->pos++;
-
-  err_t_wrap (expect (parser, TT_RIGHT_BRACKET, e), e);
 
   /* Parse element type */
   struct type inner;
   err_t_wrap (parse_type_inner (parser, &inner, e), e);
 
-  /* Build array */
-  struct sarray_builder builder;
-  sab_create (&builder, &parser->temp, &parser->alloc);
-  err_t_wrap (sab_accept_dim (&builder, size, e), e);
+  /* Accept the innermost type */
   err_t_wrap (sab_accept_type (&builder, inner, e), e);
 
+  /* Build the final nested array */
   out->type = T_SARRAY;
   return sab_build (&out->sa, &builder, e);
 }

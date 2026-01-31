@@ -12,7 +12,7 @@ main (void)
   struct lexer l;
   struct type_parser p;
 
-  const char *str = "struct { b union { d i32, e [8]i32, f enum { FOO, BAR, BIZ } } }";
+  const char *str = "struct { b union { d i32, e [8][20] struct { a i32, b u8 }, f enum { FOO, BAR, BIZ } } }";
   lex_tokens (str, i_strlen (str), &l, &e);
 
   err_t ret = parse_type (l.tokens, l.ntokens, &p, &e);
