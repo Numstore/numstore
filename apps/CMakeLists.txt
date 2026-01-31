@@ -39,17 +39,17 @@ add_ns_executable(nspprint
 )
 
 
-#add_ns_executable(nscat
-#    SOURCES
-#        tools/nsfile.c
-#    DEPENDENCIES
-#        ${LIBS}/nsusecase
-#        ${LIBS}/nspager
-#        ${LIBS}/apps/nsfile
-#    EXTERNAL_LIBS
-#        backtrace
-#        pthread
-#)
+add_ns_executable(nscat
+    SOURCES
+        tools/nsfile.c
+    DEPENDENCIES
+        ${LIBS}/nspager
+        ${LIBS}/nsusecases/nsfile
+        ${LIBS}/nsapps/nsfilecli
+    EXTERNAL_LIBS
+        backtrace
+        pthread
+)
 
 add_ns_executable(walfprint
     SOURCES

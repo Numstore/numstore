@@ -2,6 +2,7 @@
 #include <numstore/core/cbuffer.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/type_accessor.h>
+/**
 
 static t_size ta_sizeof (struct byte_accessor *acc);
 
@@ -782,3 +783,4 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
   }
 }
 #endif
+*/

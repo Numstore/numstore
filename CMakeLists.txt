@@ -96,6 +96,7 @@ add_subdirectory(libs/nsroutines)
 add_subdirectory(libs/nsusecases/nsfslite)
 add_subdirectory(libs/nsusecases/nslite)
 add_subdirectory(libs/nsusecases/nsfile)
+add_subdirectory(libs/nsapps/nsfilecli)
 add_subdirectory(libs/nscompiler)
 add_subdirectory(apps)
 
@@ -112,6 +113,7 @@ add_library(numstore STATIC
     $<TARGET_OBJECTS:nsfslite_objects>
     $<TARGET_OBJECTS:nslite_objects>
     $<TARGET_OBJECTS:nsfile_objects>
+    $<TARGET_OBJECTS:nsfilecli_objects>
     $<TARGET_OBJECTS:nscompiler_objects>
 )
 
@@ -126,6 +128,7 @@ target_include_directories(numstore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecases/nsfslite/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecases/nslite/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsusecases/nsfile/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nsapps/nsfilecli/include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libs/nscompiler/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -151,6 +154,7 @@ install(DIRECTORY
     libs/nsusecases/nsfslite/include/
     libs/nsusecases/nslite/include/
     libs/nsusecases/nsfile/include/
+    libs/nsapps/nsfilecli/include/
     libs/nscompiler/include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"

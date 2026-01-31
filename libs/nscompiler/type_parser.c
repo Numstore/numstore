@@ -9,53 +9,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Helper functions */
-static inline struct token *
-peek (struct type_parser *parser)
-{
-  return (parser->pos < parser->src_len) ? &parser->src[parser->pos] : NULL;
-}
-
-static inline bool
-match (const struct token *tok, enum token_t type)
-{
-  return tok && tok->type == type;
-}
-
-static err_t
-expect (struct type_parser *parser, enum token_t type, error *e)
-{
-  const struct token *tok = peek (parser);
-  if (!match (tok, type))
-    {
-      return error_causef (e, ERR_SYNTAX, "Expected token type %d at position %u, got %d", type, parser->pos, tok ? (int)tok->type : -1);
-    }
-  parser->pos++;
-  return SUCCESS;
-}
-
-/* Forward declare only parse_type_inner since it's mutually recursive */
 static err_t parse_type_inner (struct type_parser *parser, struct type *out, error *e);
 
-/* primitive_type ::= IDENTIFIER */
+/* primitive_type ::= PRIM */
 static err_t
 parse_primitive_type (struct type_parser *parser, struct type *out, error *e)
 {
-  const struct token *tok = peek (parser);
-
-  if (!match (tok, TT_PRIM))
+  if (!parser_match (&parser->base, TT_PRIM))
     {
-      return error_causef (e, ERR_SYNTAX, "Expected primitive type at position %u", parser->pos);
+      return error_causef (e, ERR_SYNTAX, "Expected primitive type at position %u", parser->base.pos);
     }
 
+  struct token *tok = parser_advance (&parser->base);
   out->type = T_PRIM;
   out->p = tok->prim;
-  parser->pos++;
 
   return SUCCESS;
 }
 
-/* sarray_type ::= '[' NUMBER ']' type */
+/* sarray_type ::= '[' INTEGER ']'+ type */
 static err_t
 parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -64,21 +36,24 @@ parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
   struct sarray_builder builder;
   sab_create (&builder, &parser->temp, &parser->alloc);
 
-  /* Parse all [N] brackets and accept dimensions */
-  while (match (peek (parser), TT_LEFT_BRACKET))
+  /* Parse all [N] brackets */
+  while (parser_match (&parser->base, TT_LEFT_BRACKET))
     {
-      err_t_wrap (expect (parser, TT_LEFT_BRACKET, e), e);
-      const struct token *tok = peek (parser);
+      err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACKET, e), e);
 
-      if (!match (tok, TT_INTEGER) || tok->integer < 0)
+      if (!parser_match (&parser->base, TT_INTEGER))
         {
-          return error_causef (e, ERR_SYNTAX, "Expected array size at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected array size at position %u", parser->base.pos);
+        }
+
+      struct token *tok = parser_advance (&parser->base);
+      if (tok->integer < 0)
+        {
+          return error_causef (e, ERR_SYNTAX, "Array size must be non-negative at position %u", parser->base.pos - 1);
         }
 
       err_t_wrap (sab_accept_dim (&builder, tok->integer, e), e);
-      parser->pos++;
-
-      err_t_wrap (expect (parser, TT_RIGHT_BRACKET, e), e);
+      err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACKET, e), e);
     }
 
   /* Parse element type */
@@ -93,191 +68,147 @@ parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
   return sab_build (&out->sa, &builder, e);
 }
 
-/* enum_type ::= 'enum' '{' enum_list '}' */
+/* enum_type ::= 'enum' '{' (IDENTIFIER (',' IDENTIFIER)*)? '}' */
 static err_t
 parse_enum_type (struct type_parser *parser, struct type *out, error *e)
 {
   err_t err;
 
-  err_t_wrap (expect (parser, TT_ENUM, e), e);
-  err_t_wrap (expect (parser, TT_LEFT_BRACE, e), e);
+  err_t_wrap (parser_expect (&parser->base, TT_ENUM, e), e);
+  err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
   struct enum_builder builder;
   enb_create (&builder, &parser->temp, &parser->alloc);
 
-  while (true)
+  while (!parser_match (&parser->base, TT_RIGHT_BRACE))
     {
-      struct token *tok = peek (parser);
-
-      /* Check for closing brace (empty enum or after trailing comma) */
-      if (match (tok, TT_RIGHT_BRACE))
-        {
-          parser->pos++;
-          break;
-        }
-
       /* Parse enum value */
-      if (!match (tok, TT_IDENTIFIER))
+      if (!parser_match (&parser->base, TT_IDENTIFIER))
         {
-          return error_causef (e, ERR_SYNTAX, "Expected enum value at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected identifier at position %u", parser->base.pos);
         }
 
-      char *data = (char *)tok->str.data;
-      err_t_wrap (enb_accept_key (&builder, (struct string){ .data = data, .len = tok->str.len }, e), e);
-      parser->pos++;
+      struct token *tok = parser_advance (&parser->base);
+      err_t_wrap (enb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
 
-      tok = peek (parser);
-
-      // Check for closing brace
-      if (match (tok, TT_RIGHT_BRACE))
+      /* Check for comma or closing brace */
+      if (parser_match (&parser->base, TT_RIGHT_BRACE))
         {
-          parser->pos++;
           break;
         }
-
-      // Expect comma
-      else if (match (tok, TT_COMMA))
+      else if (parser_match (&parser->base, TT_COMMA))
         {
-          parser->pos++;
+          parser_advance (&parser->base);
           continue;
         }
-
-      // Invalid token
       else
         {
-          return error_causef (e, ERR_SYNTAX, "Expected ',' or '}' at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected ',' or '}' at position %u",
+                               parser->base.pos);
         }
     }
+
+  err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
 
   out->type = T_ENUM;
   return enb_build (&out->en, &builder, e);
 }
 
-/* struct_type ::= 'struct' '{' field_list '}' */
+/* struct_type ::= 'struct' '{' (IDENTIFIER type (',' IDENTIFIER type)*)? '}' */
 static err_t
 parse_struct_type (struct type_parser *parser, struct type *out, error *e)
 {
   err_t err;
 
-  err_t_wrap (expect (parser, TT_STRUCT, e), e);
-  err_t_wrap (expect (parser, TT_LEFT_BRACE, e), e);
+  err_t_wrap (parser_expect (&parser->base, TT_STRUCT, e), e);
+  err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
   struct kvt_builder builder;
   kvb_create (&builder, &parser->temp, &parser->alloc);
 
-  while (true)
+  while (!parser_match (&parser->base, TT_RIGHT_BRACE))
     {
-      struct token *tok = peek (parser);
-
-      /* Check for closing brace (empty struct or after trailing comma) */
-      if (match (tok, TT_RIGHT_BRACE))
-        {
-          parser->pos++;
-          break;
-        }
-
       /* Parse field name */
-      if (!match (tok, TT_IDENTIFIER))
+      if (!parser_match (&parser->base, TT_IDENTIFIER))
         {
-          return error_causef (e, ERR_SYNTAX, "Expected field name at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected field name at position %u", parser->base.pos);
         }
 
-      char *data = (char *)tok->str.data;
-      err_t_wrap (kvb_accept_key (&builder, (struct string){ .data = data, .len = tok->str.len }, e), e);
-      parser->pos++;
+      struct token *tok = parser_advance (&parser->base);
+      err_t_wrap (kvb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
 
       /* Parse field type */
       struct type inner;
       err_t_wrap (parse_type_inner (parser, &inner, e), e);
       err_t_wrap (kvb_accept_type (&builder, inner, e), e);
 
-      tok = peek (parser);
-
-      // Check for closing brace
-      if (match (tok, TT_RIGHT_BRACE))
+      /* Check for comma or closing brace */
+      if (parser_match (&parser->base, TT_RIGHT_BRACE))
         {
-          parser->pos++;
           break;
         }
-
-      // Expect comma
-      if (match (tok, TT_COMMA))
+      else if (parser_match (&parser->base, TT_COMMA))
         {
-          parser->pos++;
+          parser_advance (&parser->base);
           continue;
         }
-
-      // Invalid token
       else
         {
-          return error_causef (e, ERR_SYNTAX, "Expected ',' or '}' at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected ',' or '}' at position %u", parser->base.pos);
         }
     }
+
+  err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
 
   out->type = T_STRUCT;
   return kvb_struct_t_build (&out->st, &builder, e);
 }
 
-/* union_type ::= 'union' '{' field_list '}' */
+/* union_type ::= 'union' '{' (IDENTIFIER type (',' IDENTIFIER type)*)? '}' */
 static err_t
 parse_union_type (struct type_parser *parser, struct type *out, error *e)
 {
   err_t err;
 
-  err_t_wrap (expect (parser, TT_UNION, e), e);
-  err_t_wrap (expect (parser, TT_LEFT_BRACE, e), e);
+  err_t_wrap (parser_expect (&parser->base, TT_UNION, e), e);
+  err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
   struct kvt_builder builder;
   kvb_create (&builder, &parser->temp, &parser->alloc);
 
-  while (true)
+  while (!parser_match (&parser->base, TT_RIGHT_BRACE))
     {
-      struct token *tok = peek (parser);
-
-      /* Check for closing brace (empty union or after trailing comma) */
-      if (match (tok, TT_RIGHT_BRACE))
-        {
-          parser->pos++;
-          break;
-        }
-
       /* Parse field name */
-      if (!match (tok, TT_IDENTIFIER))
+      if (!parser_match (&parser->base, TT_IDENTIFIER))
         {
-          return error_causef (e, ERR_SYNTAX, "Expected field name at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected field name at position %u", parser->base.pos);
         }
 
-      char *data = (char *)tok->str.data;
-      err_t_wrap (kvb_accept_key (&builder, (struct string){ .data = data, .len = tok->str.len }, e), e);
-      parser->pos++;
+      struct token *tok = parser_advance (&parser->base);
+      err_t_wrap (kvb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
 
       /* Parse field type */
       struct type inner;
       err_t_wrap (parse_type_inner (parser, &inner, e), e);
       err_t_wrap (kvb_accept_type (&builder, inner, e), e);
 
-      tok = peek (parser);
-
-      // Check for closing brace
-      if (match (tok, TT_RIGHT_BRACE))
+      /* Check for comma or closing brace */
+      if (parser_match (&parser->base, TT_RIGHT_BRACE))
         {
-          parser->pos++;
           break;
         }
-
-      // Expect comma
-      if (match (tok, TT_COMMA))
+      else if (parser_match (&parser->base, TT_COMMA))
         {
-          parser->pos++;
+          parser_advance (&parser->base);
           continue;
         }
-
-      // Invalid token
       else
         {
-          return error_causef (e, ERR_SYNTAX, "Expected ',' or '}' at position %u", parser->pos);
+          return error_causef (e, ERR_SYNTAX, "Expected ',' or '}' at position %u", parser->base.pos);
         }
     }
+
+  err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
 
   out->type = T_UNION;
   return kvb_union_t_build (&out->un, &builder, e);
@@ -287,12 +218,7 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
 static err_t
 parse_type_inner (struct type_parser *parser, struct type *out, error *e)
 {
-  const struct token *tok = peek (parser);
-
-  if (!tok)
-    {
-      return error_causef (e, ERR_SYNTAX, "Unexpected end of input at position %u", parser->pos);
-    }
+  struct token *tok = parser_peek (&parser->base);
 
   switch (tok->type)
     {
@@ -318,7 +244,7 @@ parse_type_inner (struct type_parser *parser, struct type *out, error *e)
       }
     default:
       {
-        return error_causef (e, ERR_SYNTAX, "Expected type at position %u, got token type %d", parser->pos, tok->type);
+        return error_causef (e, ERR_SYNTAX, "Expected type at position %u, got token type %s", parser->base.pos, tt_tostr (tok->type));
       }
     }
 }
@@ -327,16 +253,13 @@ parse_type_inner (struct type_parser *parser, struct type *out, error *e)
 err_t
 parse_type (struct token *src, u32 src_len, struct type_parser *parser, error *e)
 {
-
   if (!src || !parser || !e)
     {
       return error_causef (e, ERR_INVALID_ARGUMENT, "Invalid arguments to parse_type");
     }
 
   /* Initialize parser state */
-  parser->src = src;
-  parser->src_len = src_len;
-  parser->pos = 0;
+  parser_init (&parser->base, src, src_len);
   memset (&parser->dest, 0, sizeof (parser->dest));
 
   chunk_alloc_create_default (&parser->temp);
@@ -349,15 +272,6 @@ parse_type (struct token *src, u32 src_len, struct type_parser *parser, error *e
       chunk_alloc_free_all (&parser->temp);
       chunk_alloc_free_all (&parser->alloc);
       return e->cause_code;
-    }
-
-  /* Check for leftover tokens - next token should be EOF */
-  struct token *tok = peek (parser);
-  if (tok != NULL && tok->type != TT_EOF)
-    {
-      chunk_alloc_free_all (&parser->temp);
-      chunk_alloc_free_all (&parser->alloc);
-      return error_causef (e, ERR_SYNTAX, "Unexpected tokens after type declaration at position %u", parser->pos);
     }
 
   /* Success - free temp, caller frees alloc */

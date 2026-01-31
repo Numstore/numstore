@@ -1,0 +1,8 @@
+./nsfile read test.db test.wal "[0:10:100]" > out
+
+cat file | ./nsfile append test.db test.wal 
+cat file | ./nsfile insert 10 test.db test.wal 
+cat file | ./nsfile write 10 test.db test.wal 
+
+./nsfile remove test.db test.wal "[0:10:100]" 
+./nsfile take test.db test.wal "[0:10:100]" > out
