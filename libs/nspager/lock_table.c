@@ -100,6 +100,32 @@ lockt_destroy (struct lockt *t)
   adptv_htable_free (&t->table);
 }
 
+#ifndef NDEBUG
+static bool
+is_tx_lock (enum lock_mode mode)
+{
+  switch (mode)
+    {
+    case LM_IS:
+    case LM_S:
+      {
+        return false;
+      }
+    case LM_IX:
+    case LM_SIX:
+    case LM_X:
+      {
+        return true;
+      }
+    case LM_COUNT:
+      {
+        UNREACHABLE ();
+      }
+    }
+  UNREACHABLE ();
+}
+#endif
+
 static err_t
 lockt_lock_once (
     struct lockt *t,
@@ -108,7 +134,7 @@ lockt_lock_once (
     struct txn *tx,
     error *e)
 {
-  if (txn_haslock (tx, lock))
+  if (tx && txn_haslock (tx, lock))
     {
       return SUCCESS;
     }
@@ -126,7 +152,7 @@ lockt_lock_once (
   if (node != NULL)
     {
       frame = container_of (node, struct lockt_frame, node);
-      // TODO tid equality
+      // TODO check if this lock belongs to the same transaction
     }
 
   // Lock doesn't exist - create new one
@@ -141,7 +167,10 @@ lockt_lock_once (
 
   gr_lock_incref (&frame->lock);
 
-  err_t_panic (txn_newlock (tx, lock, mode, e), e);
+  if (tx)
+    {
+      err_t_panic (txn_newlock (tx, lock, mode, e), e);
+    }
 
   // Release latch BEFORE blocking on gr_lock
   latch_unlock (&t->l);
@@ -160,6 +189,8 @@ lockt_lock (
     struct txn *tx,
     error *e)
 {
+  ASSERT (tx || !is_tx_lock (mode));
+
   // First you need to obtain a lock on the parent
   struct lt_lock parent;
 
@@ -174,50 +205,31 @@ lockt_lock (
   return lockt_lock_once (t, lock, mode, tx, e);
 }
 
-/**
-err_t
-lockt_upgrade (struct lockt *t, struct lt_lock *lock, enum lock_mode new_mode, error *e)
+static inline err_t
+lockt_unlock_and_maybe_remove_unsafe (
+    struct lockt *t,
+    struct lt_lock lock,
+    enum lock_mode mode,
+    error *e)
 {
-  if (new_mode <= lock->mode)
+  struct lockt_frame key;
+  lockt_frame_init_key (&key, lock);
+
+  struct hnode *found = adptv_htable_lookup (&t->table, &key.node, lockt_frame_eq);
+  ASSERT (found);
+  struct lockt_frame *frame = container_of (found, struct lockt_frame, node);
+
+  gr_unlock (&frame->lock, mode);
+
+  if (gr_lock_decref (&frame->lock))
     {
-      return SUCCESS;
+      err_t_wrap (adptv_htable_delete (NULL, &t->table, &key.node, lockt_frame_eq, e), e);
+      gr_lock_destroy (&frame->lock);
+      slab_alloc_free (&t->lock_alloc, frame);
     }
-
-  int ptype;
-  union lt_lock_data pdata;
-  get_parent (&ptype, &pdata, lock->type, lock->data);
-
-  if (ptype != -1)
-    {
-      enum lock_mode new_parent_mode = get_parent_mode (new_mode);
-      enum lock_mode old_parent_mode = get_parent_mode (lock->mode);
-
-      // UPGRADE PARENT
-      if (new_parent_mode > old_parent_mode)
-        {
-          struct lt_lock key;
-          lt_lock_init_key (&key, ptype, pdata);
-
-          // FIND PARENT
-          struct hnode *_found = adptv_htable_lookup (&t->table, &key.node, lt_lock_eq);
-          ASSERT (_found);
-          struct lt_lock *found = container_of (_found, struct lt_lock, node);
-
-          // UPGRADE
-          err_t_wrap (lockt_upgrade (t, found, new_parent_mode, e), e);
-        }
-    }
-
-  if (gr_upgrade (lock->lock, lock->mode, new_mode, e))
-    {
-      return e->cause_code;
-    }
-
-  lock->mode = new_mode;
 
   return SUCCESS;
 }
-*/
 
 struct unlock_ctx
 {
@@ -229,27 +241,46 @@ unlock_and_maybe_remove (struct lt_lock lock, enum lock_mode mode, void *ctx, er
 {
   struct unlock_ctx *c = ctx;
 
-  struct lockt_frame key;
-  lockt_frame_init_key (&key, lock);
-
-  struct hnode *found = adptv_htable_lookup (&c->t->table, &key.node, lockt_frame_eq);
-  ASSERT (found);
-  struct lockt_frame *frame = container_of (found, struct lockt_frame, node);
-
-  gr_unlock (&frame->lock, mode);
-
-  if (gr_lock_decref (&frame->lock))
-    {
-      err_t_wrap (adptv_htable_delete (NULL, &c->t->table, &key.node, lockt_frame_eq, e), e);
-      gr_lock_destroy (&frame->lock);
-      slab_alloc_free (&c->t->lock_alloc, frame);
-    }
+  lockt_unlock_and_maybe_remove_unsafe (c->t, lock, mode, e);
 
   return SUCCESS;
 }
 
+static err_t
+lockt_unlock_once (
+    struct lockt *t,
+    struct lt_lock lock,
+    enum lock_mode mode, error *e)
+{
+  latch_lock (&t->l);
+
+  err_t ret = lockt_unlock_and_maybe_remove_unsafe (t, lock, mode, e);
+
+  latch_unlock (&t->l);
+
+  return ret;
+}
+
 err_t
-lockt_unlock (struct lockt *t, struct txn *tx, error *e)
+lockt_unlock (struct lockt *t, struct lt_lock lock, enum lock_mode mode, error *e)
+{
+  // First, unlock the child
+  lockt_unlock_once (t, lock, mode, e);
+
+  // Next, you need to unlock the parent
+  struct lt_lock parent;
+
+  if (get_parent (&parent, lock))
+    {
+      enum lock_mode pmode = get_parent_mode (mode);
+      lockt_unlock (t, parent, pmode, e);
+    }
+
+  return e->cause_code;
+}
+
+err_t
+lockt_unlock_tx (struct lockt *t, struct txn *tx, error *e)
 {
   ASSERT (t);
   ASSERT (tx);

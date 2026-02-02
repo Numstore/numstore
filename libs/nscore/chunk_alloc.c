@@ -89,7 +89,7 @@ chunk_alloc_create_default (struct chunk_alloc *dest)
                                 .max_alloc_size = 0,
                                 .max_total_size = 0,
                                 .target_chunk_mult = 10,
-                                .min_chunk_size = 0,
+                                .min_chunk_size = 10,
                                 .max_chunk_size = 0,
                                 .max_chunks = 0,
                             });
@@ -101,7 +101,7 @@ compute_new_chunk_size (struct chunk_alloc *ca, u32 alloc_size)
   DBG_ASSERT (chunk_alloc, ca);
 
   // Target chunk size based on multiplier
-  u32 new_chunk_size = (u32)(alloc_size * ca->settings.target_chunk_mult);
+  u32 new_chunk_size = (u32) (alloc_size * ca->settings.target_chunk_mult);
 
   // Clamp to minimum
   if (new_chunk_size < ca->settings.min_chunk_size)
@@ -156,7 +156,7 @@ chunk_alloc_free_all (struct chunk_alloc *ca)
   while (cur != NULL)
     {
       struct chunk *next = cur->next;
-      DBG_ASSERT (chunk, next);
+      DBG_ASSERT (chunk, cur);
       i_free (cur);
       cur = next;
     }
@@ -308,4 +308,19 @@ chunk_calloc (struct chunk_alloc *ca, u32 req, u32 size, error *e)
       i_memset (ptr, 0, req * size);
     }
   return ptr;
+}
+
+void *
+chunk_alloc_move_mem (struct chunk_alloc *ca, const void *ptr, u32 size, error *e)
+{
+  void *dest = chunk_malloc (ca, size, 1, e);
+
+  if (dest == NULL)
+    {
+      return NULL;
+    }
+
+  i_memcpy (dest, ptr, size);
+
+  return dest;
 }

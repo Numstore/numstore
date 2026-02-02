@@ -417,13 +417,13 @@ failed:
 }
 
 static inline err_t
-pgr_is_new_guard (struct pager *p, bool *isnew, error *e)
+pgr_is_new_guard (struct pager *p, error *e)
 {
-  *isnew = false;
+  p->flags = p->flags & ~PF_ISNEW;
 
   if (fpgr_get_npages (&p->fp) == 0)
     {
-      *isnew = true;
+      p->flags = p->flags | PF_ISNEW;
       return SUCCESS;
     }
 
@@ -442,7 +442,6 @@ struct pager *
 pgr_open (const char *fname, const char *walname, struct lockt *lt, struct thread_pool *tp, error *e)
 {
   struct pager *ret = NULL;
-  bool is_new = !i_exists_rw (fname);
   bool fpgr_opened = false;
   bool dpt_opened = false;
   bool wal_opened = false;
@@ -458,7 +457,7 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
   fpgr_opened = true;
 
   // Pull in the root node data values
-  err_t_wrap_goto (pgr_is_new_guard (ret, &is_new, e), failed, e);
+  err_t_wrap_goto (pgr_is_new_guard (ret, e), failed, e);
 
   // Open the dirty page table
   err_t_wrap_goto (dpgt_open (&ret->dpt, e), failed, e);
@@ -494,7 +493,7 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
   ret->tp = tp;
 
   // More work
-  if (is_new)
+  if (pgr_isnew (ret))
     {
       err_t_wrap_null_goto (pgr_open_new (fname, walname, ret, e), failed, e);
     }
@@ -521,16 +520,22 @@ failed:
     {
       fpgr_close (&ret->fp, e);
     }
-  if (ret)
-    {
-      i_free (ret);
-    }
-  if (is_new)
+  if (pgr_isnew (ret))
     {
       i_remove_quiet (fname, e);
       i_remove_quiet (walname, e);
     }
+  if (ret)
+    {
+      i_free (ret);
+    }
   return NULL;
+}
+
+bool
+pgr_isnew (struct pager *p)
+{
+  return p->flags && PF_ISNEW;
 }
 
 #ifndef NTEST
@@ -731,7 +736,7 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
   tx->data.state = TX_DONE;
 
-  err_t_wrap (lockt_unlock (p->lt, tx, e), e);
+  err_t_wrap (lockt_unlock_tx (p->lt, tx, e), e);
 
   latch_unlock (&tx->l);
 

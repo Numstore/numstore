@@ -23,4 +23,4 @@
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
 
-u32 fnv1a_hash (const struct cstring s);
+u32 fnv1a_hash (const struct string s);

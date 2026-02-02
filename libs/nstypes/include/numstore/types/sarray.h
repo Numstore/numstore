@@ -21,9 +21,9 @@
  */
 
 // system
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
-#include <numstore/core/lalloc.h>
 #include <numstore/core/llist.h>
 #include <numstore/core/serializer.h>
 #include <numstore/intf/types.h>
@@ -42,9 +42,9 @@ err_t sarray_t_validate (const struct sarray_t *t, error *e);
 i32 sarray_t_snprintf (char *str, u32 size, const struct sarray_t *p);
 u32 sarray_t_byte_size (const struct sarray_t *t);
 u32 sarray_t_get_serial_size (const struct sarray_t *t);
-void sarray_t_serialize (struct serializer *dest, const struct sarray_t *src);
-err_t sarray_t_deserialize (struct sarray_t *dest, struct deserializer *src, struct lalloc *a, error *e);
-err_t sarray_t_random (struct sarray_t *sa, struct lalloc *alloc, u32 depth, error *e);
+void sarray_t_serialize (struct serializer *persistent, const struct sarray_t *src);
+err_t sarray_t_deserialize (struct sarray_t *persistent, struct deserializer *src, struct chunk_alloc *a, error *e);
+err_t sarray_t_random (struct sarray_t *sa, struct chunk_alloc *temp, u32 depth, error *e);
 bool sarray_t_equal (const struct sarray_t *left, const struct sarray_t *right);
 
 ////////////////////////////////////////////////////////////
@@ -61,11 +61,11 @@ struct sarray_builder
   struct llnode *head;
   struct type *type;
 
-  struct lalloc *alloc;
-  struct lalloc *dest;
+  struct chunk_alloc *temp;
+  struct chunk_alloc *persistent;
 };
 
-struct sarray_builder sab_create (struct lalloc *alloc, struct lalloc *dest);
+void sab_create (struct sarray_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
 err_t sab_accept_dim (struct sarray_builder *eb, u32 dim, error *e);
 err_t sab_accept_type (struct sarray_builder *eb, struct type type, error *e);
-err_t sab_build (struct sarray_t *dest, struct sarray_builder *eb, error *e);
+err_t sab_build (struct sarray_t *persistent, struct sarray_builder *eb, error *e);

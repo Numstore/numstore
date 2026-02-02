@@ -1,5 +1,6 @@
 #pragma once
 
+#include "numstore/core/slab_alloc.h"
 #include <numstore/intf/types.h>
 #include <numstore/pager.h>
 #include <numstore/pager/dirty_page_table.h>
@@ -17,10 +18,15 @@ struct aries_ctx
   struct txn_table txt;
 
   // List of open transactions
-  struct dbl_buffer txns;
+  struct dbl_buffer txn_ptrs;
 
   // Dirty page table
   struct dpg_table dpt;
+
+  // Slab allocator for transactions
+  struct slab_alloc alloc;
+
+  // Maximum tid
   txid max_tid;
 };
 

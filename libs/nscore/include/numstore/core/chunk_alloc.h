@@ -60,3 +60,6 @@ void chunk_alloc_reset_all (struct chunk_alloc *ca); // Doesn't free anything - 
 // Main Methods
 void *chunk_malloc (struct chunk_alloc *ca, u32 req, u32 size, error *e);
 void *chunk_calloc (struct chunk_alloc *ca, u32 req, u32 size, error *e);
+
+// Utils
+void *chunk_alloc_move_mem (struct chunk_alloc *ca, const void *ptr, u32 size, error *e);

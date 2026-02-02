@@ -28,11 +28,12 @@
 /**
  * ============ PAGE START
  * HEADER
- * NEXT     [pgno]
- * OVNEXT   [pgno]
- * VLEN     [2 bytes]
- * TLEN     [2 bytes]
- * ROOT     [pgno]
+ * NEXT     [pgno]      - Next var page in the hash table chain
+ * OVNEXT   [pgno]      - Next Overflow page for name / serialized type
+ * VLEN     [2 bytes]   - Length of the name string in bytes
+ * TLEN     [2 bytes]   - Length of the type string in bytes
+ * ROOT     [pgno]      - Root page of the rptree chain
+ * NBYTES   [b_size]    - Root page of the rptree chain
  * VNAME
  * VNAME
  * VNAME
@@ -46,11 +47,12 @@
 
 // OFFSETS and _Static_asserts
 #define VP_NEXT_OFST PG_COMMN_END
-#define VP_OVNX_OFST ((p_size)(VP_NEXT_OFST + sizeof (pgno)))
-#define VP_VLEN_OFST ((p_size)(VP_OVNX_OFST + sizeof (pgno)))
-#define VP_TLEN_OFST ((p_size)(VP_VLEN_OFST + sizeof (u16)))
-#define VP_ROOT_OFST ((p_size)(VP_TLEN_OFST + sizeof (u16)))
-#define VP_VNME_OFST ((p_size)(VP_ROOT_OFST + sizeof (pgno)))
+#define VP_OVNX_OFST ((p_size) (VP_NEXT_OFST + sizeof (pgno)))
+#define VP_VLEN_OFST ((p_size) (VP_OVNX_OFST + sizeof (pgno)))
+#define VP_TLEN_OFST ((p_size) (VP_VLEN_OFST + sizeof (u16)))
+#define VP_ROOT_OFST ((p_size) (VP_TLEN_OFST + sizeof (u16)))
+#define VP_NBYT_OFST ((p_size) (VP_ROOT_OFST + sizeof (pgno)))
+#define VP_VNME_OFST ((p_size) (VP_NBYT_OFST + sizeof (b_size)))
 #define VP_MAX_LEN (PAGE_SIZE - VP_VNME_OFST)
 
 // Initialization
@@ -62,6 +64,7 @@ void vp_set_ovnext (page *p, pgno pg);
 void vp_set_vlen (page *p, u16 vlen);
 void vp_set_tlen (page *p, u16 tlen);
 void vp_set_root (page *p, pgno root);
+void vp_set_nbytes (page *p, b_size nbytes);
 
 // Getters
 pgno vp_get_next (const page *p);
@@ -69,6 +72,7 @@ pgno vp_get_ovnext (const page *p);
 u16 vp_get_vlen (const page *p);
 u16 vp_get_tlen (const page *p);
 pgno vp_get_root (const page *p);
+b_size vp_get_nbytes (const page *p);
 
 b_size vp_calc_tofst (const page *p);
 bool vp_is_overflow (const page *p);

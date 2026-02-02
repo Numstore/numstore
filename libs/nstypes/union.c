@@ -18,12 +18,13 @@
  *   byte size calculations, serialization, deserialization, and random generation.
  */
 
+#include "numstore/core/chunk_alloc.h"
 #include <numstore/types/union.h>
 
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/kvt_builder.h>
@@ -498,14 +499,15 @@ err_t
 union_t_deserialize (
     struct union_t *dest,
     struct deserializer *src,
-    struct lalloc *a,
+    struct chunk_alloc *a,
     error *e)
 {
   ASSERT (dest);
 
-  u8 working[2048];
-  struct lalloc balloc = lalloc_create (working, sizeof (working));
-  struct kvt_builder unb = kvb_create (&balloc, a);
+  struct chunk_alloc temp;
+  chunk_alloc_create_default (&temp);
+  struct kvt_builder unb;
+  kvb_create (&unb, &temp, a);
 
   /**
    * LEN
@@ -526,11 +528,11 @@ union_t_deserialize (
 
       struct string key = {
         .len = klen,
-        .data = lmalloc (a, klen, 1, e),
+        .data = chunk_malloc (a, klen, 1, e),
       };
       if (key.data == NULL)
         {
-          return e->cause_code;
+          goto theend;
         }
 
       if (!dsrlizr_read ((u8 *)key.data, key.len, src))
@@ -539,17 +541,22 @@ union_t_deserialize (
         }
 
       struct type t;
-      err_t_wrap (type_deserialize (&t, src, a, e), e);
+      err_t_wrap_goto (type_deserialize (&t, src, a, e), theend, e);
 
-      err_t_wrap (kvb_accept_key (&unb, key, e), e);
-      err_t_wrap (kvb_accept_type (&unb, t, e), e);
+      err_t_wrap_goto (kvb_accept_key (&unb, key, e), theend, e);
+      err_t_wrap_goto (kvb_accept_type (&unb, t, e), theend, e);
     }
 
-  err_t_wrap (kvb_union_t_build (dest, &unb, e), e);
+  err_t_wrap_goto (kvb_union_t_build (dest, &unb, e), theend, e);
 
   return SUCCESS;
 
+theend:
+  chunk_alloc_free_all (&temp);
+  return e->cause_code;
+
 early_termination:
+  chunk_alloc_free_all (&temp);
   return union_t_type_deser ("Early end of serialized string", e);
 }
 
@@ -572,8 +579,8 @@ TEST (TT_UNIT, union_t_deserialize_green_path)
   i_memcpy (&data[15], &l3, sizeof (u16));
   i_memcpy (&data[23], &l4, sizeof (u16));
 
-  char space[2000];
-  struct lalloc st_alloc = lalloc_create ((u8 *)space, sizeof (space));
+  struct chunk_alloc st_alloc;
+  chunk_alloc_create_default (&st_alloc);
 
   struct deserializer d = dsrlizr_create (data, sizeof (data));
 
@@ -628,8 +635,8 @@ TEST (TT_UNIT, union_t_deserialize_red_path)
   i_memcpy (&data[24], &l4, sizeof (u16));
 
   struct union_t sret;
-  char space[2000];
-  struct lalloc alloc = lalloc_create ((u8 *)space, sizeof (space));
+  struct chunk_alloc alloc;
+  chunk_alloc_create_default (&alloc);
   struct deserializer d = dsrlizr_create (data, sizeof (data));
 
   error e = error_create ();
@@ -640,19 +647,19 @@ TEST (TT_UNIT, union_t_deserialize_red_path)
 #endif
 
 err_t
-union_t_random (struct union_t *un, struct lalloc *alloc, u32 depth, error *e)
+union_t_random (struct union_t *un, struct chunk_alloc *alloc, u32 depth, error *e)
 {
   ASSERT (un);
 
   un->len = (u16)randu32r (1, 5);
 
-  un->keys = (struct string *)lmalloc (alloc, un->len, sizeof (struct string), e);
+  un->keys = (struct string *)chunk_malloc (alloc, un->len, sizeof (struct string), e);
   if (!un->keys)
     {
       return e->cause_code;
     }
 
-  un->types = (struct type *)lmalloc (alloc, un->len, sizeof (struct type), e);
+  un->types = (struct type *)chunk_malloc (alloc, un->len, sizeof (struct type), e);
   if (!un->types)
     {
       return e->cause_code;
@@ -688,4 +695,18 @@ union_t_equal (const struct union_t *left, const struct union_t *right)
     }
 
   return true;
+}
+
+struct type *
+union_t_resolve_key (struct union_t *t, struct string key, error *e)
+{
+  for (u32 i = 0; i < t->len; ++i)
+    {
+      if (string_equal (t->keys[i], key))
+        {
+          return &t->types[i];
+        }
+    }
+
+  return NULL;
 }

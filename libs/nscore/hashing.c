@@ -21,9 +21,8 @@
 
 #include <numstore/test/testing.h>
 
-// core
 u32
-fnv1a_hash (const struct cstring s)
+fnv1a_hash (const struct string s)
 {
   u32 hash = 2166136261u;
   const char *str = s.data;
@@ -38,7 +37,7 @@ fnv1a_hash (const struct cstring s)
 #ifndef NTEST
 TEST (TT_UNIT, fnv1a_hash_empty)
 {
-  struct cstring empty = { .data = "", .len = 0 };
+  struct string empty = { .data = "", .len = 0 };
   u32 hash = fnv1a_hash (empty);
   // Empty string should return FNV offset basis
   test_assert_equal (hash, 2166136261u);
@@ -46,7 +45,7 @@ TEST (TT_UNIT, fnv1a_hash_empty)
 
 TEST (TT_UNIT, fnv1a_hash_single_char)
 {
-  struct cstring s = { .data = "a", .len = 1 };
+  struct string s = { .data = "a", .len = 1 };
   u32 hash = fnv1a_hash (s);
   // "a" should hash to (2166136261 ^ 'a') * 16777619
   u32 expected = (2166136261u ^ 'a') * 16777619u;
@@ -55,7 +54,7 @@ TEST (TT_UNIT, fnv1a_hash_single_char)
 
 TEST (TT_UNIT, fnv1a_hash_known_value)
 {
-  struct cstring s = { .data = "hello", .len = 5 };
+  struct string s = { .data = "hello", .len = 5 };
   u32 hash = fnv1a_hash (s);
   // Known FNV-1a hash for "hello"
   test_assert_equal (hash, 1335831723u);
@@ -63,7 +62,7 @@ TEST (TT_UNIT, fnv1a_hash_known_value)
 
 TEST (TT_UNIT, fnv1a_hash_deterministic)
 {
-  struct cstring s = { .data = "test", .len = 4 };
+  struct string s = { .data = "test", .len = 4 };
   u32 hash1 = fnv1a_hash (s);
   u32 hash2 = fnv1a_hash (s);
   // Same input should always produce same hash

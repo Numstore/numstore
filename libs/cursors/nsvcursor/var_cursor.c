@@ -19,6 +19,7 @@
  *   with type serialization.
  */
 
+#include "numstore/core/chunk_alloc.h"
 #include <numstore/var/var_cursor.h>
 
 #include <numstore/core/assert.h>
@@ -43,7 +44,7 @@
 #include <numstore/types/types.h>
 
 static inline err_t
-err_var_doesnt_exist (const struct cstring vname, error *e)
+err_var_doesnt_exist (const struct string vname, error *e)
 {
   if (vname.len > 10)
     {
@@ -104,7 +105,15 @@ varh_init_hash_page (struct pager *p, error *e)
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
 
   // See if we already initialized the hash page
+  // TODO - make htis error stuff better
+  bool print_msg_on_error = e->print_msg_on_error;
+  bool print_trace = e->print_trace;
+  e->print_msg_on_error = false;
+  e->print_trace = false;
   err_t ret = pgr_get (&hp, PG_VAR_HASH_PAGE, VHASH_PGNO, p, e);
+  e->print_msg_on_error = print_msg_on_error;
+  e->print_trace = print_trace;
+
   if (ret == ERR_PG_OUT_OF_RANGE)
     {
       error_reset (e);
@@ -145,25 +154,16 @@ varc_initialize (struct var_cursor *v, struct pager *p, error *e)
   return SUCCESS;
 }
 
-err_t
-varc_cleanup (struct var_cursor *v, error *e)
-{
-  DBG_ASSERT (var_cursor, v);
-  ASSERT (v->cur.mode == PHM_NONE);
-  return SUCCESS;
-}
-
 ////////////////////////
 /// Functions
 
-static inline err_t
-vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
+static err_t
+vpc_read_var_page_here (struct var_cursor *v, error *e)
 {
   err_t ret = SUCCESS;
 
   ASSERT (v->cur.mode != PHM_NONE);
   ASSERT (page_h_type (&v->cur) == PG_VAR_PAGE);
-  ASSERT (match);
 
   // Keep the start page so we can reset at the end
   pgno start = page_h_pgno (&v->cur);
@@ -175,13 +175,6 @@ vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
   // Now assert that the values from the page are valid
   ASSERT (v->tlen != 0);
   ASSERT (v->vlen != 0);
-
-  // Quick check that lengths aren't compatible
-  if (v->vlen != v->vlen_input)
-    {
-      *match = false;
-      goto theend;
-    }
 
   u16 read = 0;
   u16 lread = 0;
@@ -262,6 +255,42 @@ vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
           e, ERR_CORRUPT,
           "Done reading variable page, but there's still more overhead. "
           "This is corruption");
+      goto theend;
+    }
+
+theend:
+  return e->cause_code;
+}
+
+static inline err_t
+vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
+{
+  err_t ret = SUCCESS;
+
+  ASSERT (v->cur.mode != PHM_NONE);
+  ASSERT (page_h_type (&v->cur) == PG_VAR_PAGE);
+  ASSERT (match);
+
+  // Keep the start page so we can reset at the end
+  pgno start = page_h_pgno (&v->cur);
+
+  // Start reading this page in
+  v->vlen = vp_get_vlen (page_h_ro (&v->cur));
+  v->tlen = vp_get_tlen (page_h_ro (&v->cur));
+
+  // Now assert that the values from the page are valid
+  ASSERT (v->tlen != 0);
+  ASSERT (v->vlen != 0);
+
+  // Quick check that lengths aren't compatible
+  if (v->vlen != v->vlen_input)
+    {
+      *match = false;
+      goto theend;
+    }
+
+  if (vpc_read_var_page_here (v, e))
+    {
       goto theend;
     }
 
@@ -364,7 +393,7 @@ theend:
   return e->cause_code;
 }
 
-err_t
+spgno
 vpc_new (struct var_cursor *v, struct var_create_params params, error *e)
 {
   DBG_ASSERT (var_cursor, v);
@@ -491,12 +520,15 @@ vpc_new (struct var_cursor *v, struct var_create_params params, error *e)
   vp_set_ovnext (page_h_w (&v->cur), PGNO_NULL);
   vp_set_vlen (page_h_w (&v->cur), v->vlen_input);
   vp_set_tlen (page_h_w (&v->cur), v->tlen_input);
-  vp_set_root (page_h_w (&v->cur), params.root);
+  vp_set_root (page_h_w (&v->cur), PGNO_NULL);
+  vp_set_nbytes (page_h_w (&v->cur), 0);
 
   if ((vpc_write_vstr_tstr_here (v, e)))
     {
       goto theend;
     }
+
+  pgno ret = page_h_pgno (&v->cur);
 
   if ((pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e)))
     {
@@ -510,16 +542,25 @@ theend:
   v->vlen = 0;
   v->tlen = 0;
 
-  return e->cause_code;
+  if (e->cause_code)
+    {
+      return e->cause_code;
+    }
+  else
+    {
+      return ret;
+    }
 }
 
-err_t
-vpc_get (struct var_cursor *v, struct lalloc *dalloc, struct var_get_params *dest, error *e)
+spgno
+vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params *dest, error *e)
 {
   DBG_ASSERT (var_cursor, v);
   ASSERT (dest);
   ASSERT (dest->vname.len > 0);
   ASSERT (dest->vname.data);
+
+  spgno ret = 0;
 
   // Init query params
   // Move data to input buffers
@@ -575,10 +616,13 @@ vpc_get (struct var_cursor *v, struct lalloc *dalloc, struct var_get_params *des
                 {
                   goto theend;
                 }
+              // You already have the name so no need to allocate
             }
 
           // Root
           dest->pg0 = vp_get_root (page_h_ro (&v->cur));
+          dest->nbytes = vp_get_nbytes (page_h_ro (&v->cur));
+          ret = page_h_pgno (&v->cur);
 
           pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e);
 
@@ -611,11 +655,98 @@ theend:
   v->tlen_input = 0;
   v->vlen = 0;
   v->tlen = 0;
+  if (e->cause_code)
+    {
+      return e->cause_code;
+    }
+  else
+    {
+      return ret;
+    }
+}
+
+err_t
+vpc_update_by_id (
+    struct var_cursor *v,
+    struct var_update_by_id_params *src,
+    error *e)
+{
+  DBG_ASSERT (var_cursor, v);
+  ASSERT (src);
+  ASSERT (v->tx);
+
+  if ((pgr_get_writable (&v->cur, v->tx, PG_VAR_PAGE, src->id, v->pager, e)))
+    {
+      goto theend;
+    }
+
+  vp_set_root (page_h_w (&v->cur), src->root);
+  vp_set_nbytes (page_h_w (&v->cur), src->nbytes);
+
+  if (pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e))
+    {
+      goto theend;
+    }
+
+theend:
   return e->cause_code;
 }
 
 err_t
-vpc_delete (struct var_cursor *v, const struct cstring name, error *e)
+vpc_get_by_id (
+    struct var_cursor *v,
+    struct chunk_alloc *dalloc,
+    struct var_get_by_id_params *dest,
+    error *e)
+{
+  DBG_ASSERT (var_cursor, v);
+  ASSERT (dest);
+
+  if ((pgr_get (&v->cur, PG_VAR_PAGE, dest->id, v->pager, e)))
+    {
+      goto theend;
+    }
+
+  // Deserialize the Type and name
+  if (dalloc)
+    {
+      // All the other info fits on this page, only need to read here if we need type / name
+      if ((vpc_read_var_page_here (v, e)))
+        {
+          goto theend;
+        }
+
+      struct deserializer d = dsrlizr_create (v->tstr, v->tlen);
+      if ((type_deserialize (&dest->t, &d, dalloc, e)))
+        {
+          goto theend;
+        }
+      dest->name = chunk_alloc_move_mem (dalloc, v->vstr, v->vlen, e);
+      if (dest->name == NULL)
+        {
+          goto theend;
+        }
+      dest->nlen = v->vlen;
+    }
+
+  dest->pg0 = vp_get_root (page_h_ro (&v->cur));
+  dest->nbytes = vp_get_nbytes (page_h_ro (&v->cur));
+
+  if (pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e))
+    {
+      goto theend;
+    }
+
+theend:
+  v->vlen_input = 0;
+  v->tlen_input = 0;
+  v->vlen = 0;
+  v->tlen = 0;
+  return e->cause_code;
+}
+
+err_t
+vpc_delete (struct var_cursor *v, const struct string name, error *e)
 {
   DBG_ASSERT (var_cursor, v);
   ASSERT (v->tx);
@@ -766,7 +897,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
     // Create a new variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -774,7 +905,6 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -783,19 +913,18 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
     // Fetch the variable you just created
     struct var_get_params dest;
     {
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_wrap (vpc_get (&v, &alloc, &dest, &f.e), &f.e);
     }
 
     // Validate data
     {
-      test_assert_type_equal (dest.pg0, 100, pgno, PRpgno);
       test_assert_int_equal (dest.t.type, T_PRIM);
       test_assert_int_equal (dest.t.p, U32);
     }
@@ -831,7 +960,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
     // Create the variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -839,7 +968,6 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -847,7 +975,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
 
     // Delete the variable
     test_err_t_wrap (vpc_delete (
-                         &v, (struct cstring){
+                         &v, (struct string){
                                  .data = (char *)_src,
                                  .len = len,
                              },
@@ -857,13 +985,13 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
     // Get the variable
     {
       struct var_get_params dest;
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_check (vpc_get (&v, &alloc, &dest, &f.e), ERR_VARIABLE_NE, &f.e);
     }
 
@@ -897,7 +1025,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Create the variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -905,7 +1033,6 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -914,13 +1041,13 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Get the variable
     struct var_get_params dest;
     {
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_wrap (vpc_get (&v, &alloc, &dest, &f.e), &f.e);
     }
 
@@ -943,7 +1070,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Create the variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -951,7 +1078,6 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -959,7 +1085,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
 
     // Delete the variable
     test_err_t_wrap (vpc_delete (
-                         &v, (struct cstring){
+                         &v, (struct string){
                                  .data = (char *)_src,
                                  .len = len,
                              },
@@ -969,13 +1095,13 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Get the variable
     {
       struct var_get_params dest;
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
 
-      u8 _alloc[2048];
-      struct lalloc alloc = lalloc_create_from (_alloc);
+      struct chunk_alloc alloc;
+      chunk_alloc_create_default (&alloc);
       test_err_t_check (vpc_get (&v, &alloc, &dest, &f.e), ERR_VARIABLE_NE, &f.e);
     }
 

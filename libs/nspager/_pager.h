@@ -67,6 +67,11 @@ pf_clr (struct page_frame *pf, int flag)
   pf->flags &= ~flag;
 }
 
+enum pgr_flag
+{
+  PF_ISNEW = 1u << 0,
+};
+
 struct pager
 {
   struct file_pager fp;
@@ -91,6 +96,8 @@ struct pager
   // CACHE
   lsn master_lsn;
   pgno first_tombstone;
+
+  int flags;
 };
 
 DEFINE_DBG_ASSERT (

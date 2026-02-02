@@ -25,7 +25,7 @@
 #include <numstore/core/error.h>
 #include <numstore/core/math.h>
 #include <numstore/core/random.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/prim.h>
 #include <numstore/types/types.h>
@@ -692,14 +692,14 @@ TEST (TT_UNIT, cmplx_in_range)
   const cirtc cases[] = {
     // CI16
     { .real = 0.0f, .imag = 0.0f, .ct = CI16, .exp = true },
-    { .real = (f32)(I8_MAX + 1), .imag = 0.0f, .ct = CI16, .exp = false },
-    { .real = 0.0f, .imag = (f32)(I8_MIN - 1), .ct = CI16, .exp = false },
+    { .real = (f32) (I8_MAX + 1), .imag = 0.0f, .ct = CI16, .exp = false },
+    { .real = 0.0f, .imag = (f32) (I8_MIN - 1), .ct = CI16, .exp = false },
 
     // CU16
     { .real = 0.0f, .imag = 0.0f, .ct = CU16, .exp = true },
     { .real = -1.0f, .imag = 0.0f, .ct = CU16, .exp = false },
     { .real = 0.0f, .imag = -1.0f, .ct = CU16, .exp = false },
-    { .real = (f32)(U8_MAX + 1), .imag = 0.0f, .ct = CU16, .exp = false },
+    { .real = (f32) (U8_MAX + 1), .imag = 0.0f, .ct = CU16, .exp = false },
 
     // CF64
     { .real = F32_MIN, .imag = F32_MAX, .ct = CF64, .exp = true },
@@ -1039,7 +1039,7 @@ TEST (TT_UNIT, validate_prim_complex)
     /* Complex integer targets */
     { I8_MAX + I * I8_MAX, CI16, SUCCESS },
     { (f64)I8_MAX + 1 + I * 0.0, CI16, ERR_ARITH },
-    { 0.0 + I * (f64)(I8_MAX + 1), CI16, ERR_ARITH },
+    { 0.0 + I * (f64) (I8_MAX + 1), CI16, ERR_ARITH },
 
     { (f64)U8_MAX + I * (f64)U8_MAX, CU16, SUCCESS },
     { -1.0 + I * 0.0, CU16, ERR_ARITH },

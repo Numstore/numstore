@@ -1,7 +1,140 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/cbuffer.h>
+#include <numstore/core/error.h>
+#include <numstore/core/string.h>
+#include <numstore/intf/os/memory.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/type_accessor.h>
+#include <numstore/types/types.h>
+
+static inline err_t
+struct_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct struct_t *st, error *e)
+{
+  t_size bofst;
+  struct type *subtype = struct_t_resolve_key (&bofst, st, src->key, e);
+  if (subtype == NULL)
+    {
+      return e->cause_code;
+    }
+
+  struct byte_accessor *sub_ba = i_malloc (1, sizeof *sub_ba, e);
+  if (sub_ba == NULL)
+    {
+      return e->cause_code;
+    }
+
+  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, subtype, e), e);
+
+  *dest = (struct select_ba){
+    .bofst = bofst,
+    .sub_ba = sub_ba,
+  };
+
+  return SUCCESS;
+}
+
+static inline err_t
+union_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct union_t *un, error *e)
+{
+  struct type *subtype = union_t_resolve_key (un, src->key, e);
+  if (subtype == NULL)
+    {
+      return e->cause_code;
+    }
+
+  struct byte_accessor *sub_ba = i_malloc (1, sizeof *sub_ba, e);
+  if (sub_ba == NULL)
+    {
+      return e->cause_code;
+    }
+
+  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, subtype, e), e);
+
+  *dest = (struct select_ba){
+    .bofst = 0,
+    .sub_ba = sub_ba,
+  };
+
+  return SUCCESS;
+}
+
+static inline err_t
+sarray_t_to_range_ttoba (struct range_ba *dest, struct range_ta *src, struct sarray_t *sa, error *e)
+{
+  t_size size = type_byte_size (sa->t);
+  struct byte_accessor *sub_ba = i_malloc (1, sizeof *sub_ba, e);
+  if (sub_ba == NULL)
+    {
+      return e->cause_code;
+    }
+
+  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, sa->t, e), e);
+
+  *dest = (struct range_ba){
+    .bofst = size * src->start,
+    .stride = size * src->step,
+    .nelems = size * (src->stop - src->start),
+    .sub_ba = sub_ba,
+  };
+
+  return SUCCESS;
+}
+
+err_t
+type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, struct type *reftype, error *e)
+{
+  dest->type = src->type;
+  dest->size = type_byte_size (reftype);
+
+  switch (src->type)
+    {
+    case TA_TAKE:
+      {
+        return SUCCESS;
+      }
+    case TA_SELECT:
+      {
+        switch (reftype->type)
+          {
+          case T_STRUCT:
+            {
+              return struct_t_select_ttoba (&dest->select, &src->select, &reftype->st, e);
+            }
+          case T_UNION:
+            {
+              return union_t_select_ttoba (&dest->select, &src->select, &reftype->un, e);
+            }
+          case T_PRIM:
+          case T_SARRAY:
+          case T_ENUM:
+            {
+              return error_causef (e, ERR_INVALID_ARGUMENT, "Cannot select a non selectable type");
+            }
+          }
+        UNREACHABLE ();
+      }
+    case TA_RANGE:
+      {
+        switch (reftype->type)
+          {
+          case T_SARRAY:
+            {
+              return sarray_t_to_range_ttoba (&dest->range, &src->range, &reftype->sa, e);
+            }
+          case T_STRUCT:
+          case T_UNION:
+          case T_PRIM:
+          case T_ENUM:
+            {
+              return error_causef (e, ERR_INVALID_ARGUMENT, "Cannot range on a non rangable type");
+            }
+          }
+        UNREACHABLE ();
+      }
+    }
+
+  UNREACHABLE ();
+}
 
 static t_size ta_sizeof (struct byte_accessor *acc);
 
@@ -16,36 +149,36 @@ ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_acce
     case TA_TAKE:
       {
         // Copy entire type here
-        cbuffer_cbuffer_move (dest, 1, acc->take.size, src);
+        cbuffer_cbuffer_move (dest, 1, acc->size, src);
         return;
       }
     case TA_SELECT:
       {
         // Skip offset bytes, then recursively copy the selected field
-        if (acc->select.offset > 0)
+        if (acc->select.bofst > 0)
           {
-            cbuffer_read (NULL, 1, acc->select.offset, src);
+            cbuffer_read (NULL, 1, acc->select.bofst, src);
           }
-        ta_memcpy_from_once (dest, src, acc->select.query);
+        ta_memcpy_from_once (dest, src, acc->select.sub_ba);
         return;
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.query);
+        t_size elem_size = ta_sizeof (acc->range.sub_ba);
 
         // Skip to start position
-        if (acc->range.start > 0)
+        if (acc->range.bofst > 0)
           {
-            cbuffer_read (NULL, acc->range.start, elem_size, src);
+            cbuffer_read (NULL, acc->range.bofst, elem_size, src);
           }
 
         t_size copied_count = 0;
-        t_size pos = acc->range.start;
+        t_size pos = acc->range.bofst;
 
-        while (pos < acc->range.end)
+        while (pos < acc->range.nelems)
           {
             // Copy one element
-            ta_memcpy_from_once (dest, src, acc->range.query);
+            ta_memcpy_from_once (dest, src, acc->range.sub_ba);
             copied_count++;
 
             // Skip (stride - 1) elements to get to next one
@@ -71,16 +204,16 @@ ta_sizeof (struct byte_accessor *acc)
     {
     case TA_TAKE:
       {
-        return acc->take.size;
+        return acc->size;
       }
     case TA_SELECT:
       {
-        return ta_sizeof (acc->select.query);
+        return ta_sizeof (acc->select.sub_ba);
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.query);
-        t_size count = (acc->range.end - acc->range.start + acc->range.stride - 1) / acc->range.stride;
+        t_size elem_size = ta_sizeof (acc->range.sub_ba);
+        t_size count = (acc->range.nelems - acc->range.bofst + acc->range.stride - 1) / acc->range.stride;
         return count * elem_size;
       }
     }
@@ -128,12 +261,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 0,
-              .query = &(struct byte_accessor){
+              .bofst = 0,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take = {
-                      .size = 4,
-                  },
+                  .size = 4,
               },
           },
       },
@@ -156,10 +287,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take.size = 1,
+                  .size = 1,
               },
           },
       },
@@ -182,10 +313,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take.size = 1,
+                  .size = 1,
               },
           },
       },
@@ -193,12 +324,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 0,
-              .query = &(struct byte_accessor){
+              .bofst = 0,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take = {
-                      .size = 4,
-                  },
+                  .size = 4,
               },
           },
       },
@@ -224,12 +353,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 0,
-              .query = &(struct byte_accessor){
+              .bofst = 0,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take = {
-                      .size = 4,
-                  },
+                  .size = 4,
               },
           },
       },
@@ -237,10 +364,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take.size = 1,
+                  .size = 1,
               },
           },
       },
@@ -267,23 +394,21 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_SELECT,
                   .select = {
-                      .offset = 1,
-                      .query = &(struct byte_accessor){
+                      .bofst = 1,
+                      .sub_ba = &(struct byte_accessor){
                           .type = TA_RANGE,
                           .range = {
-                              .query = &(struct byte_accessor){
+                              .sub_ba = &(struct byte_accessor){
                                   .type = TA_TAKE,
-                                  .take = {
-                                      .size = 2,
-                                  },
+                                  .size = 2,
                               },
-                              .start = 1,
+                              .bofst = 1,
                               .stride = 1,
-                              .end = 4,
+                              .nelems = 4,
                           },
                       },
                   },
@@ -313,23 +438,21 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_SELECT,
                   .select = {
-                      .offset = 1,
-                      .query = &(struct byte_accessor){
+                      .bofst = 1,
+                      .sub_ba = &(struct byte_accessor){
                           .type = TA_RANGE,
                           .range = {
-                              .query = &(struct byte_accessor){
+                              .sub_ba = &(struct byte_accessor){
                                   .type = TA_TAKE,
-                                  .take = {
-                                      .size = 2,
-                                  },
+                                  .size = 2,
                               },
-                              .start = 0,
+                              .bofst = 0,
                               .stride = 2,
-                              .end = 5,
+                              .nelems = 5,
                           },
                       },
                   },
@@ -367,15 +490,11 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
     struct byte_accessor acc[] = {
       {
           .type = TA_TAKE,
-          .take = {
-              .size = 4,
-          },
+          .size = 4,
       },
       {
           .type = TA_TAKE,
-          .take = {
-              .size = 4,
-          },
+          .size = 4,
       },
     };
 
@@ -398,15 +517,15 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
   {
     struct byte_accessor take = {
       .type = TA_TAKE,
-      .take.size = 8,
+      .size = 8,
     };
     test_assert_int_equal (ta_sizeof (&take), 8);
 
     struct byte_accessor select = {
       .type = TA_SELECT,
       .select = {
-          .offset = 100,
-          .query = &take,
+          .bofst = 100,
+          .sub_ba = &take,
       },
     };
     test_assert_int_equal (ta_sizeof (&select), 8);
@@ -414,10 +533,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
     struct byte_accessor range = {
       .type = TA_RANGE,
       .range = {
-          .query = &take,
-          .start = 0,
+          .sub_ba = &take,
+          .bofst = 0,
           .stride = 2,
-          .end = 10,
+          .nelems = 10,
       },
     };
     test_assert_int_equal (ta_sizeof (&range), 5 * 8);
@@ -433,27 +552,27 @@ ta_memcpy_to_once (u8 *dest, struct cbuffer *src, struct byte_accessor *acc)
     case TA_TAKE:
       {
         // Read from src, write to dest
-        cbuffer_read (dest, 1, acc->take.size, src);
+        cbuffer_read (dest, 1, acc->size, src);
         return;
       }
     case TA_SELECT:
       {
         // Skip offset bytes in dest, then recursively copy the selected field
-        ta_memcpy_to_once (dest + acc->select.offset, src, acc->select.query);
+        ta_memcpy_to_once (dest + acc->select.bofst, src, acc->select.sub_ba);
         return;
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.query);
+        t_size elem_size = ta_sizeof (acc->range.sub_ba);
 
         // Calculate starting position in dest
-        u8 *dest_pos = dest + (acc->range.start * elem_size);
+        u8 *dest_pos = dest + (acc->range.bofst * elem_size);
 
-        t_size pos = acc->range.start;
-        while (pos < acc->range.end)
+        t_size pos = acc->range.bofst;
+        while (pos < acc->range.nelems)
           {
             // Copy one element from src to current dest position
-            ta_memcpy_to_once (dest_pos, src, acc->range.query);
+            ta_memcpy_to_once (dest_pos, src, acc->range.sub_ba);
 
             // Advance dest position by stride elements
             dest_pos += acc->range.stride * elem_size;
@@ -497,12 +616,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 0,
-              .query = &(struct byte_accessor){
+              .bofst = 0,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take = {
-                      .size = 4,
-                  },
+                  .size = 4,
               },
           },
       },
@@ -530,10 +647,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take.size = 1,
+                  .size = 1,
               },
           },
       },
@@ -560,10 +677,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take.size = 1,
+                  .size = 1,
               },
           },
       },
@@ -571,12 +688,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 0,
-              .query = &(struct byte_accessor){
+              .bofst = 0,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take = {
-                      .size = 4,
-                  },
+                  .size = 4,
               },
           },
       },
@@ -608,12 +723,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 0,
-              .query = &(struct byte_accessor){
+              .bofst = 0,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take = {
-                      .size = 4,
-                  },
+                  .size = 4,
               },
           },
       },
@@ -621,10 +734,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_TAKE,
-                  .take.size = 1,
+                  .size = 1,
               },
           },
       },
@@ -657,23 +770,21 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_SELECT,
                   .select = {
-                      .offset = 1,
-                      .query = &(struct byte_accessor){
+                      .bofst = 1,
+                      .sub_ba = &(struct byte_accessor){
                           .type = TA_RANGE,
                           .range = {
-                              .query = &(struct byte_accessor){
+                              .sub_ba = &(struct byte_accessor){
                                   .type = TA_TAKE,
-                                  .take = {
-                                      .size = 2,
-                                  },
+                                  .size = 2,
                               },
-                              .start = 1,
+                              .bofst = 1,
                               .stride = 1,
-                              .end = 4,
+                              .nelems = 4,
                           },
                       },
                   },
@@ -711,23 +822,21 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       {
           .type = TA_SELECT,
           .select = {
-              .offset = 4,
-              .query = &(struct byte_accessor){
+              .bofst = 4,
+              .sub_ba = &(struct byte_accessor){
                   .type = TA_SELECT,
                   .select = {
-                      .offset = 1,
-                      .query = &(struct byte_accessor){
+                      .bofst = 1,
+                      .sub_ba = &(struct byte_accessor){
                           .type = TA_RANGE,
                           .range = {
-                              .query = &(struct byte_accessor){
+                              .sub_ba = &(struct byte_accessor){
                                   .type = TA_TAKE,
-                                  .take = {
-                                      .size = 2,
-                                  },
+                                  .size = 2,
                               },
-                              .start = 0,
+                              .bofst = 0,
                               .stride = 2,
-                              .end = 5,
+                              .nelems = 5,
                           },
                       },
                   },
@@ -759,15 +868,11 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     struct byte_accessor acc[] = {
       {
           .type = TA_TAKE,
-          .take = {
-              .size = 4,
-          },
+          .size = 4,
       },
       {
           .type = TA_TAKE,
-          .take = {
-              .size = 4,
-          },
+          .size = 4,
       },
     };
 

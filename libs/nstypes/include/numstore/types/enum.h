@@ -20,9 +20,9 @@
  *   and builder pattern for constructing enumeration types.
  */
 
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
-#include <numstore/core/lalloc.h>
 #include <numstore/core/llist.h>
 #include <numstore/core/serializer.h>
 #include <numstore/core/string.h>
@@ -40,9 +40,9 @@ err_t enum_t_validate (const struct enum_t *t, error *e);
 i32 enum_t_snprintf (char *str, u32 size, const struct enum_t *st);
 #define enum_t_byte_size(e) sizeof (u8)
 u32 enum_t_get_serial_size (const struct enum_t *t);
-void enum_t_serialize (struct serializer *dest, const struct enum_t *src);
-err_t enum_t_deserialize (struct enum_t *dest, struct deserializer *src, struct lalloc *a, error *e);
-err_t enum_t_random (struct enum_t *en, struct lalloc *alloc, error *e);
+void enum_t_serialize (struct serializer *persistent, const struct enum_t *src);
+err_t enum_t_deserialize (struct enum_t *persistent, struct deserializer *src, struct chunk_alloc *a, error *e);
+err_t enum_t_random (struct enum_t *en, struct chunk_alloc *temp, error *e);
 bool enum_t_equal (const struct enum_t *left, const struct enum_t *right);
 
 ////////////////////////////////////////////////////////////
@@ -57,10 +57,10 @@ struct k_llnode
 struct enum_builder
 {
   struct llnode *head;
-  struct lalloc *alloc;
-  struct lalloc *dest;
+  struct chunk_alloc *temp;
+  struct chunk_alloc *persistent;
 };
 
-struct enum_builder enb_create (struct lalloc *alloc, struct lalloc *dest);
-err_t enb_accept_key (struct enum_builder *eb, const struct string key, error *e);
-err_t enb_build (struct enum_t *dest, struct enum_builder *eb, error *e);
+void enb_create (struct enum_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
+err_t enb_accept_key (struct enum_builder *eb, struct string key, error *e);
+err_t enb_build (struct enum_t *persistent, struct enum_builder *eb, error *e);

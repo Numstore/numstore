@@ -1,46 +1,61 @@
 #pragma once
 
 #include <numstore/core/cbuffer.h>
+#include <numstore/core/error.h>
+#include <numstore/types/types.h>
 
-enum type_accessor_type
+enum ta_type
 {
   TA_TAKE,
   TA_SELECT,
   TA_RANGE
 };
 
-struct byte_accessor
+struct type_accessor
 {
-  enum type_accessor_type type;
+  enum ta_type type;
+
   union
   {
-    struct
+    struct select_ta
     {
-      t_size size;
-    } take;
-    struct
-    {
-      struct byte_accessor *query;
-      t_size offset;
+      struct string key;
+      struct type_accessor *sub_ta;
     } select;
-    struct
+
+    struct range_ta
     {
-      struct byte_accessor *query;
-      t_size start;  // Start element index
-      t_size stride; // Element stride (1 = every element, 2 = every other, etc)
-      t_size end;    // End element index (exclusive)
+      t_size start;
+      t_size step;
+      t_size stop;
+      struct type_accessor *sub_ta;
     } range;
   };
 };
 
-void ta_memcpy_from (
-    struct cbuffer *dest,
-    struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+struct byte_accessor
+{
+  enum ta_type type;
+  t_size size;
 
-void ta_memcpy_to (
-    u8 *dest,
-    struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+  union
+  {
+    struct select_ba
+    {
+      t_size bofst;
+      struct byte_accessor *sub_ba;
+    } select;
+
+    struct range_ba
+    {
+      t_size bofst;
+      t_size stride;
+      t_size nelems;
+      struct byte_accessor *sub_ba;
+    } range;
+  };
+};
+
+err_t type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, struct type *reftype, error *e);
+void ta_memcpy_from (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc, u32 acclen);
+void ta_memcpy_to (u8 *dest, struct cbuffer *src, struct byte_accessor *acc, u32 acclen);

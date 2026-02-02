@@ -23,6 +23,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 
@@ -295,7 +296,7 @@ TEST (TT_UNIT, prim_t_deserialize)
   test_assert_int_equal (out, CI32);
 
   /* 5.2 red path – invalid enum value (CU128+1) */
-  u8 bad[] = { (u8)(CU128 + 1) };
+  u8 bad[] = { (u8) (CU128 + 1) };
   struct deserializer d2 = dsrlizr_create (bad, sizeof bad);
   test_assert_int_equal (prim_t_deserialize (&out, &d2, &err), ERR_INTERP);
   err.cause_code = SUCCESS;
@@ -319,3 +320,60 @@ TEST (TT_UNIT, prim_t_random)
     }
 }
 #endif
+
+enum prim_t
+strtoprim (const char *text, u32 len)
+{
+  struct string str = { .data = (char *)text, .len = len };
+
+  if (string_equal (str, strfcstr ("u8")))
+    return U8;
+  if (string_equal (str, strfcstr ("u16")))
+    return U16;
+  if (string_equal (str, strfcstr ("u32")))
+    return U32;
+  if (string_equal (str, strfcstr ("u64")))
+    return U64;
+  if (string_equal (str, strfcstr ("i8")))
+    return I8;
+  if (string_equal (str, strfcstr ("i16")))
+    return I16;
+  if (string_equal (str, strfcstr ("i32")))
+    return I32;
+  if (string_equal (str, strfcstr ("i64")))
+    return I64;
+  if (string_equal (str, strfcstr ("f16")))
+    return F16;
+  if (string_equal (str, strfcstr ("f32")))
+    return F32;
+  if (string_equal (str, strfcstr ("f64")))
+    return F64;
+  if (string_equal (str, strfcstr ("f128")))
+    return F128;
+  if (string_equal (str, strfcstr ("cf32")))
+    return CF32;
+  if (string_equal (str, strfcstr ("cf64")))
+    return CF64;
+  if (string_equal (str, strfcstr ("cf128")))
+    return CF128;
+  if (string_equal (str, strfcstr ("cf256")))
+    return CF256;
+  if (string_equal (str, strfcstr ("ci16")))
+    return CI16;
+  if (string_equal (str, strfcstr ("ci32")))
+    return CI32;
+  if (string_equal (str, strfcstr ("ci64")))
+    return CI64;
+  if (string_equal (str, strfcstr ("ci128")))
+    return CI128;
+  if (string_equal (str, strfcstr ("cu16")))
+    return CU16;
+  if (string_equal (str, strfcstr ("cu32")))
+    return CU32;
+  if (string_equal (str, strfcstr ("cu64")))
+    return CU64;
+  if (string_equal (str, strfcstr ("cu128")))
+    return CU128;
+
+  return (enum prim_t) - 1;
+}

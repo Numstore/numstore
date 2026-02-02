@@ -1,0 +1,10 @@
+
+
+create a struct { red [256][256] f32, green [256][256] f32, blue [256][256] f32 }
+
+read a[0:10]
+(0, 10)
+
+read cat(a, a)
+
+append b (read cat(a.red, a.green, a.blue, dim = 2))

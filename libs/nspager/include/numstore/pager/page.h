@@ -35,28 +35,26 @@ enum page_type
   // Rptree page types
   PG_DATA_LIST = (1 << 2),  // r+tree data node
   PG_INNER_NODE = (1 << 3), // r+tree Inner node
-  PG_RPT_ROOT = (1 << 4),   // Root node for a r+tree
 
   // Variable page types
-  PG_VAR_HASH_PAGE = (1 << 5), // A Hash Table for variable names - links to a linked list
-  PG_VAR_PAGE = (1 << 6),      // A Single link in the hash table linked list
-  PG_VAR_TAIL = (1 << 7),      // Overflow to a VAR_PAGE
+  PG_VAR_HASH_PAGE = (1 << 4), // A Hash Table for variable names - links to a linked list
+  PG_VAR_PAGE = (1 << 5),      // A Single link in the hash table linked list
+  PG_VAR_TAIL = (1 << 6),      // Overflow to a VAR_PAGE
 };
 
 #define PG_ANY (PG_TOMBSTONE       \
                 | PG_ROOT_NODE     \
                 | PG_DATA_LIST     \
                 | PG_INNER_NODE    \
-                | PG_RPT_ROOT      \
                 | PG_VAR_HASH_PAGE \
                 | PG_VAR_PAGE      \
                 | PG_VAR_TAIL)
 
 // COMMON PAGE HEADER
 #define PG_CKSM_OFST ((p_size)0)
-#define PG_HEDR_OFST ((p_size)(PG_CKSM_OFST + sizeof (u32)))
-#define PG_PLSN_OFST ((p_size)(PG_HEDR_OFST + sizeof (pgh)))
-#define PG_COMMN_END ((p_size)(PG_PLSN_OFST + sizeof (lsn)))
+#define PG_HEDR_OFST ((p_size) (PG_CKSM_OFST + sizeof (u32)))
+#define PG_PLSN_OFST ((p_size) (PG_HEDR_OFST + sizeof (pgh)))
+#define PG_COMMN_END ((p_size) (PG_PLSN_OFST + sizeof (lsn)))
 
 typedef struct
 {

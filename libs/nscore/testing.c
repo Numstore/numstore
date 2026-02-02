@@ -34,5 +34,5 @@ coverage_point_state global_coverage_state[2048] = { 0 };
 u64 n_coverage_points = 0;
 
 // Random test time unit (default 1ms)
-double randt_unit = 0.001;
+double randt_unit = 1;
 #endif

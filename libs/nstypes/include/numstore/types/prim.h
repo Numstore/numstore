@@ -194,3 +194,4 @@ u32 prim_t_byte_size (const enum prim_t *t);
 void prim_t_serialize (struct serializer *dest, const enum prim_t *src);
 err_t prim_t_deserialize (enum prim_t *dest, struct deserializer *src, error *e);
 enum prim_t prim_t_random (void);
+enum prim_t strtoprim (const char *text, u32 len);

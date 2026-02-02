@@ -18,33 +18,35 @@
  *   struct and union types by accepting keys and types incrementally.
  */
 
+#include "numstore/core/chunk_alloc.h"
+#include "numstore/core/error.h"
 #include <numstore/types/kvt_builder.h>
 
 #include <numstore/core/assert.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/logging.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/types.h>
 
-DEFINE_DBG_ASSERT (struct kvt_builder, kvt_builder, s,
-                   {
-                     ASSERT (s);
-                     ASSERT (s->klen <= 10);
-                     ASSERT (s->tlen <= 10);
-                   })
+DEFINE_DBG_ASSERT (
+    struct kvt_builder, kvt_builder, s,
+    {
+      ASSERT (s);
+      ASSERT (s->klen <= 10);
+      ASSERT (s->tlen <= 10);
+    })
 
-struct kvt_builder
-kvb_create (struct lalloc *alloc, struct lalloc *dest)
+void
+kvb_create (struct kvt_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent)
 {
-  struct kvt_builder builder = {
+  *dest = (struct kvt_builder){
     .head = NULL,
     .klen = 0,
     .tlen = 0,
-    .alloc = alloc,
-    .dest = dest,
+    .temp = temp,
+    .persistent = persistent,
   };
-  DBG_ASSERT (kvt_builder, &builder);
-  return builder;
+  DBG_ASSERT (kvt_builder, dest);
 }
 
 static bool
@@ -62,10 +64,9 @@ kvt_has_key_been_used (const struct kvt_builder *ub, struct string key)
 }
 
 err_t
-kvb_accept_key (struct kvt_builder *ub, const struct string key, error *e)
+kvb_accept_key (struct kvt_builder *ub, struct string key, error *e)
 {
   DBG_ASSERT (kvt_builder, ub);
-  i_log_info ("Accepting key: %.*s\n", (u32)key.len, key.data);
 
   /* Check for duplicate keys */
   if (kvt_has_key_been_used (ub, key))
@@ -74,6 +75,13 @@ kvb_accept_key (struct kvt_builder *ub, const struct string key, error *e)
           e, ERR_INTERP,
           "Key: %.*s has already been used",
           key.len, key.data);
+    }
+
+  // Copy key data to persistent memory
+  key.data = chunk_alloc_move_mem (ub->persistent, key.data, key.len, e);
+  if (key.data == NULL)
+    {
+      return e->cause_code;
     }
 
   /* Find where to insert this new key in the linked list */
@@ -85,8 +93,8 @@ kvb_accept_key (struct kvt_builder *ub, const struct string key, error *e)
     }
   else
     {
-      /* Allocate new node onto allocator */
-      node = lmalloc (ub->alloc, 1, sizeof *node, e);
+      /* Allocate new node onto tempator */
+      node = chunk_malloc (ub->temp, 1, sizeof *node, e);
       if (!node)
         {
           return e->cause_code;
@@ -107,7 +115,7 @@ kvb_accept_key (struct kvt_builder *ub, const struct string key, error *e)
         }
     }
 
-  /* Create the node */
+  // Create the node
   node->key = key;
   ub->klen++;
 
@@ -127,7 +135,7 @@ kvb_accept_type (struct kvt_builder *ub, struct type t, error *e)
     }
   else
     {
-      node = lmalloc (ub->alloc, 1, sizeof *node, e);
+      node = chunk_malloc (ub->temp, 1, sizeof *node, e);
       if (!node)
         {
           return e->cause_code;
@@ -155,7 +163,7 @@ kvb_build_common (
     struct type **out_types,
     u16 *out_len,
     struct kvt_builder *ub,
-    struct lalloc *onto,
+    struct chunk_alloc *onto,
     error *e)
 {
   if (ub->klen == 0)
@@ -171,13 +179,13 @@ kvb_build_common (
           "Must have same number of keys and values");
     }
 
-  *out_keys = lmalloc (onto, ub->klen, sizeof **out_keys, e);
+  *out_keys = chunk_malloc (onto, ub->klen, sizeof **out_keys, e);
   if (!*out_keys)
     {
       return e->cause_code;
     }
 
-  *out_types = lmalloc (onto, ub->tlen, sizeof **out_types, e);
+  *out_types = chunk_malloc (onto, ub->tlen, sizeof **out_types, e);
   if (!*out_types)
     {
       return e->cause_code;
@@ -202,15 +210,16 @@ kvb_union_t_build (struct union_t *dest, struct kvt_builder *ub, error *e)
   struct type *types = NULL;
   u16 len = 0;
 
-  err_t_wrap (kvb_build_common (&keys, &types, &len, ub, ub->dest, e), e);
+  err_t_wrap (kvb_build_common (&keys, &types, &len, ub, ub->persistent, e), e);
 
   ASSERT (keys);
   ASSERT (types);
-  ASSERT (len > 1);
+  ASSERT (len > 0);
 
   dest->keys = keys;
   dest->types = types;
   dest->len = len;
+
   return SUCCESS;
 }
 
@@ -221,15 +230,16 @@ kvb_struct_t_build (struct struct_t *dest, struct kvt_builder *ub, error *e)
   struct type *types = NULL;
   u16 len = 0;
 
-  err_t_wrap (kvb_build_common (&keys, &types, &len, ub, ub->dest, e), e);
+  err_t_wrap (kvb_build_common (&keys, &types, &len, ub, ub->persistent, e), e);
 
   ASSERT (keys);
   ASSERT (types);
-  ASSERT (len > 1);
+  ASSERT (len > 0);
 
   dest->keys = keys;
   dest->types = types;
   dest->len = len;
+
   return SUCCESS;
 }
 
@@ -237,15 +247,16 @@ kvb_struct_t_build (struct struct_t *dest, struct kvt_builder *ub, error *e)
 TEST (TT_UNIT, kvt_builder)
 {
   error err = error_create ();
-  u8 _alloc[2048];
-  u8 _dest[2048];
+  u8 _temp[2048];
+  u8 _persistent[2048];
 
-  /* provide two fixed‑size allocators for nodes + strings */
-  struct lalloc alloc = lalloc_create_from (_alloc);
-  struct lalloc dest = lalloc_create_from (_dest);
+  /* provide two fixed‑size tempators for nodes + strings */
+  struct chunk_alloc persistent;
+  chunk_alloc_create_default (&persistent);
 
   /* 0. freshly‑created builder must be clean */
-  struct kvt_builder kb = kvb_create (&alloc, &dest);
+  struct kvt_builder kb;
+  kvb_create (&kb, &persistent, &persistent);
   test_assert_int_equal (kb.klen, 0);
   test_assert_int_equal (kb.tlen, 0);
   test_fail_if (kb.head != NULL);

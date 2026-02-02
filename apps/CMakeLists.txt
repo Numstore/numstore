@@ -1,27 +1,7 @@
 if(NOT ENABLE_NTEST)
-      add_executable(test
-        test.c
-        $<TARGET_OBJECTS:nscore_objects>
-        $<TARGET_OBJECTS:nstypes_objects>
-        $<TARGET_OBJECTS:nspager_objects>
-        $<TARGET_OBJECTS:nsrptcursor_objects>
-        $<TARGET_OBJECTS:nsvcursor_objects>
-        $<TARGET_OBJECTS:nsfslite_objects>
-        $<TARGET_OBJECTS:nsusecase_objects>
-        $<TARGET_OBJECTS:nscompiler_objects>
-    )
-
-    target_include_directories(test PRIVATE
-        ../libs/nscore/include
-        ../libs/nstypes/include
-        ../libs/nspager/include
-        ../libs/cursors/nsrptcursor/include
-        ../libs/cursors/nsvcursor/include
-        ../libs/apps/nsfslite/include
-        ../libs/nsusecase/include
-        ../libs/nscompiler_objects/include
-    )
-
+    message("FOO" ${NS_ALL_OBJECTS})
+    add_executable(test test.c ${NS_ALL_OBJECTS})
+    target_include_directories(test PRIVATE ${NS_ALL_INCLUDES})
     target_link_libraries(test PRIVATE m backtrace pthread)
 endif()
 
@@ -29,7 +9,7 @@ add_ns_executable(nspprint
     SOURCES
         tools/nspprint.c
     DEPENDENCIES
-        ${LIBS}/nsusecase
+        ${LIBS}/nsroutines
         ${LIBS}/nspager
     EXTERNAL_LIBS
         backtrace
@@ -40,11 +20,23 @@ add_ns_executable(walfprint
     SOURCES
         tools/walfprint.c
     DEPENDENCIES
-        ${LIBS}/nsusecase
+        ${LIBS}/nsroutines
         ${LIBS}/nspager
     EXTERNAL_LIBS
         backtrace
         pthread
 )
 
-add_subdirectory(examples/nsfslite)
+add_ns_executable(client_server
+    SOURCES
+        client_server.c
+    DEPENDENCIES
+        ${LIBS}/nsroutines
+        ${LIBS}/nsnet
+        ${LIBS}/nspager
+    EXTERNAL_LIBS
+        backtrace
+        pthread
+)
+
+add_subdirectory(scratch)

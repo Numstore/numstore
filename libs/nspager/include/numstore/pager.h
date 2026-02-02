@@ -31,6 +31,7 @@
 
 // Lifecycle
 struct pager *pgr_open (const char *fname, const char *walname, struct lockt *lt, struct thread_pool *tp, error *e);
+bool pgr_isnew (struct pager *p);
 err_t pgr_close (struct pager *p, error *e);
 
 // Utils

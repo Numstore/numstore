@@ -22,7 +22,7 @@
  */
 
 #include <numstore/core/assert.h>
-#include <numstore/core/lalloc.h>
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/latch.h>
 #include <numstore/pager.h>
 #include <numstore/pager/page_h.h>
@@ -61,26 +61,36 @@ DEFINE_DBG_ASSERT (
 // Common
 err_t varh_init_hash_page (struct pager *p, error *e);
 err_t varc_initialize (struct var_cursor *v, struct pager *p, error *e);
-err_t varc_cleanup (struct var_cursor *v, error *e);
 
 // Logging
 void i_log_var_cursor (int log_level, struct var_cursor *r);
 
 // Runtime
-err_t vpc_new (
+spgno vpc_new (
     struct var_cursor *v,
     struct var_create_params params,
     error *e);
 
-err_t vpc_get (
+spgno vpc_get (
     struct var_cursor *v,
-    struct lalloc *dalloc,
+    struct chunk_alloc *dalloc,
     struct var_get_params *dest,
+    error *e);
+
+err_t vpc_update_by_id (
+    struct var_cursor *v,
+    struct var_update_by_id_params *src,
+    error *e);
+
+err_t vpc_get_by_id (
+    struct var_cursor *v,
+    struct chunk_alloc *dalloc,
+    struct var_get_by_id_params *dest,
     error *e);
 
 err_t vpc_delete (
     struct var_cursor *v,
-    const struct cstring name,
+    const struct string name,
     error *e);
 
 // Transactions

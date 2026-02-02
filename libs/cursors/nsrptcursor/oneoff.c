@@ -41,19 +41,12 @@ rptof_insert (
           err_t_wrap (rptc_insert_execute (c, e), e);
         }
 
-      // REBALANCE
       while (c->state == RPTS_IN_REBALANCING)
         {
           err_t_wrap (rptc_rebalance_execute (c, e), e);
         }
 
       written += _nbytes;
-    }
-
-  // Update the root page on the meta_root page
-  if (root_before != c->root)
-    {
-      err_t_wrap (rptc_update_meta_root (c, e), e);
     }
 
   return SUCCESS;
@@ -182,12 +175,13 @@ rptof_remove (
         }
 
       // REBALANCE
-      if (c->state == RPTS_IN_REBALANCING)
+      while (c->state == RPTS_IN_REBALANCING)
         {
-          err_t_wrap (rptc_remove_to_rebalancing_or_unseeked (c, e), e);
+          err_t_wrap (rptc_rebalance_execute (c, e), e);
         }
 
       removed += _nbytes;
     }
+
   return SUCCESS;
 }

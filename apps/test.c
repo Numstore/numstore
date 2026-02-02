@@ -20,7 +20,7 @@
 #include <numstore/core/cli.h>
 #include <numstore/core/dbl_buffer.h>
 #include <numstore/core/error.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/logging.h>
 #include <numstore/test/testing.h>
 
