@@ -114,6 +114,10 @@ tt_tostr (enum token_t t)
       case_ENUM_RETURN_STRING (TT_ENUM);
       case_ENUM_RETURN_STRING (TT_PRIM);
 
+      /* other literals */
+      case_ENUM_RETURN_STRING (TT_FILE);
+      case_ENUM_RETURN_STRING (TT_QUERY);
+
       /*      Bools */
       case_ENUM_RETURN_STRING (TT_TRUE);
       case_ENUM_RETURN_STRING (TT_FALSE);

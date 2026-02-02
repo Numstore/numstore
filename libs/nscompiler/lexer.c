@@ -154,6 +154,15 @@ check_keyword (const char *text, u32 len)
       return TT_INSERT;
     }
 
+  if (len == sizeof ("file") - 1 && i_strncmp (text, "file", len) == 0)
+    {
+      return TT_FILE;
+    }
+  if (len == sizeof ("query") - 1 && i_strncmp (text, "query", len) == 0)
+    {
+      return TT_QUERY;
+    }
+
   if (len == sizeof ("struct") - 1 && i_strncmp (text, "struct", len) == 0)
     {
       return TT_STRUCT;
@@ -579,12 +588,14 @@ TEST (TT_UNIT, lexer_numbers)
 
 TEST (TT_UNIT, lexer_keywords)
 {
-  const char *src = "create delete insert struct union enum true false";
+  const char *src = "create delete insert file query struct union enum true false";
 
   struct token expected[] = {
     quick_tok (TT_CREATE),
     quick_tok (TT_DELETE),
     quick_tok (TT_INSERT),
+    quick_tok (TT_FILE),
+    quick_tok (TT_QUERY),
     quick_tok (TT_STRUCT),
     quick_tok (TT_UNION),
     quick_tok (TT_ENUM),

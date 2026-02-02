@@ -51,6 +51,9 @@ enum token_t
   TT_ENUM,
   TT_PRIM,
 
+  TT_FILE,
+  TT_QUERY,
+
   TT_TRUE,
   TT_FALSE,
 };
