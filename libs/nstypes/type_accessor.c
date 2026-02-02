@@ -11,8 +11,7 @@ static inline err_t
 struct_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct struct_t *st, error *e)
 {
   t_size bofst;
-  struct string key = strfcstr (src->select);
-  struct type *subtype = struct_t_resolve_key (&bofst, st, key, e);
+  struct type *subtype = struct_t_resolve_key (&bofst, st, src->key, e);
   if (subtype == NULL)
     {
       return e->cause_code;
@@ -37,8 +36,7 @@ struct_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct str
 static inline err_t
 union_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct union_t *un, error *e)
 {
-  struct string key = strfcstr (src->select);
-  struct type *subtype = union_t_resolve_key (un, key, e);
+  struct type *subtype = union_t_resolve_key (un, src->key, e);
   if (subtype == NULL)
     {
       return e->cause_code;
