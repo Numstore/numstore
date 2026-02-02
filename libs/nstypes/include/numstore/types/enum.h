@@ -61,6 +61,10 @@ struct enum_builder
   struct chunk_alloc *persistent;
 };
 
-void enb_create (struct enum_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
+void enb_create (
+    struct enum_builder *dest,
+    struct chunk_alloc *temp,
+    struct chunk_alloc *persistent);
+
 err_t enb_accept_key (struct enum_builder *eb, struct string key, error *e);
 err_t enb_build (struct enum_t *persistent, struct enum_builder *eb, error *e);

@@ -1,13 +1,10 @@
-#include "numstore/core/chunk_alloc.h"
-#include "numstore/core/error.h"
-#include "numstore/types/enum.h"
-#include "numstore/types/kvt_builder.h"
-#include "numstore/types/sarray.h"
-#include "numstore/types/types.h"
 #include <numstore/compiler/parser/type.h>
-
-#include <stdlib.h>
-#include <string.h>
+#include <numstore/core/chunk_alloc.h>
+#include <numstore/core/error.h>
+#include <numstore/types/enum.h>
+#include <numstore/types/kvt_builder.h>
+#include <numstore/types/sarray.h>
+#include <numstore/types/types.h>
 
 static err_t parse_type_inner (struct type_parser *parser, struct type *out, error *e);
 
@@ -47,9 +44,9 @@ parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
         }
 
       struct token *tok = parser_advance (&parser->base);
-      if (tok->integer < 0)
+      if (tok->integer <= 0)
         {
-          return error_causef (e, ERR_SYNTAX, "Array size must be non-negative at position %u", parser->base.pos - 1);
+          return error_causef (e, ERR_SYNTAX, "Array size must be positive at position %u", parser->base.pos - 1);
         }
 
       err_t_wrap (sab_accept_dim (&builder, tok->integer, e), e);
@@ -68,7 +65,7 @@ parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
   return sab_build (&out->sa, &builder, e);
 }
 
-/* enum_type ::= 'enum' '{' (IDENTIFIER (',' IDENTIFIER)*)? '}' */
+/* enum_type ::= 'enum' '{' enum_list? '}' */
 static err_t
 parse_enum_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -80,7 +77,15 @@ parse_enum_type (struct type_parser *parser, struct type *out, error *e)
   struct enum_builder builder;
   enb_create (&builder, &parser->temp, parser->persistent);
 
-  while (!parser_match (&parser->base, TT_RIGHT_BRACE))
+  /* Handle empty enum */
+  if (parser_match (&parser->base, TT_RIGHT_BRACE))
+    {
+      err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
+      out->type = T_ENUM;
+      return enb_build (&out->en, &builder, e);
+    }
+
+  while (true)
     {
       /* Parse enum value */
       if (!parser_match (&parser->base, TT_IDENTIFIER))
@@ -99,7 +104,12 @@ parse_enum_type (struct type_parser *parser, struct type *out, error *e)
       else if (parser_match (&parser->base, TT_COMMA))
         {
           parser_advance (&parser->base);
-          continue;
+
+          /* Allow trailing comma */
+          if (parser_match (&parser->base, TT_RIGHT_BRACE))
+            {
+              break;
+            }
         }
       else
         {
@@ -114,7 +124,7 @@ parse_enum_type (struct type_parser *parser, struct type *out, error *e)
   return enb_build (&out->en, &builder, e);
 }
 
-/* struct_type ::= 'struct' '{' (IDENTIFIER type (',' IDENTIFIER type)*)? '}' */
+/* struct_type ::= 'struct' '{' field_list? '}' */
 static err_t
 parse_struct_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -126,7 +136,15 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   struct kvt_builder builder;
   kvb_create (&builder, &parser->temp, parser->persistent);
 
-  while (!parser_match (&parser->base, TT_RIGHT_BRACE))
+  /* Handle empty struct */
+  if (parser_match (&parser->base, TT_RIGHT_BRACE))
+    {
+      err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
+      out->type = T_STRUCT;
+      return kvb_struct_t_build (&out->st, &builder, e);
+    }
+
+  while (true)
     {
       /* Parse field name */
       if (!parser_match (&parser->base, TT_IDENTIFIER))
@@ -150,7 +168,12 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
       else if (parser_match (&parser->base, TT_COMMA))
         {
           parser_advance (&parser->base);
-          continue;
+
+          /* Allow trailing comma */
+          if (parser_match (&parser->base, TT_RIGHT_BRACE))
+            {
+              break;
+            }
         }
       else
         {
@@ -164,7 +187,7 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   return kvb_struct_t_build (&out->st, &builder, e);
 }
 
-/* union_type ::= 'union' '{' (IDENTIFIER type (',' IDENTIFIER type)*)? '}' */
+/* union_type ::= 'union' '{' field_list? '}' */
 static err_t
 parse_union_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -176,7 +199,15 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   struct kvt_builder builder;
   kvb_create (&builder, &parser->temp, parser->persistent);
 
-  while (!parser_match (&parser->base, TT_RIGHT_BRACE))
+  /* Handle empty union */
+  if (parser_match (&parser->base, TT_RIGHT_BRACE))
+    {
+      err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
+      out->type = T_UNION;
+      return kvb_union_t_build (&out->un, &builder, e);
+    }
+
+  while (true)
     {
       /* Parse field name */
       if (!parser_match (&parser->base, TT_IDENTIFIER))
@@ -200,7 +231,12 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
       else if (parser_match (&parser->base, TT_COMMA))
         {
           parser_advance (&parser->base);
-          continue;
+
+          /* Allow trailing comma */
+          if (parser_match (&parser->base, TT_RIGHT_BRACE))
+            {
+              break;
+            }
         }
       else
         {

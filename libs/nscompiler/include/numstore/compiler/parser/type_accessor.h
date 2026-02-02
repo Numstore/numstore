@@ -25,36 +25,23 @@
 #include <numstore/types/type_accessor.h>
 
 /**
- * EBNF Grammar:
- * =============
+ * type_accessor   ::= accessor_part ('.' accessor_part)*
  *
- * accessor        ::= IDENTIFIER operation*
- *
- * operation       ::= select | range operation?
- *
- * select          ::= '.' IDENTIFIER
- *
- * range           ::= '[' range_expr? ']'
- *
- * range_expr      ::= index | slice
- *
- * index           ::= NUMBER
- *
- * slice           ::= NUMBER? ':' NUMBER? (':' stride?)?
- *
- * start           ::= NUMBER
- * end             ::= NUMBER
- * stride          ::= NUMBER
+ * accessor_part   ::= IDENT stride*
  */
-
 struct type_accessor_parser
 {
   struct parser base;
 
+  struct string vname_dest;
   struct type_accessor dest;
 
   struct chunk_alloc temp;
   struct chunk_alloc *persistent;
 };
 
-err_t parse_type_accessor (struct token *src, u32 src_len, struct type_accessor_parser *parser, error *e);
+err_t parse_type_accessor (
+    struct token *src,
+    u32 src_len,
+    struct type_accessor_parser *parser,
+    error *e);

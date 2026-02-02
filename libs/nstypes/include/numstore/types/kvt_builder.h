@@ -42,7 +42,10 @@ struct kvt_builder
   struct chunk_alloc *persistent; // persistent memory data
 };
 
-void kvb_create (struct kvt_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
+void kvb_create (
+    struct kvt_builder *dest,
+    struct chunk_alloc *temp,
+    struct chunk_alloc *persistent);
 
 // Accept stuff
 err_t kvb_accept_key (struct kvt_builder *ub, struct string key, error *e);

@@ -32,46 +32,13 @@
  *
  * take_cmd        ::= 'take' var_selection
  *
- * remove_cmd      ::= 'remove' VNAME slice
+ * remove_cmd      ::= 'remove' VNAME slice?
  *
  * var_selection   ::= var_ref (',' var_ref)* field_selection? slice?
  *
- * var_ref         ::= VNAME ('as' IDENT)?
+ * var_ref         ::= IDENT ('as' IDENT)?
  *
- * field_selection ::= '[' field_expr (',' field_expr)* ']'
- *
- * field_expr      ::= IDENTIFIER ('.' IDENTIFIER)* array_slice*
- *                   | IDENTIFIER array_slice*
- *
- * array_slice     ::= '[' slice_range ']'
- *
- * slice           ::= '[' slice_range ']'
- *
- * slice_range     ::= NUMBER                           
- *                   | NUMBER ':' NUMBER                
- *                   | NUMBER ':' NUMBER ':' NUMBER     
- *
- * type            ::= struct_type
- *                   | union_type
- *                   | enum_type
- *                   | array_type
- *                   | primitive_type
- *
- * struct_type     ::= 'struct' '{' field_list '}'
- *
- * union_type      ::= 'union' '{' field_list '}'
- *
- * enum_type       ::= 'enum' '{' enum_list '}'
- *
- * array_type      ::= '[' NUMBER ']' type
- *
- * primitive_type  ::= IDENTIFIER
- *
- * field_list      ::= field (',' field)* ','?
- *
- * field           ::= VNAME type
- *
- * enum_list       ::= IDENTIFIER (',' IDENTIFIER)* ','?
+ * field_selection ::= '[' type_accessor (',' type_accessor)* ']'
  */
 struct statement_parser
 {
