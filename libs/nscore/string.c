@@ -48,7 +48,6 @@ strfcstr (const char *cstr)
   };
 }
 
-// core
 u64
 line_length (const char *buf, u64 max)
 {
