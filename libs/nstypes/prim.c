@@ -296,7 +296,7 @@ TEST (TT_UNIT, prim_t_deserialize)
   test_assert_int_equal (out, CI32);
 
   /* 5.2 red path – invalid enum value (CU128+1) */
-  u8 bad[] = { (u8) (CU128 + 1) };
+  u8 bad[] = { (u8)(CU128 + 1) };
   struct deserializer d2 = dsrlizr_create (bad, sizeof bad);
   test_assert_int_equal (prim_t_deserialize (&out, &d2, &err), ERR_INTERP);
   err.cause_code = SUCCESS;

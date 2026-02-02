@@ -103,6 +103,12 @@ vp_set_root (page *p, pgno root)
   PAGE_SIMPLE_SET_IMPL (p, root, VP_ROOT_OFST);
 }
 
+void
+vp_set_nbytes (page *p, b_size nbytes)
+{
+  PAGE_SIMPLE_SET_IMPL (p, nbytes, VP_NBYT_OFST);
+}
+
 void vp_append_cbuffer (page *p, struct cbuffer src);
 
 /////////////////////////////////
@@ -136,6 +142,12 @@ pgno
 vp_get_root (const page *p)
 {
   PAGE_SIMPLE_GET_IMPL (p, pgno, VP_ROOT_OFST);
+}
+
+b_size
+vp_get_nbytes (const page *p)
+{
+  PAGE_SIMPLE_GET_IMPL (p, b_size, VP_NBYT_OFST);
 }
 
 b_size

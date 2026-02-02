@@ -6,6 +6,6 @@ add_ns_library(nsfilecli
     ${NSFILECLI_SRC}
   DEPENDENCIES
     ${LIBS}/nstypes
-    ${LIBS}/nsusecases/nsfile
+    ${LIBS}/nsfile
     ${LIBS}/nscompiler
 )

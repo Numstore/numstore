@@ -1,3 +1,4 @@
+#include "numstore/core/stride.h"
 #include <numstore/compiler/parser/stride.h>
 
 static err_t parse_stride_inner (struct stride_parser *parser, error *e);
@@ -20,8 +21,8 @@ parse_final_part (struct stride_parser *parser, error *e)
   if (parser_match (&parser->base, TT_INTEGER))
     {
       struct token *tok = parser_advance (&parser->base);
-      parser->stop = (sb_size)tok->integer;
-      parser->has_stop = 1;
+      parser->dest.stop = (sb_size)tok->integer;
+      parser->dest.present |= STOP_PRESENT;
     }
 
   /* Done - should see ']' */
@@ -42,8 +43,8 @@ parse_stop_part (struct stride_parser *parser, error *e)
         {
           return error_causef (e, ERR_INVALID_ARGUMENT, "Step cannot be zero at position %u", parser->base.pos - 1);
         }
-      parser->step = (sb_size)tok->integer;
-      parser->has_step = 1;
+      parser->dest.step = (sb_size)tok->integer;
+      parser->dest.present |= STEP_PRESENT;
     }
 
   /* Parse final_part */
@@ -80,8 +81,8 @@ parse_start_part (struct stride_parser *parser, error *e)
   if (parser_match (&parser->base, TT_INTEGER))
     {
       struct token *tok = parser_advance (&parser->base);
-      parser->start = (sb_size)tok->integer;
-      parser->has_start = 1;
+      parser->dest.start = (sb_size)tok->integer;
+      parser->dest.present |= START_PRESENT;
     }
 
   /* Parse step_part */
@@ -115,12 +116,7 @@ parse_stride (struct token *src, u32 src_len, struct stride_parser *parser, erro
 
   /* Initialize parser state */
   parser_init (&parser->base, src, src_len);
-  parser->start = 0;
-  parser->step = 1;
-  parser->stop = 0;
-  parser->has_start = 0;
-  parser->has_step = 0;
-  parser->has_stop = 0;
+  parser->dest = (struct user_stride){ 0 };
 
   /* Expect opening bracket: '[' */
   err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACKET, e), e);

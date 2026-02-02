@@ -18,6 +18,7 @@
  *   serialization, deserialization, byte size calculations, and type equality checks.
  */
 
+#include "numstore/core/error.h"
 #include <numstore/types/types.h>
 
 #include <numstore/core/assert.h>
@@ -200,7 +201,7 @@ type_serialize (struct serializer *dest, const struct type *src)
   bool ret;
 
   u8 type_val = (u8)src->type;
-  ret = srlizr_write (dest, (const u8 *)&type_val, sizeof (u8));
+  ret = srlizr_write (dest, &type_val, sizeof (u8));
   ASSERT (ret);
 
   switch (src->type)
@@ -242,8 +243,9 @@ err_t
 type_deserialize (struct type *dest, struct deserializer *src, struct chunk_alloc *alloc, error *e)
 {
   u8 header;
-  bool ret = dsrlizr_read ((u8 *)&header, sizeof (u8), src);
+  bool ret = dsrlizr_read (&header, sizeof (u8), src);
   dest->type = (enum type_t)header;
+
   switch (header)
     {
     case T_PRIM:
@@ -302,22 +304,26 @@ type_random (struct type *dest, struct chunk_alloc *alloc, u32 depth, error *e)
 
     case T_ENUM:
       {
-        return enum_t_random (&dest->en, alloc, e);
+        err_t_wrap (enum_t_random (&dest->en, alloc, e), e);
+        break;
       }
 
     case T_STRUCT:
       {
-        return struct_t_random (&dest->st, alloc, depth - 1, e);
+        err_t_wrap (struct_t_random (&dest->st, alloc, depth - 1, e), e);
+        break;
       }
 
     case T_UNION:
       {
-        return union_t_random (&dest->un, alloc, depth - 1, e);
+        err_t_wrap (union_t_random (&dest->un, alloc, depth - 1, e), e);
+        break;
       }
 
     case T_SARRAY:
       {
-        return sarray_t_random (&dest->sa, alloc, depth - 1, e);
+        err_t_wrap (sarray_t_random (&dest->sa, alloc, depth - 1, e), e);
+        break;
       }
 
     default:
@@ -325,6 +331,7 @@ type_random (struct type *dest, struct chunk_alloc *alloc, u32 depth, error *e)
         return error_causef (e, ERR_NOMEM, "Invalid type tag");
       }
     }
+  return SUCCESS;
 }
 
 bool

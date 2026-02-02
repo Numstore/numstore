@@ -53,7 +53,6 @@ struct rptree_cursor
   // /
   /// Common Meta Data and Structures
   struct pager *pager;        // Common pager
-  pgno meta_root;             // Root page cached
   pgno root;                  // Root page
   struct txn *tx;             // Current transaction
   p_size lidx;                // Local position
@@ -98,7 +97,6 @@ DEFINE_DBG_ASSERT (
 // State Utils
 err_t rptc_pop_all (struct rptree_cursor *r, error *e);
 err_t rptc_load_new_root (struct rptree_cursor *r, error *e);
-err_t rptc_update_meta (struct rptree_cursor *r, error *e);
 
 err_t rptc_balance_and_release (
     struct three_in_pair *output,
@@ -113,7 +111,7 @@ void i_log_rptree_cursor (int log_level, struct rptree_cursor *r);
 
 // Runtime
 err_t rptc_open (struct rptree_cursor *r, pgno root, struct pager *p, struct lockt *lt, error *e);
-err_t rptc_new (struct rptree_cursor *r, struct txn *tx, struct pager *p, struct lockt *lt, error *e);
+void rptc_new (struct rptree_cursor *r, struct txn *tx, struct pager *p, struct lockt *lt);
 err_t rptc_cleanup (struct rptree_cursor *r, error *e);
 err_t rptc_validate (struct rptree_cursor *r, error *e);
 

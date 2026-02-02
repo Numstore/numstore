@@ -69,7 +69,7 @@ TEST (TT_UNIT, rptc_seek_pop_into_cur)
   test_err_t_wrap (pgr_begin_txn (&tx, f.p, &f.e), &f.e);
 
   struct rptree_cursor r;
-  test_err_t_wrap (rptc_new (&r, &tx, f.p, &f.lt, &f.e), &f.e);
+  rptc_new (&r, &tx, f.p, &f.lt);
 
   rptc_enter_transaction (&r, &tx);
 
@@ -346,7 +346,7 @@ TEST (TT_UNIT, rptc_start_seek)
   struct txn tx;
   test_err_t_wrap (pgr_begin_txn (&tx, f.p, &f.e), &f.e);
 
-  test_err_t_wrap (rptc_new (&r, &tx, f.p, &f.lt, &f.e), &f.e);
+  rptc_new (&r, &tx, f.p, &f.lt);
 
   // Seek to 0 on empty
   TEST_CASE ("Seek to location 0 on an empty rptree")

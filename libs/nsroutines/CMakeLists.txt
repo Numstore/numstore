@@ -8,5 +8,5 @@ add_ns_library(nsroutines
     ${NSUSECASE_TEST_SRC}
   DEPENDENCIES
     ${LIBS}/nspager
-    ${LIBS}/nsusecases/nsfslite
+    ${LIBS}/nsfslite
 )

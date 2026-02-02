@@ -1,4 +1,8 @@
-function(add_ns_library TARGET)
+set(NS_ALL_OBJECTS "" CACHE STRING "" FORCE)
+set(NS_ALL_INCLUDES "" CACHE STRING "" FORCE)
+set(NS_ALL_DEPENDENCIES "" CACHE STRING "" FORCE)
+
+macro(add_ns_library TARGET)
     set(options "")
     set(oneValueArgs "")
     set(multiValueArgs 
@@ -19,8 +23,6 @@ function(add_ns_library TARGET)
     if(NOT ENABLE_NTEST AND ARG_TEST_SOURCES)
         list(APPEND ALL_SOURCES ${ARG_TEST_SOURCES})
     endif()
-
-    message(${ALL_SOURCES})
 
     # Create object library
     add_library(${TARGET}_objects OBJECT ${ALL_SOURCES})
@@ -71,4 +73,9 @@ function(add_ns_library TARGET)
     if(ARG_EXTERNAL_LIBS)
         target_link_libraries(${TARGET} PUBLIC ${ARG_EXTERNAL_LIBS})
     endif()
-endfunction()
+
+  # in add_ns_library, replace the three set() lines with:
+  set(NS_ALL_OBJECTS "${NS_ALL_OBJECTS};$<TARGET_OBJECTS:${TARGET}_objects>" CACHE STRING "" FORCE)
+  set(NS_ALL_INCLUDES "${NS_ALL_INCLUDES};${CMAKE_CURRENT_SOURCE_DIR}/include" CACHE STRING "" FORCE)
+  set(NS_ALL_DEPENDENCIES "${NS_ALL_DEPENDENCIES};${ARG_DEPENDENCIES}" CACHE STRING "" FORCE)
+endmacro()

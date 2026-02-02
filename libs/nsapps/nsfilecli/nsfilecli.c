@@ -1,5 +1,5 @@
-#include "nscompiler/include/numstore/compiler/lexer.h"
-#include "nscompiler/include/numstore/compiler/parser/stride.h"
+#include "numstore/compiler/lexer.h"
+#include "numstore/compiler/parser/stride.h"
 #include "numstore/core/error.h"
 #include <nsfilecli.h>
 #include <stdio.h>

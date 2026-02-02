@@ -49,8 +49,6 @@ rptof_insert (
       written += _nbytes;
     }
 
-  err_t_wrap (rptc_update_meta (c, e), e);
-
   return SUCCESS;
 }
 
@@ -184,8 +182,6 @@ rptof_remove (
 
       removed += _nbytes;
     }
-
-  err_t_wrap (rptc_update_meta (c, e), e);
 
   return SUCCESS;
 }

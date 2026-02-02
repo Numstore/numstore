@@ -26,7 +26,6 @@
 #include <numstore/pager/data_list.h>
 #include <numstore/pager/inner_node.h>
 #include <numstore/pager/root_node.h>
-#include <numstore/pager/rpt_root.h>
 #include <numstore/pager/tombstone.h>
 #include <numstore/pager/var_tail.h>
 #include <numstore/test/testing.h>
@@ -74,11 +73,6 @@ page_init_empty (page *p, enum page_type type)
     case PG_VAR_TAIL:
       {
         vt_init_empty (p);
-        return;
-      }
-    case PG_RPT_ROOT:
-      {
-        rr_init_empty (p);
         return;
       }
     case PG_VAR_HASH_PAGE:
@@ -130,10 +124,6 @@ page_validate_for_db (const page *p, int flags, error *e)
     case PG_VAR_TAIL:
       {
         return vt_validate_for_db (p, e);
-      }
-    case PG_RPT_ROOT:
-      {
-        return rr_validate_for_db (p, e);
       }
     case PG_VAR_HASH_PAGE:
       {
@@ -225,11 +215,6 @@ i_log_page (int log_level, const page *p)
     case PG_VAR_TAIL:
       {
         i_log_vt (log_level, p);
-        return;
-      }
-    case PG_RPT_ROOT:
-      {
-        i_log_rr (log_level, p);
         return;
       }
     case PG_VAR_HASH_PAGE:

@@ -154,25 +154,16 @@ varc_initialize (struct var_cursor *v, struct pager *p, error *e)
   return SUCCESS;
 }
 
-err_t
-varc_cleanup (struct var_cursor *v, error *e)
-{
-  DBG_ASSERT (var_cursor, v);
-  ASSERT (v->cur.mode == PHM_NONE);
-  return SUCCESS;
-}
-
 ////////////////////////
 /// Functions
 
-static inline err_t
-vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
+static err_t
+vpc_read_var_page_here (struct var_cursor *v, error *e)
 {
   err_t ret = SUCCESS;
 
   ASSERT (v->cur.mode != PHM_NONE);
   ASSERT (page_h_type (&v->cur) == PG_VAR_PAGE);
-  ASSERT (match);
 
   // Keep the start page so we can reset at the end
   pgno start = page_h_pgno (&v->cur);
@@ -184,13 +175,6 @@ vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
   // Now assert that the values from the page are valid
   ASSERT (v->tlen != 0);
   ASSERT (v->vlen != 0);
-
-  // Quick check that lengths aren't compatible
-  if (v->vlen != v->vlen_input)
-    {
-      *match = false;
-      goto theend;
-    }
 
   u16 read = 0;
   u16 lread = 0;
@@ -271,6 +255,42 @@ vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
           e, ERR_CORRUPT,
           "Done reading variable page, but there's still more overhead. "
           "This is corruption");
+      goto theend;
+    }
+
+theend:
+  return e->cause_code;
+}
+
+static inline err_t
+vpc_check_and_read_var_page_here (struct var_cursor *v, bool *match, error *e)
+{
+  err_t ret = SUCCESS;
+
+  ASSERT (v->cur.mode != PHM_NONE);
+  ASSERT (page_h_type (&v->cur) == PG_VAR_PAGE);
+  ASSERT (match);
+
+  // Keep the start page so we can reset at the end
+  pgno start = page_h_pgno (&v->cur);
+
+  // Start reading this page in
+  v->vlen = vp_get_vlen (page_h_ro (&v->cur));
+  v->tlen = vp_get_tlen (page_h_ro (&v->cur));
+
+  // Now assert that the values from the page are valid
+  ASSERT (v->tlen != 0);
+  ASSERT (v->vlen != 0);
+
+  // Quick check that lengths aren't compatible
+  if (v->vlen != v->vlen_input)
+    {
+      *match = false;
+      goto theend;
+    }
+
+  if (vpc_read_var_page_here (v, e))
+    {
       goto theend;
     }
 
@@ -373,7 +393,7 @@ theend:
   return e->cause_code;
 }
 
-err_t
+spgno
 vpc_new (struct var_cursor *v, struct var_create_params params, error *e)
 {
   DBG_ASSERT (var_cursor, v);
@@ -500,12 +520,15 @@ vpc_new (struct var_cursor *v, struct var_create_params params, error *e)
   vp_set_ovnext (page_h_w (&v->cur), PGNO_NULL);
   vp_set_vlen (page_h_w (&v->cur), v->vlen_input);
   vp_set_tlen (page_h_w (&v->cur), v->tlen_input);
-  vp_set_root (page_h_w (&v->cur), params.root);
+  vp_set_root (page_h_w (&v->cur), PGNO_NULL);
+  vp_set_nbytes (page_h_w (&v->cur), 0);
 
   if ((vpc_write_vstr_tstr_here (v, e)))
     {
       goto theend;
     }
+
+  pgno ret = page_h_pgno (&v->cur);
 
   if ((pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e)))
     {
@@ -519,16 +542,25 @@ theend:
   v->vlen = 0;
   v->tlen = 0;
 
-  return e->cause_code;
+  if (e->cause_code)
+    {
+      return e->cause_code;
+    }
+  else
+    {
+      return ret;
+    }
 }
 
-err_t
+spgno
 vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params *dest, error *e)
 {
   DBG_ASSERT (var_cursor, v);
   ASSERT (dest);
   ASSERT (dest->vname.len > 0);
   ASSERT (dest->vname.data);
+
+  spgno ret = 0;
 
   // Init query params
   // Move data to input buffers
@@ -584,10 +616,13 @@ vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params
                 {
                   goto theend;
                 }
+              // You already have the name so no need to allocate
             }
 
           // Root
           dest->pg0 = vp_get_root (page_h_ro (&v->cur));
+          dest->nbytes = vp_get_nbytes (page_h_ro (&v->cur));
+          ret = page_h_pgno (&v->cur);
 
           pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e);
 
@@ -613,6 +648,93 @@ vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params
               goto theend;
             }
         }
+    }
+
+theend:
+  v->vlen_input = 0;
+  v->tlen_input = 0;
+  v->vlen = 0;
+  v->tlen = 0;
+  if (e->cause_code)
+    {
+      return e->cause_code;
+    }
+  else
+    {
+      return ret;
+    }
+}
+
+err_t
+vpc_update_by_id (
+    struct var_cursor *v,
+    struct var_update_by_id_params *src,
+    error *e)
+{
+  DBG_ASSERT (var_cursor, v);
+  ASSERT (src);
+  ASSERT (v->tx);
+
+  if ((pgr_get_writable (&v->cur, v->tx, PG_VAR_PAGE, src->id, v->pager, e)))
+    {
+      goto theend;
+    }
+
+  vp_set_root (page_h_w (&v->cur), src->root);
+  vp_set_nbytes (page_h_w (&v->cur), src->nbytes);
+
+  if (pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e))
+    {
+      goto theend;
+    }
+
+theend:
+  return e->cause_code;
+}
+
+err_t
+vpc_get_by_id (
+    struct var_cursor *v,
+    struct chunk_alloc *dalloc,
+    struct var_get_by_id_params *dest,
+    error *e)
+{
+  DBG_ASSERT (var_cursor, v);
+  ASSERT (dest);
+
+  if ((pgr_get (&v->cur, PG_VAR_PAGE, dest->id, v->pager, e)))
+    {
+      goto theend;
+    }
+
+  // Deserialize the Type and name
+  if (dalloc)
+    {
+      // All the other info fits on this page, only need to read here if we need type / name
+      if ((vpc_read_var_page_here (v, e)))
+        {
+          goto theend;
+        }
+
+      struct deserializer d = dsrlizr_create (v->tstr, v->tlen);
+      if ((type_deserialize (&dest->t, &d, dalloc, e)))
+        {
+          goto theend;
+        }
+      dest->name = chunk_alloc_move_mem (dalloc, v->vstr, v->vlen, e);
+      if (dest->name == NULL)
+        {
+          goto theend;
+        }
+      dest->nlen = v->vlen;
+    }
+
+  dest->pg0 = vp_get_root (page_h_ro (&v->cur));
+  dest->nbytes = vp_get_nbytes (page_h_ro (&v->cur));
+
+  if (pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e))
+    {
+      goto theend;
     }
 
 theend:
@@ -783,7 +905,6 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -804,7 +925,6 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
 
     // Validate data
     {
-      test_assert_type_equal (dest.pg0, 100, pgno, PRpgno);
       test_assert_int_equal (dest.t.type, T_PRIM);
       test_assert_int_equal (dest.t.p, U32);
     }
@@ -848,7 +968,6 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -914,7 +1033,6 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);
@@ -960,7 +1078,6 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
             .type = T_PRIM,
             .p = U32,
         },
-        .root = 100,
       };
 
       test_err_t_wrap (vpc_new (&v, src, &f.e), &f.e);

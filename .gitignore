@@ -42,3 +42,6 @@ dist/
 build/
 .Python
 vgcore.*
+thirdparty/openssl
+thirdparty/zstd
+thirdparty/linenoise

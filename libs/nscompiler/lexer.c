@@ -438,8 +438,6 @@ lex_tokens (const char *src, u32 src_len, struct lexer *lex, error *e)
       err_t_wrap (scan_token (lex, e), e);
     }
 
-  add_token (lex, TT_EOF);
-
   return SUCCESS;
 }
 
@@ -465,7 +463,7 @@ test_lexer_case (const char *input, const struct token *expected, u32 nexpected)
   test_assert_int_equal (result, SUCCESS);
 
   /* Check token count (including EOF) */
-  test_assert_int_equal (lex.ntokens, nexpected + 1);
+  test_assert_int_equal (lex.ntokens, nexpected);
 
   /* Compare each token */
   for (u32 i = 0; i < nexpected; i++)
@@ -480,9 +478,6 @@ test_lexer_case (const char *input, const struct token *expected, u32 nexpected)
         }
       test_assert (token_equal (left, right));
     }
-
-  /* Check EOF token */
-  test_assert_int_equal (lex.tokens[nexpected].type, TT_EOF);
 }
 
 TEST (TT_UNIT, lexer_two_char_tokens)

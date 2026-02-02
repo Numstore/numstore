@@ -28,7 +28,18 @@ struct var_create_params
 {
   struct cstring vname;
   struct type t;
-  pgno root;
+};
+
+struct var_update_by_id_params
+{
+  pgno id;
+
+  // src
+  struct
+  {
+    pgno root;
+    b_size nbytes;
+  };
 };
 
 struct var_get_params
@@ -40,5 +51,21 @@ struct var_get_params
   {
     pgno pg0;
     struct type t;
+    b_size nbytes;
+  };
+};
+
+struct var_get_by_id_params
+{
+  pgno id;
+
+  // Dest
+  struct
+  {
+    pgno pg0;
+    struct type t;
+    b_size nbytes;
+    const char *name;
+    u32 nlen;
   };
 };

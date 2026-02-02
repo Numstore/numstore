@@ -1,6 +1,8 @@
 #pragma once
 
 #include <numstore/compiler/tokens.h>
+#include <numstore/core/assert.h>
+#include <numstore/intf/types.h>
 
 struct parser
 {

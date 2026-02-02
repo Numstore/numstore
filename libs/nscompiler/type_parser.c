@@ -34,7 +34,7 @@ parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
   err_t err;
 
   struct sarray_builder builder;
-  sab_create (&builder, &parser->temp, &parser->alloc);
+  sab_create (&builder, &parser->temp, parser->persistent);
 
   /* Parse all [N] brackets */
   while (parser_match (&parser->base, TT_LEFT_BRACKET))
@@ -78,7 +78,7 @@ parse_enum_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
   struct enum_builder builder;
-  enb_create (&builder, &parser->temp, &parser->alloc);
+  enb_create (&builder, &parser->temp, parser->persistent);
 
   while (!parser_match (&parser->base, TT_RIGHT_BRACE))
     {
@@ -124,7 +124,7 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
   struct kvt_builder builder;
-  kvb_create (&builder, &parser->temp, &parser->alloc);
+  kvb_create (&builder, &parser->temp, parser->persistent);
 
   while (!parser_match (&parser->base, TT_RIGHT_BRACE))
     {
@@ -174,7 +174,7 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
   struct kvt_builder builder;
-  kvb_create (&builder, &parser->temp, &parser->alloc);
+  kvb_create (&builder, &parser->temp, parser->persistent);
 
   while (!parser_match (&parser->base, TT_RIGHT_BRACE))
     {
@@ -244,38 +244,37 @@ parse_type_inner (struct type_parser *parser, struct type *out, error *e)
       }
     default:
       {
-        return error_causef (e, ERR_SYNTAX, "Expected type at position %u, got token type %s", parser->base.pos, tt_tostr (tok->type));
+        return error_causef (
+            e, ERR_SYNTAX,
+            "Expected type at position %u, got token type %s",
+            parser->base.pos, tt_tostr (tok->type));
       }
     }
 }
 
 /* Main entry point */
 err_t
-parse_type (struct token *src, u32 src_len, struct type_parser *parser, error *e)
+parse_type (
+    struct token *src,
+    u32 src_len,
+    struct chunk_alloc *dest,
+    struct type_parser *parser,
+    error *e)
 {
   if (!src || !parser || !e)
     {
       return error_causef (e, ERR_INVALID_ARGUMENT, "Invalid arguments to parse_type");
     }
 
-  /* Initialize parser state */
   parser_init (&parser->base, src, src_len);
-  memset (&parser->dest, 0, sizeof (parser->dest));
+  i_memset (&parser->dest, 0, sizeof (parser->dest));
 
   chunk_alloc_create_default (&parser->temp);
-  chunk_alloc_create_default (&parser->alloc);
+  parser->persistent = dest;
 
-  /* Parse type */
-  err_t ret = parse_type_inner (parser, &parser->dest, e);
-  if (ret < SUCCESS)
-    {
-      chunk_alloc_free_all (&parser->temp);
-      chunk_alloc_free_all (&parser->alloc);
-      return e->cause_code;
-    }
+  err_t_wrap_goto (parse_type_inner (parser, &parser->dest, e), theend, e);
 
-  /* Success - free temp, caller frees alloc */
+theend:
   chunk_alloc_free_all (&parser->temp);
-
-  return SUCCESS;
+  return e->cause_code;
 }

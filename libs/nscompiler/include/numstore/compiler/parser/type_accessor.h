@@ -27,26 +27,26 @@
 /**
  * EBNF Grammar:
  * =============
- * 
+ *
  * accessor        ::= operation*
- * 
+ *
  * operation       ::= select | range
- * 
+ *
  * select          ::= '.' IDENTIFIER
- * 
+ *
  * range           ::= '[' range_expr? ']'
- * 
+ *
  * range_expr      ::= index | slice
- * 
+ *
  * index           ::= NUMBER
- * 
+ *
  * slice           ::= start? ':' end? (':' stride?)?
- * 
+ *
  * start           ::= NUMBER
- * end             ::= NUMBER  
+ * end             ::= NUMBER
  * stride          ::= NUMBER
- * 
- * 
+ *
+ *
  * Slice Semantics:
  * ----------------
  * [N]          -> index: [N:N+1:1]
@@ -61,12 +61,12 @@
  * [N:M]        -> slice: [N:M:1] (from N to M)
  * [N:M:K]      -> slice: [N:M:K] (from N to M, stride K)
  * [::-1]       -> slice: [DIM-1:-1:-1] (reverse, from end to before start)
- * 
+ *
  * Note: DIM is the dimension size, determined at compile time when combined with type.
  *       Negative indices/strides are supported (Python-style).
  *       Empty components use sentinel value RANGE_NONE.
- * 
- * 
+ *
+ *
  * Examples:
  * ---------
  * ""                    -> TA_TAKE
@@ -95,13 +95,13 @@ struct type_accessor_parser
 };
 
 /* Parse accessor expression from token stream
- * 
+ *
  * Args:
  *   src      - Array of tokens
  *   src_len  - Number of tokens
  *   parser   - Parser state (result and alloc will be set)
  *   e        - Error output
- * 
+ *
  * Returns:
  *   SUCCESS on valid parse, error code otherwise
  */
@@ -112,7 +112,7 @@ err_t parse_accessor (
     error *e);
 
 /* Convenience: Parse from string (lexes first, then parses)
- * 
+ *
  * Args:
  *   path      - Accessor path string (e.g., ".field[0:10]")
  *   path_len  - Length of path string

@@ -59,9 +59,9 @@ struct in_data
 };
 
 #define IN_NEXT_OFST PG_COMMN_END
-#define IN_PREV_OFST ((p_size) (IN_NEXT_OFST + sizeof (pgno)))
-#define IN_NLEN_OFST ((p_size) (IN_PREV_OFST + sizeof (pgno)))
-#define IN_LEAF_OFST ((p_size) (IN_NLEN_OFST + sizeof (p_size)))
+#define IN_PREV_OFST ((p_size)(IN_NEXT_OFST + sizeof (pgno)))
+#define IN_NLEN_OFST ((p_size)(IN_PREV_OFST + sizeof (pgno)))
+#define IN_LEAF_OFST ((p_size)(IN_NLEN_OFST + sizeof (p_size)))
 
 _Static_assert(
     PAGE_SIZE > IN_LEAF_OFST + 5 * sizeof (b_size) + 6 * sizeof (pgno),

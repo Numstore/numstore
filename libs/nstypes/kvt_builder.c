@@ -67,7 +67,6 @@ err_t
 kvb_accept_key (struct kvt_builder *ub, struct string key, error *e)
 {
   DBG_ASSERT (kvt_builder, ub);
-  i_log_info ("Accepting key: %.*s\n", (u32)key.len, key.data);
 
   /* Check for duplicate keys */
   if (kvt_has_key_been_used (ub, key))

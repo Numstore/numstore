@@ -117,7 +117,6 @@ tt_tostr (enum token_t t)
       /*      Bools */
       case_ENUM_RETURN_STRING (TT_TRUE);
       case_ENUM_RETURN_STRING (TT_FALSE);
-      case_ENUM_RETURN_STRING (TT_EOF);
     }
 
   UNREACHABLE ();

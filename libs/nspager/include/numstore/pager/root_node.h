@@ -31,8 +31,8 @@
  */
 
 // OFFSETS and _Static_asserts
-#define RN_FSTS_OFST PG_COMMN_END                              // First tombstone
-#define RN_MLSN_OFST ((p_size) (RN_FSTS_OFST + sizeof (pgno))) // Master LSN
+#define RN_FSTS_OFST PG_COMMN_END                             // First tombstone
+#define RN_MLSN_OFST ((p_size)(RN_FSTS_OFST + sizeof (pgno))) // Master LSN
 
 // Initialization
 

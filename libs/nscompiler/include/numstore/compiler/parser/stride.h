@@ -1,8 +1,9 @@
 #pragma once
 
-#include <numstore/compiler/parser.h>
+#include <numstore/compiler/parser/parser.h>
 #include <numstore/compiler/tokens.h>
 #include <numstore/core/error.h>
+#include <numstore/core/stride.h>
 #include <numstore/intf/types.h>
 
 /**
@@ -16,13 +17,7 @@
 struct stride_parser
 {
   struct parser base;
-
-  sb_size start;
-  sb_size step;
-  sb_size stop;
-  int has_start;
-  int has_step;
-  int has_stop;
+  struct user_stride dest;
 };
 
 err_t parse_stride (struct token *src, u32 src_len, struct stride_parser *parser, error *e);

@@ -27,9 +27,22 @@
 
 struct stride
 {
-  b_size bstart;
+  b_size start;
   u32 stride;
   b_size nelems;
 };
 
-err_t parse_stride (struct stride *dest, const char *src, error *e);
+#define STOP_PRESENT (1 << 0)
+#define STEP_PRESENT (1 << 1)
+#define START_PRESENT (1 << 2)
+
+struct user_stride
+{
+  sb_size start;
+  sb_size step;
+  sb_size stop;
+
+  int present; // bit mask for present -> 0000...00[START][STEP][STOP]
+};
+
+err_t stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e);
