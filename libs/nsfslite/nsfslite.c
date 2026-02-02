@@ -411,7 +411,7 @@ nsfslite_begin_txn (nsfslite *n, error *e)
   return tx;
 }
 
-int
+err_t
 nsfslite_commit (nsfslite *n, struct txn *tx, error *e)
 {
   int ret = pgr_commit (n->p, tx, e);
