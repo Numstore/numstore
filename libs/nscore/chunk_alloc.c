@@ -101,7 +101,7 @@ compute_new_chunk_size (struct chunk_alloc *ca, u32 alloc_size)
   DBG_ASSERT (chunk_alloc, ca);
 
   // Target chunk size based on multiplier
-  u32 new_chunk_size = (u32)(alloc_size * ca->settings.target_chunk_mult);
+  u32 new_chunk_size = (u32) (alloc_size * ca->settings.target_chunk_mult);
 
   // Clamp to minimum
   if (new_chunk_size < ca->settings.min_chunk_size)
@@ -311,7 +311,7 @@ chunk_calloc (struct chunk_alloc *ca, u32 req, u32 size, error *e)
 }
 
 void *
-chunk_alloc_move_mem (struct chunk_alloc *ca, void *ptr, u32 size, error *e)
+chunk_alloc_move_mem (struct chunk_alloc *ca, const void *ptr, u32 size, error *e)
 {
   void *dest = chunk_malloc (ca, size, 1, e);
 

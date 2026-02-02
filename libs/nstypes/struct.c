@@ -24,7 +24,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/kvt_builder.h>
@@ -694,4 +694,21 @@ struct_t_equal (const struct struct_t *left, const struct struct_t *right)
     }
 
   return true;
+}
+
+struct type *
+struct_t_resolve_key (t_size *offset, struct struct_t *t, struct string key, error *e)
+{
+  t_size roffset = 0;
+  for (u32 i = 0; i < t->len; ++i)
+    {
+      if (string_equal (t->keys[i], key))
+        {
+          *offset = roffset;
+          return &t->types[i];
+        }
+      roffset += type_byte_size (&t->types[i]);
+    }
+
+  return NULL;
 }

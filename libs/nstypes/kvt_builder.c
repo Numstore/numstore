@@ -23,7 +23,7 @@
 #include <numstore/types/kvt_builder.h>
 
 #include <numstore/core/assert.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/logging.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/types.h>

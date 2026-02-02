@@ -21,7 +21,7 @@
 #include <numstore/compiler/tokens.h>
 
 #include <numstore/core/assert.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 
 bool
 token_equal (const struct token *left, const struct token *right)

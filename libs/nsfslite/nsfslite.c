@@ -199,7 +199,7 @@ nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, e
     }
 
   struct var_create_params src = {
-    .vname = cstrfcstr (name),
+    .vname = strfcstr (name),
   };
 
   // PARSE TYPE STRING
@@ -281,7 +281,7 @@ nsfslite_get_id (nsfslite *n, const char *name, error *e)
 
   // GET VARIABLE
   struct var_get_params params = {
-    .vname = cstrfcstr (name),
+    .vname = strfcstr (name),
   };
 
   ret = vpc_get (&c->vpc, NULL, &params, e);
@@ -330,7 +330,7 @@ nsfslite_delete (nsfslite *n, struct txn *tx, const char *name, error *e)
   {
     varc_enter_transaction (&c->vpc, tx);
 
-    if (vpc_delete (&c->vpc, cstrfcstr (name), e))
+    if (vpc_delete (&c->vpc, strfcstr (name), e))
       {
         goto theend;
       }

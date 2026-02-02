@@ -49,7 +49,7 @@ void vh_init_empty (page *p);
 
 // Getters
 HEADER_FUNC p_size
-vh_get_hash_pos (const struct cstring vname)
+vh_get_hash_pos (const struct string vname)
 {
   return (p_size)fnv1a_hash (vname) % (VH_HASH_LEN);
 }

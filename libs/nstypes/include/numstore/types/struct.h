@@ -45,3 +45,4 @@ void struct_t_serialize (struct serializer *dest, const struct struct_t *src);
 err_t struct_t_deserialize (struct struct_t *dest, struct deserializer *src, struct chunk_alloc *a, error *e);
 err_t struct_t_random (struct struct_t *st, struct chunk_alloc *alloc, u32 depth, error *e);
 bool struct_t_equal (const struct struct_t *left, const struct struct_t *right);
+struct type *struct_t_resolve_key (t_size *offset, struct struct_t *t, struct string key, error *e);

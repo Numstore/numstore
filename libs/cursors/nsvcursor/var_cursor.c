@@ -44,7 +44,7 @@
 #include <numstore/types/types.h>
 
 static inline err_t
-err_var_doesnt_exist (const struct cstring vname, error *e)
+err_var_doesnt_exist (const struct string vname, error *e)
 {
   if (vname.len > 10)
     {
@@ -746,7 +746,7 @@ theend:
 }
 
 err_t
-vpc_delete (struct var_cursor *v, const struct cstring name, error *e)
+vpc_delete (struct var_cursor *v, const struct string name, error *e)
 {
   DBG_ASSERT (var_cursor, v);
   ASSERT (v->tx);
@@ -897,7 +897,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
     // Create a new variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -913,7 +913,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
     // Fetch the variable you just created
     struct var_get_params dest;
     {
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
@@ -960,7 +960,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
     // Create the variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -975,7 +975,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
 
     // Delete the variable
     test_err_t_wrap (vpc_delete (
-                         &v, (struct cstring){
+                         &v, (struct string){
                                  .data = (char *)_src,
                                  .len = len,
                              },
@@ -985,7 +985,7 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_delete, 1)
     // Get the variable
     {
       struct var_get_params dest;
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
@@ -1025,7 +1025,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Create the variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -1041,7 +1041,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Get the variable
     struct var_get_params dest;
     {
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };
@@ -1070,7 +1070,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Create the variable
     {
       struct var_create_params src = {
-        .vname = (struct cstring){
+        .vname = (struct string){
             .len = len,
             .data = (char *)_src,
         },
@@ -1085,7 +1085,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
 
     // Delete the variable
     test_err_t_wrap (vpc_delete (
-                         &v, (struct cstring){
+                         &v, (struct string){
                                  .data = (char *)_src,
                                  .len = len,
                              },
@@ -1095,7 +1095,7 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
     // Get the variable
     {
       struct var_get_params dest;
-      dest.vname = (struct cstring){
+      dest.vname = (struct string){
         .len = len,
         .data = (char *)_src,
       };

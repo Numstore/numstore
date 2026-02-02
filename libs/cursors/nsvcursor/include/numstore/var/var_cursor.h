@@ -90,7 +90,7 @@ err_t vpc_get_by_id (
 
 err_t vpc_delete (
     struct var_cursor *v,
-    const struct cstring name,
+    const struct string name,
     error *e);
 
 // Transactions

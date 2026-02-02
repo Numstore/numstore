@@ -37,7 +37,7 @@ lt_lock_key (struct lt_lock lock)
       }
     }
 
-  struct cstring lock_type_hcode = {
+  struct string lock_type_hcode = {
     .data = hcode,
     .len = hcodelen,
   };

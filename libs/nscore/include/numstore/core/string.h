@@ -21,19 +21,37 @@
  */
 
 // core
+#include <numstore/core/error.h>
+#include <numstore/core/lalloc.h>
 #include <numstore/intf/types.h>
 
 struct string
 {
   u32 len;
-  char *data;
-};
-
-struct cstring
-{
-  u32 len;
   const char *data;
 };
 
-struct string strfcstr (char *cstr);
-struct cstring cstrfcstr (const char *cstr);
+struct string strfcstr (const char *cstr);
+
+u64 line_length (const char *buf, u64 max);
+int strings_all_unique (const struct string *strs, u32 count);
+bool string_equal (const struct string s1, const struct string s2);
+
+struct string string_plus (
+    const struct string left,
+    const struct string right,
+    struct lalloc *alloc,
+    error *e);
+
+const struct string *strings_are_disjoint (
+    const struct string *left,
+    u32 llen,
+    const struct string *right,
+    u32 rlen);
+
+bool string_contains (const struct string superset, const struct string subset);
+
+bool string_less_string (const struct string left, const struct string right);
+bool string_greater_string (const struct string left, const struct string right);
+bool string_less_equal_string (const struct string left, const struct string right);
+bool string_greater_equal_string (const struct string left, const struct string right);

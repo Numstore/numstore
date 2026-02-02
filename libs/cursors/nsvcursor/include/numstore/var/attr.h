@@ -26,7 +26,7 @@
 
 struct var_create_params
 {
-  struct cstring vname;
+  struct string vname;
   struct type t;
 };
 
@@ -44,7 +44,7 @@ struct var_update_by_id_params
 
 struct var_get_params
 {
-  struct cstring vname;
+  struct string vname;
 
   // Dest
   struct

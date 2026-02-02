@@ -24,7 +24,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/kvt_builder.h>
@@ -695,4 +695,18 @@ union_t_equal (const struct union_t *left, const struct union_t *right)
     }
 
   return true;
+}
+
+struct type *
+union_t_resolve_key (struct union_t *t, struct string key, error *e)
+{
+  for (u32 i = 0; i < t->len; ++i)
+    {
+      if (string_equal (t->keys[i], key))
+        {
+          return &t->types[i];
+        }
+    }
+
+  return NULL;
 }

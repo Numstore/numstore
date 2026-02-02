@@ -19,7 +19,7 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/error.h>
 #include <numstore/core/numbers.h>
-#include <numstore/core/strings_utils.h>
+#include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 
 static inline bool

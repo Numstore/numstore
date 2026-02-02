@@ -24,7 +24,6 @@
 #include <numstore/core/assert.h>
 #include <numstore/core/math.h>
 #include <numstore/core/string.h>
-#include <numstore/core/strings_utils.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
