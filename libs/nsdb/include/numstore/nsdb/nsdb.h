@@ -1,10 +1,18 @@
 #pragma once
 
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
+#include <numstore/core/slab_alloc.h>
 #include <numstore/core/stride.h>
 #include <numstore/intf/types.h>
 
-typedef struct nsdb_s nsdb;
+struct nsdb
+{
+  struct pager *p;
+  struct lockt *lt;
+  struct slab_alloc slaba;
+  struct chunk_alloc chunka;
+};
 
 struct nsdb_io
 {
@@ -17,10 +25,10 @@ struct nsdb_io
   u32 scap;
 };
 
-nsdb *nsdb_open (const char *fname, const char *recovery_fname, error *e);
-err_t nsdb_close (nsdb *n, error *e);
+struct nsdb *nsdb_open (const char *fname, const char *recovery_fname, error *e);
+err_t nsdb_close (struct nsdb *n, error *e);
 
-struct txn *nsdb_begin_txn (nsdb *n, error *e);
-err_t nsdb_commit (nsdb *n, struct txn *tx, error *e);
+struct txn *nsdb_begin_txn (struct nsdb *n, error *e);
+err_t nsdb_commit (struct nsdb *n, struct txn *tx, error *e);
 
-err_t nsdb_run (nsdb *n, struct txn *tx, const char *stmnt, struct nsdb_io *io, error *e);
+err_t nsdb_run (struct nsdb *n, struct txn *tx, const char *stmnt, struct nsdb_io *io, error *e);

@@ -136,13 +136,11 @@ type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, st
   UNREACHABLE ();
 }
 
-static t_size ta_sizeof (struct byte_accessor *acc);
-
 static void
 ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc)
 {
-  ASSERT (cbuffer_avail (dest) >= ta_sizeof (acc));
-  ASSERT (cbuffer_len (src) >= ta_sizeof (acc));
+  ASSERT (cbuffer_avail (dest) >= ba_byte_size (acc));
+  ASSERT (cbuffer_len (src) >= ba_byte_size (acc));
 
   switch (acc->type)
     {
@@ -164,7 +162,7 @@ ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_acce
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.sub_ba);
+        t_size elem_size = ba_byte_size (acc->range.sub_ba);
 
         // Skip to start position
         if (acc->range.bofst > 0)
@@ -197,8 +195,8 @@ ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_acce
   UNREACHABLE ();
 }
 
-static t_size
-ta_sizeof (struct byte_accessor *acc)
+t_size
+ba_byte_size (struct byte_accessor *acc)
 {
   switch (acc->type)
     {
@@ -208,11 +206,11 @@ ta_sizeof (struct byte_accessor *acc)
       }
     case TA_SELECT:
       {
-        return ta_sizeof (acc->select.sub_ba);
+        return ba_byte_size (acc->select.sub_ba);
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.sub_ba);
+        t_size elem_size = ba_byte_size (acc->range.sub_ba);
         t_size count = (acc->range.nelems - acc->range.bofst + acc->range.stride - 1) / acc->range.stride;
         return count * elem_size;
       }
@@ -513,13 +511,13 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
     test_assert_int_equal (out[7], 3);
   }
 
-  TEST_CASE ("ta_sizeof")
+  TEST_CASE ("ba_byte_size")
   {
     struct byte_accessor take = {
       .type = TA_TAKE,
       .size = 8,
     };
-    test_assert_int_equal (ta_sizeof (&take), 8);
+    test_assert_int_equal (ba_byte_size (&take), 8);
 
     struct byte_accessor select = {
       .type = TA_SELECT,
@@ -528,7 +526,7 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
           .sub_ba = &take,
       },
     };
-    test_assert_int_equal (ta_sizeof (&select), 8);
+    test_assert_int_equal (ba_byte_size (&select), 8);
 
     struct byte_accessor range = {
       .type = TA_RANGE,
@@ -539,7 +537,7 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
           .nelems = 10,
       },
     };
-    test_assert_int_equal (ta_sizeof (&range), 5 * 8);
+    test_assert_int_equal (ba_byte_size (&range), 5 * 8);
   }
 }
 #endif
@@ -563,7 +561,7 @@ ta_memcpy_to_once (u8 *dest, struct cbuffer *src, struct byte_accessor *acc)
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.sub_ba);
+        t_size elem_size = ba_byte_size (acc->range.sub_ba);
 
         // Calculate starting position in dest
         u8 *dest_pos = dest + (acc->range.bofst * elem_size);

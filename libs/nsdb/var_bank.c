@@ -1,9 +1,8 @@
-#include "numstore/rptree/_read.h"
 #include <numstore/core/cbuffer.h>
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/core/slab_alloc.h>
-#include <numstore/nsdb/_nsdb.h>
+#include <numstore/nsdb/nsdb.h>
 #include <numstore/nsdb/var_bank.h>
 #include <numstore/rptree/rptree_cursor.h>
 #include <numstore/var/var_cursor.h>
@@ -13,7 +12,7 @@ var_bank_open (
     struct nsdb *n,
     struct var_bank *dest,
     struct string vname,
-    struct stride stride,
+    struct user_stride stride,
     error *e)
 {
   struct var_cursor *vc = slab_alloc_alloc (&n->slaba, e);
@@ -27,14 +26,11 @@ var_bank_open (
       goto failed;
     }
 
-  struct chunk_alloc temp;
-  chunk_alloc_create_default (&temp);
-
   struct var_get_params params = {
     .vname = vname,
   };
 
-  if (vpc_get (vc, &temp, &params, e))
+  if (vpc_get (vc, &n->chunka, &params, e))
     {
       goto failed;
     }
@@ -45,12 +41,30 @@ var_bank_open (
       goto failed;
     }
 
-  chunk_alloc_free_all (&temp);
-
   t_size size = type_byte_size (&params.t);
   dest->cursor = rc;
   dest->backing = chunk_malloc (&n->chunka, 1, size, e);
   dest->dest = cbuffer_create (dest->backing, size);
+
+  if (rptc_start_seek (rc, stride.start * size, false, e))
+    {
+      goto failed;
+    }
+
+  // SEEKING -> SEEKED
+  while (rc->state == RPTS_SEEKING)
+    {
+      if (rptc_seeking_execute (rc, e))
+        {
+          goto failed;
+        }
+    }
+
+  // TODO - convert to stride
+  struct stride stub = { 0 };
+
+  // SEEKED -> READING
+  rptc_seeked_to_read (rc, &dest->dest, stub.nelems, size, stub.stride);
 
   return SUCCESS;
 
@@ -64,9 +78,7 @@ failed:
 err_t
 var_bank_execute (struct var_bank *v, error *e)
 {
-  if (v->cursor->state == RPTS_SEEKING)
-    {
-    }
+  ASSERT (v->cursor->state == RPTS_DL_READING);
   rptc_read_execute (v->cursor, e);
   return SUCCESS;
 }
