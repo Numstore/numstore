@@ -1,0 +1,20 @@
+I wrote the headers for a bunch of builders:
+  - statement.h 
+  - type_accessor.h 
+  - type_accessor_list.h 
+  - vref.h 
+
+Without implementations 
+
+Write their implementations - note how none of the builders reach into other ones. They just take what they need. The builder is there to validate inputs and ensure correctness. Some might just blindly accept, that's ok. 
+
+See kvt_builder.h/c sarray_builder etc for inspiration on how to implement builders
+
+Also one other refactor to be consistent:
+
+- put all builders in seperate files (both c and h files). Including the files I mentioned and:
+  - enum/enum_builder 
+  - sarray/sarray_builder 
+  - kvt_list/kvt_builder (rename to kvt_list_builder)
+- create a struct builder and union builder that accept a kvt_list 
+  - you'll need to create a kvt_list type. 
