@@ -331,6 +331,25 @@ scan_token (struct lexer *lex, error *e)
         add_token (lex, TT_COLON);
         return SUCCESS;
       }
+    case '.':
+      {
+        if (is_num (peek (lex)))
+          {
+            /* Float starting with decimal point like ".5" */
+            while (!is_at_end (lex) && is_num (peek (lex)))
+              {
+                advance (lex);
+              }
+            const char *text = &lex->src[lex->start];
+            u32 len = lex->current - lex->start;
+            f32 value;
+            err_t_wrap (parse_f32_expect (&value, text, len, e), e);
+            add_token_float (lex, value);
+            return SUCCESS;
+          }
+        add_token (lex, TT_DOT);
+        return SUCCESS;
+      }
     case '[':
       {
         add_token (lex, TT_LEFT_BRACKET);

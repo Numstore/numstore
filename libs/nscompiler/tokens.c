@@ -87,6 +87,7 @@ tt_tostr (enum token_t t)
       /*      Other One char tokens */
       case_ENUM_RETURN_STRING (TT_SEMICOLON);
       case_ENUM_RETURN_STRING (TT_COLON);
+      case_ENUM_RETURN_STRING (TT_DOT);
       case_ENUM_RETURN_STRING (TT_LEFT_BRACKET);
       case_ENUM_RETURN_STRING (TT_RIGHT_BRACKET);
       case_ENUM_RETURN_STRING (TT_LEFT_BRACE);

@@ -19,6 +19,7 @@
  *   Supports field selection, array indexing, and slicing operations.
  */
 
+#include <numstore/compiler/parser/parser.h>
 #include <numstore/compiler/tokens.h>
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
@@ -87,9 +88,7 @@
 
 struct type_accessor_parser
 {
-  struct token *src;
-  u32 src_len;
-  u32 pos;
+  struct parser base;
   struct type_accessor *result;
   struct chunk_alloc *alloc;
 };
@@ -108,7 +107,7 @@ struct type_accessor_parser
 err_t parse_accessor (
     struct token *src,
     u32 src_len,
-    struct accessor_parser *parser,
+    struct type_accessor_parser *parser,
     error *e);
 
 /* Convenience: Parse from string (lexes first, then parses)
