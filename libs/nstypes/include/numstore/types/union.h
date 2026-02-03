@@ -46,3 +46,4 @@ err_t union_t_deserialize (struct union_t *dest, struct deserializer *src, struc
 err_t union_t_random (struct union_t *un, struct chunk_alloc *alloc, u32 depth, error *e);
 bool union_t_equal (const struct union_t *left, const struct union_t *right);
 struct type *union_t_resolve_key (struct union_t *t, struct string key, error *e);
+
