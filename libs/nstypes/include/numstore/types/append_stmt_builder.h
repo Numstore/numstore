@@ -4,12 +4,7 @@
 #include <numstore/core/error.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
-
-// Forward declaration (builds to insert_stmt)
-struct insert_stmt;
-
-////////////////////////////////////////////////////////////
-/// Builder
+#include <numstore/types/statement.h>
 
 struct append_builder
 {
@@ -23,4 +18,4 @@ void apb_create (struct append_builder *dest, struct chunk_alloc *persistent);
 err_t apb_accept_vname (struct append_builder *dest, struct string vname, error *e);
 err_t apb_accept_nelems (struct append_builder *dest, b_size nelems, error *e);
 
-err_t apb_build (struct insert_stmt *dest, struct append_builder *builder, error *e);
+err_t apb_build (struct append_stmt *dest, struct append_builder *builder, error *e);

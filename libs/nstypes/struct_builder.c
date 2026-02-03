@@ -1,5 +1,5 @@
-#include <numstore/types/struct_builder.h>
 #include <numstore/types/struct.h>
+#include <numstore/types/struct_builder.h>
 
 #include <numstore/core/assert.h>
 #include <numstore/test/testing.h>
@@ -14,7 +14,7 @@ void
 stb_create (struct struct_builder *dest, struct chunk_alloc *persistent)
 {
   *dest = (struct struct_builder){
-    .persistent = persistent,
+    .has_list = false,
   };
 
   DBG_ASSERT (struct_builder, dest);
@@ -25,27 +25,31 @@ stb_accept_kvt_list (struct struct_builder *builder, struct kvt_list list, error
 {
   DBG_ASSERT (struct_builder, builder);
 
-  /* Validation - at least one key-value pair required */
   if (list.len == 0)
     {
       return error_causef (e, ERR_INTERP, "kvt_list must have at least one entry");
     }
 
+  builder->list = list;
+  builder->has_list = true;
+
   return SUCCESS;
 }
 
 err_t
-stb_build (struct struct_t *dest, struct struct_builder *builder, struct kvt_list list, error *e)
+stb_build (struct struct_t *dest, struct struct_builder *builder, error *e)
 {
   DBG_ASSERT (struct_builder, builder);
   ASSERT (dest);
 
-  /* Validate list */
-  err_t_wrap (stb_accept_kvt_list (builder, list, e), e);
+  if (!builder->has_list)
+    {
+      return error_causef (e, ERR_INTERP, "Struct must have a kvt list");
+    }
 
-  dest->keys = list.keys;
-  dest->types = list.types;
-  dest->len = list.len;
+  dest->keys = builder->list.keys;
+  dest->types = builder->list.types;
+  dest->len = builder->list.len;
 
   return SUCCESS;
 }
@@ -81,7 +85,8 @@ TEST (TT_UNIT, struct_builder)
 
   /* Build struct from kvt_list */
   struct struct_t st = { 0 };
-  test_assert_int_equal (stb_build (&st, &sb, list, &err), SUCCESS);
+  test_assert_int_equal (stb_accept_kvt_list (&sb, list, &err), SUCCESS);
+  test_assert_int_equal (stb_build (&st, &sb, &err), SUCCESS);
   test_assert_int_equal (st.len, 2);
   test_fail_if_null (st.keys);
   test_fail_if_null (st.types);
@@ -95,7 +100,7 @@ TEST (TT_UNIT, struct_builder)
   /* Empty list should fail */
   struct kvt_list empty_list = { .len = 0, .keys = NULL, .types = NULL };
   struct struct_t st_fail = { 0 };
-  test_assert_int_equal (stb_build (&st_fail, &sb, empty_list, &err), ERR_INTERP);
+  test_assert_int_equal (stb_accept_kvt_list (&sb, empty_list, &err), ERR_INTERP);
   err.cause_code = SUCCESS;
 
   chunk_alloc_free_all (&arena);

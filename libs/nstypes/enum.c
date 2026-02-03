@@ -544,4 +544,3 @@ enum_t_equal (const struct enum_t *left, const struct enum_t *right)
 
   return true;
 }
-

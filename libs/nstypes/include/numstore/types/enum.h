@@ -27,9 +27,6 @@
 #include <numstore/core/serializer.h>
 #include <numstore/core/string.h>
 
-////////////////////////////////////////////////////////////
-/// MODEL
-
 struct enum_t
 {
   u16 len;
@@ -44,8 +41,3 @@ void enum_t_serialize (struct serializer *persistent, const struct enum_t *src);
 err_t enum_t_deserialize (struct enum_t *persistent, struct deserializer *src, struct chunk_alloc *a, error *e);
 err_t enum_t_random (struct enum_t *en, struct chunk_alloc *temp, error *e);
 bool enum_t_equal (const struct enum_t *left, const struct enum_t *right);
-
-////////////////////////////////////////////////////////////
-/// BUILDER
-
-#include <numstore/types/enum_builder.h>

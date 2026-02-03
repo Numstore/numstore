@@ -4,9 +4,7 @@
 #include <numstore/core/error.h>
 #include <numstore/core/llist.h>
 #include <numstore/intf/types.h>
-
-////////////////////////////////////////////////////////////
-/// Builder
+#include <numstore/types/sarray.h>
 
 struct dim_llnode
 {
@@ -22,10 +20,6 @@ struct sarray_builder
   struct chunk_alloc *temp;
   struct chunk_alloc *persistent;
 };
-
-// Forward declaration for sarray_t (defined in sarray.h)
-struct sarray_t;
-struct type;
 
 void sab_create (struct sarray_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
 err_t sab_accept_dim (struct sarray_builder *eb, u32 dim, error *e);

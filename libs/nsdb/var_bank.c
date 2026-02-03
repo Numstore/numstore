@@ -9,7 +9,12 @@
 #include <numstore/var/var_cursor.h>
 
 err_t
-var_bank_open (struct nsdb *n, struct var_bank *dest, struct string vname, error *e)
+var_bank_open (
+    struct nsdb *n,
+    struct var_bank *dest,
+    struct string vname,
+    struct stride stride,
+    error *e)
 {
   struct var_cursor *vc = slab_alloc_alloc (&n->slaba, e);
   if (vc == NULL)
@@ -63,6 +68,7 @@ var_bank_execute (struct var_bank *v, error *e)
     {
     }
   rptc_read_execute (v->cursor, e);
+  return SUCCESS;
 }
 
 err_t

@@ -6,18 +6,12 @@
 #include <numstore/core/string.h>
 #include <numstore/types/types.h>
 
-////////////////////////////////////////////////////////////
-/// MODEL
-
 struct kvt_list
 {
   u16 len;
   struct string *keys;
   struct type *types;
 };
-
-////////////////////////////////////////////////////////////
-/// BUILDER
 
 struct kv_llnode
 {

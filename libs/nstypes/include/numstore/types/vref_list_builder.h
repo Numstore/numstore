@@ -5,23 +5,8 @@
 #include <numstore/core/llist.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
-
-/////////////////////////////////////////////////////
-/////// Models
-struct vref
-{
-  struct string vname;
-  struct string alias;
-};
-
-struct vref_list
-{
-  struct vref *items;
-  u32 len;
-};
-
-/////////////////////////////////////////////////////
-/////// Builder
+#include <numstore/types/vref.h>
+#include <numstore/types/vref_list.h>
 
 struct vref_list_builder
 {

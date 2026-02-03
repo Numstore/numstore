@@ -457,4 +457,3 @@ sarray_t_equal (const struct sarray_t *left, const struct sarray_t *right)
 
   return true;
 }
-

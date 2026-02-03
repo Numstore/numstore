@@ -1,5 +1,5 @@
-#include <numstore/types/enum_builder.h>
 #include <numstore/types/enum.h>
+#include <numstore/types/enum_builder.h>
 
 #include <numstore/core/assert.h>
 #include <numstore/test/testing.h>

@@ -2,11 +2,13 @@
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/types/enum.h>
+#include <numstore/types/enum_builder.h>
 #include <numstore/types/kvt_list_builder.h>
-#include <numstore/types/struct_builder.h>
-#include <numstore/types/union_builder.h>
 #include <numstore/types/sarray.h>
+#include <numstore/types/sarray_builder.h>
+#include <numstore/types/struct_builder.h>
 #include <numstore/types/types.h>
+#include <numstore/types/union_builder.h>
 
 static err_t parse_type_inner (struct type_parser *parser, struct type *out, error *e);
 
@@ -147,7 +149,8 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
       err_t_wrap (kvlb_build (&list, &builder, e), e);
       struct struct_builder sb;
       stb_create (&sb, parser->persistent);
-      return stb_build (&out->st, &sb, list, e);
+      err_t_wrap (stb_accept_kvt_list (&sb, list, e), e);
+      return stb_build (&out->st, &sb, e);
     }
 
   while (true)
@@ -194,7 +197,8 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (kvlb_build (&list, &builder, e), e);
   struct struct_builder sb;
   stb_create (&sb, parser->persistent);
-  return stb_build (&out->st, &sb, list, e);
+  err_t_wrap (stb_accept_kvt_list (&sb, list, e), e);
+  return stb_build (&out->st, &sb, e);
 }
 
 /* union_type ::= 'union' '{' field_list? '}' */
@@ -218,7 +222,8 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
       err_t_wrap (kvlb_build (&list, &builder, e), e);
       struct union_builder ub;
       unb_create (&ub, parser->persistent);
-      return unb_build (&out->un, &ub, list, e);
+      err_t_wrap (unb_accept_kvt_list (&ub, list, e), e);
+      return unb_build (&out->un, &ub, e);
     }
 
   while (true)
@@ -265,7 +270,8 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (kvlb_build (&list, &builder, e), e);
   struct union_builder ub;
   unb_create (&ub, parser->persistent);
-  return unb_build (&out->un, &ub, list, e);
+  err_t_wrap (unb_accept_kvt_list (&ub, list, e), e);
+  return unb_build (&out->un, &ub, e);
 }
 
 /* type ::= struct_type | union_type | enum_type | sarray_type | primitive_type */

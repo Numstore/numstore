@@ -21,7 +21,6 @@
  *   serialization, validation, and utility functions.
  */
 
-// core
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>

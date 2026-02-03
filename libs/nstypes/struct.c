@@ -554,7 +554,8 @@ struct_t_deserialize (
 
   struct struct_builder sb;
   stb_create (&sb, a);
-  err_t_wrap_goto (stb_build (dest, &sb, list, e), theend, e);
+  err_t_wrap_goto (stb_accept_kvt_list (&sb, list, e), theend, e);
+  err_t_wrap_goto (stb_build (dest, &sb, e), theend, e);
 
 theend:
   chunk_alloc_free_all (&temp);

@@ -20,15 +20,11 @@
  *   validation, byte size calculations, and builder pattern for construction.
  */
 
-// core
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
 #include <numstore/core/serializer.h>
 #include <numstore/core/string.h>
-
-////////////////////////////////////////////////////////////
-/// MODEL
 
 struct struct_t
 {
@@ -46,4 +42,3 @@ err_t struct_t_deserialize (struct struct_t *dest, struct deserializer *src, str
 err_t struct_t_random (struct struct_t *st, struct chunk_alloc *alloc, u32 depth, error *e);
 bool struct_t_equal (const struct struct_t *left, const struct struct_t *right);
 struct type *struct_t_resolve_key (t_size *offset, struct struct_t *t, struct string key, error *e);
-

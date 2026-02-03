@@ -3,14 +3,9 @@
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/core/stride.h>
+#include <numstore/types/statement.h>
 #include <numstore/types/type_accessor_list_builder.h>
 #include <numstore/types/vref_list_builder.h>
-
-// Forward declaration
-struct read_stmt;
-
-////////////////////////////////////////////////////////////
-/// Builder
 
 struct read_builder
 {

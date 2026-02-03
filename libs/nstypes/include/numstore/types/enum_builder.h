@@ -4,9 +4,7 @@
 #include <numstore/core/error.h>
 #include <numstore/core/llist.h>
 #include <numstore/core/string.h>
-
-////////////////////////////////////////////////////////////
-/// Builder
+#include <numstore/types/enum.h>
 
 struct k_llnode
 {
@@ -20,9 +18,6 @@ struct enum_builder
   struct chunk_alloc *temp;
   struct chunk_alloc *persistent;
 };
-
-// Forward declaration for enum_t (defined in enum.h)
-struct enum_t;
 
 void enb_create (
     struct enum_builder *dest,

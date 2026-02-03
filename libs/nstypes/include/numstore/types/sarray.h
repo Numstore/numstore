@@ -20,7 +20,6 @@
  *   serialization, validation, byte size calculations, and builder pattern.
  */
 
-// system
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
@@ -46,8 +45,3 @@ void sarray_t_serialize (struct serializer *persistent, const struct sarray_t *s
 err_t sarray_t_deserialize (struct sarray_t *persistent, struct deserializer *src, struct chunk_alloc *a, error *e);
 err_t sarray_t_random (struct sarray_t *sa, struct chunk_alloc *temp, u32 depth, error *e);
 bool sarray_t_equal (const struct sarray_t *left, const struct sarray_t *right);
-
-////////////////////////////////////////////////////////////
-/// BUILDER
-
-#include <numstore/types/sarray_builder.h>

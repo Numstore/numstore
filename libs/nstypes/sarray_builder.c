@@ -1,5 +1,5 @@
-#include <numstore/types/sarray_builder.h>
 #include <numstore/types/sarray.h>
+#include <numstore/types/sarray_builder.h>
 #include <numstore/types/types.h>
 
 #include <numstore/core/assert.h>

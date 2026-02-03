@@ -12,7 +12,7 @@ nsdbc_open (
   return SUCCESS;
 }
 
-static err_t
+HEADER_FUNC err_t
 nsdbc_read_cursors (struct nsdb_cursor *dest, error *e)
 {
   for (u32 i = 0; i < dest->variables.vlen; ++i)

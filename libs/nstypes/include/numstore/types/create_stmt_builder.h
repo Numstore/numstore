@@ -3,13 +3,8 @@
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/core/string.h>
+#include <numstore/types/statement.h>
 #include <numstore/types/types.h>
-
-// Forward declaration
-struct create_stmt;
-
-////////////////////////////////////////////////////////////
-/// Builder
 
 struct create_builder
 {

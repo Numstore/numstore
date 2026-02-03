@@ -3,12 +3,7 @@
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/core/string.h>
-
-// Forward declaration
-struct delete_stmt;
-
-////////////////////////////////////////////////////////////
-/// Builder
+#include <numstore/types/statement.h>
 
 struct delete_builder
 {

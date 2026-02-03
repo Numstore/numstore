@@ -1,5 +1,5 @@
-#include <numstore/types/take_stmt_builder.h>
 #include <numstore/types/statement.h>
+#include <numstore/types/take_stmt_builder.h>
 
 #include <numstore/core/assert.h>
 #include <numstore/test/testing.h>

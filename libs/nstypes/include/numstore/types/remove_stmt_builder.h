@@ -3,13 +3,8 @@
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/core/stride.h>
+#include <numstore/types/statement.h>
 #include <numstore/types/vref_list_builder.h>
-
-// Forward declaration
-struct remove_stmt;
-
-////////////////////////////////////////////////////////////
-/// Builder
 
 struct remove_builder
 {

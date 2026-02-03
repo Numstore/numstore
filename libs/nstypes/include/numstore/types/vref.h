@@ -1,3 +1,9 @@
 #pragma once
 
-#include <numstore/types/vref_list_builder.h>
+#include <numstore/core/string.h>
+
+struct vref
+{
+  struct string vname;
+  struct string alias;
+};

@@ -4,12 +4,7 @@
 #include <numstore/core/error.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
-
-// Forward declaration
-struct insert_stmt;
-
-////////////////////////////////////////////////////////////
-/// Builder
+#include <numstore/types/statement.h>
 
 struct insert_builder
 {

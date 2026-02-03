@@ -2,6 +2,7 @@
 
 #include <numstore/core/assert.h>
 #include <numstore/test/testing.h>
+#include <numstore/types/type_accessor.h>
 
 DEFINE_DBG_ASSERT (
     struct type_accessor_builder, type_accessor_builder, s,

@@ -6,6 +6,7 @@
 #include <numstore/types/type_accessor_list.h>
 #include <numstore/types/types.h>
 #include <numstore/types/vref.h>
+#include <numstore/types/vref_list.h>
 
 struct statement
 {
@@ -41,6 +42,12 @@ struct statement
       b_size nelems;
     } insert;
 
+    struct append_stmt
+    {
+      struct string vname;
+      b_size nelems;
+    } append;
+
     struct read_stmt
     {
       struct vref_list vrefs;
@@ -69,15 +76,3 @@ struct statement
     } write;
   };
 };
-
-///////////////////////////////////////////////////
-/////////// Statement Builders
-
-#include <numstore/types/append_stmt_builder.h>
-#include <numstore/types/create_stmt_builder.h>
-#include <numstore/types/delete_stmt_builder.h>
-#include <numstore/types/insert_stmt_builder.h>
-#include <numstore/types/read_stmt_builder.h>
-#include <numstore/types/remove_stmt_builder.h>
-#include <numstore/types/take_stmt_builder.h>
-#include <numstore/types/write_stmt_builder.h>

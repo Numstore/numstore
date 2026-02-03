@@ -53,7 +53,7 @@ apb_accept_nelems (struct append_builder *dest, b_size nelems, error *e)
 }
 
 err_t
-apb_build (struct insert_stmt *dest, struct append_builder *builder, error *e)
+apb_build (struct append_stmt *dest, struct append_builder *builder, error *e)
 {
   DBG_ASSERT (append_builder, builder);
   ASSERT (dest);
@@ -64,7 +64,6 @@ apb_build (struct insert_stmt *dest, struct append_builder *builder, error *e)
     }
 
   dest->vname = builder->vname;
-  dest->ofst = 0; /* Append has no offset, uses 0 as placeholder */
   dest->nelems = builder->nelems;
 
   return SUCCESS;
@@ -85,7 +84,7 @@ TEST (TT_UNIT, append_stmt_builder)
   test_assert_int_equal (builder.nelems, 0);
 
   /* 1. build with no name should fail */
-  struct insert_stmt stmt = { 0 };
+  struct append_stmt stmt = { 0 };
   test_assert_int_equal (apb_build (&stmt, &builder, &err), ERR_INTERP);
   err.cause_code = SUCCESS;
 

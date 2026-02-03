@@ -28,8 +28,8 @@
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/kvt_list_builder.h>
-#include <numstore/types/union_builder.h>
 #include <numstore/types/types.h>
+#include <numstore/types/union_builder.h>
 
 DEFINE_DBG_ASSERT (
     struct union_t, unchecked_union_t, s,
@@ -553,7 +553,8 @@ union_t_deserialize (
 
   struct union_builder ub;
   unb_create (&ub, a);
-  err_t_wrap_goto (unb_build (dest, &ub, list, e), theend, e);
+  err_t_wrap_goto (unb_accept_kvt_list (&ub, list, e), theend, e);
+  err_t_wrap_goto (unb_build (dest, &ub, e), theend, e);
 
   return SUCCESS;
 

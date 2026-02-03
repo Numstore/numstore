@@ -6,18 +6,7 @@
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
 #include <numstore/types/type_accessor_builder.h>
-
-////////////////////////////////////
-/// Model
-
-struct type_accessor_list
-{
-  struct type_accessor *items;
-  u32 len;
-};
-
-////////////////////////////////////
-/// Builder
+#include <numstore/types/type_accessor_list.h>
 
 struct type_accessor_list_builder
 {
