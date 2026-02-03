@@ -91,10 +91,10 @@ err_t
 client_write_all_size_prefixed (struct client *c, const void *msg, u16 len, error *e)
 {
   u8 prefix[4] = {
-    (u8)((len >> 24) & 0xff),
-    (u8)((len >> 16) & 0xff),
-    (u8)((len >> 8) & 0xff),
-    (u8)(len & 0xff)
+    (u8) ((len >> 24) & 0xff),
+    (u8) ((len >> 16) & 0xff),
+    (u8) ((len >> 8) & 0xff),
+    (u8) (len & 0xff)
   };
 
   if (write_exact (c->fd, prefix, 4) != 4)

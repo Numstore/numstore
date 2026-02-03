@@ -5,12 +5,21 @@
 #include <numstore/core/slab_alloc.h>
 #include <numstore/core/stride.h>
 #include <numstore/intf/types.h>
+#include <numstore/rptree/rptree_cursor.h>
+#include <numstore/var/var_cursor.h>
+
+union cursor
+{
+  struct rptree_cursor rc;
+  struct var_cursor vc;
+};
 
 struct nsdb
 {
   struct pager *p;
   struct lockt *lt;
   struct slab_alloc slaba;
+  struct slab_alloc dcursor_slaba;
   struct chunk_alloc chunka;
 };
 

@@ -45,4 +45,5 @@ struct user_stride
   int present; // bit mask for present -> 0000...00[START][STEP][STOP]
 };
 
+void stride_resolve_expect (struct stride *dest, struct user_stride src, b_size arrlen);
 err_t stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e);

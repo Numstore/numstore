@@ -46,3 +46,4 @@ void ta_memcpy_to (
     u32 acclen);
 
 t_size ba_byte_size (struct byte_accessor *ba);
+void ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc);

@@ -136,7 +136,7 @@ type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, st
   UNREACHABLE ();
 }
 
-static void
+void
 ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc)
 {
   ASSERT (cbuffer_avail (dest) >= ba_byte_size (acc));
