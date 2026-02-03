@@ -27,7 +27,8 @@
 #include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
-#include <numstore/types/kvt_builder.h>
+#include <numstore/types/kvt_list_builder.h>
+#include <numstore/types/union_builder.h>
 #include <numstore/types/types.h>
 
 DEFINE_DBG_ASSERT (
@@ -506,8 +507,8 @@ union_t_deserialize (
 
   struct chunk_alloc temp;
   chunk_alloc_create_default (&temp);
-  struct kvt_builder unb;
-  kvb_create (&unb, &temp, a);
+  struct kvt_list_builder unb;
+  kvlb_create (&unb, &temp, a);
 
   /**
    * LEN
@@ -543,11 +544,16 @@ union_t_deserialize (
       struct type t;
       err_t_wrap_goto (type_deserialize (&t, src, a, e), theend, e);
 
-      err_t_wrap_goto (kvb_accept_key (&unb, key, e), theend, e);
-      err_t_wrap_goto (kvb_accept_type (&unb, t, e), theend, e);
+      err_t_wrap_goto (kvlb_accept_key (&unb, key, e), theend, e);
+      err_t_wrap_goto (kvlb_accept_type (&unb, t, e), theend, e);
     }
 
-  err_t_wrap_goto (kvb_union_t_build (dest, &unb, e), theend, e);
+  struct kvt_list list;
+  err_t_wrap_goto (kvlb_build (&list, &unb, e), theend, e);
+
+  struct union_builder ub;
+  unb_create (&ub, a);
+  err_t_wrap_goto (unb_build (dest, &ub, list, e), theend, e);
 
   return SUCCESS;
 

@@ -2,7 +2,9 @@
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/types/enum.h>
-#include <numstore/types/kvt_builder.h>
+#include <numstore/types/kvt_list_builder.h>
+#include <numstore/types/struct_builder.h>
+#include <numstore/types/union_builder.h>
 #include <numstore/types/sarray.h>
 #include <numstore/types/types.h>
 
@@ -133,15 +135,19 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_STRUCT, e), e);
   err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
-  struct kvt_builder builder;
-  kvb_create (&builder, &parser->temp, parser->persistent);
+  struct kvt_list_builder builder;
+  kvlb_create (&builder, &parser->temp, parser->persistent);
 
   /* Handle empty struct */
   if (parser_match (&parser->base, TT_RIGHT_BRACE))
     {
       err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
       out->type = T_STRUCT;
-      return kvb_struct_t_build (&out->st, &builder, e);
+      struct kvt_list list;
+      err_t_wrap (kvlb_build (&list, &builder, e), e);
+      struct struct_builder sb;
+      stb_create (&sb, parser->persistent);
+      return stb_build (&out->st, &sb, list, e);
     }
 
   while (true)
@@ -153,12 +159,12 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
         }
 
       struct token *tok = parser_advance (&parser->base);
-      err_t_wrap (kvb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
+      err_t_wrap (kvlb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
 
       /* Parse field type */
       struct type inner;
       err_t_wrap (parse_type_inner (parser, &inner, e), e);
-      err_t_wrap (kvb_accept_type (&builder, inner, e), e);
+      err_t_wrap (kvlb_accept_type (&builder, inner, e), e);
 
       /* Check for comma or closing brace */
       if (parser_match (&parser->base, TT_RIGHT_BRACE))
@@ -184,7 +190,11 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
 
   out->type = T_STRUCT;
-  return kvb_struct_t_build (&out->st, &builder, e);
+  struct kvt_list list;
+  err_t_wrap (kvlb_build (&list, &builder, e), e);
+  struct struct_builder sb;
+  stb_create (&sb, parser->persistent);
+  return stb_build (&out->st, &sb, list, e);
 }
 
 /* union_type ::= 'union' '{' field_list? '}' */
@@ -196,15 +206,19 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_UNION, e), e);
   err_t_wrap (parser_expect (&parser->base, TT_LEFT_BRACE, e), e);
 
-  struct kvt_builder builder;
-  kvb_create (&builder, &parser->temp, parser->persistent);
+  struct kvt_list_builder builder;
+  kvlb_create (&builder, &parser->temp, parser->persistent);
 
   /* Handle empty union */
   if (parser_match (&parser->base, TT_RIGHT_BRACE))
     {
       err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
       out->type = T_UNION;
-      return kvb_union_t_build (&out->un, &builder, e);
+      struct kvt_list list;
+      err_t_wrap (kvlb_build (&list, &builder, e), e);
+      struct union_builder ub;
+      unb_create (&ub, parser->persistent);
+      return unb_build (&out->un, &ub, list, e);
     }
 
   while (true)
@@ -216,12 +230,12 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
         }
 
       struct token *tok = parser_advance (&parser->base);
-      err_t_wrap (kvb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
+      err_t_wrap (kvlb_accept_key (&builder, (struct string){ .data = (char *)tok->str.data, .len = tok->str.len }, e), e);
 
       /* Parse field type */
       struct type inner;
       err_t_wrap (parse_type_inner (parser, &inner, e), e);
-      err_t_wrap (kvb_accept_type (&builder, inner, e), e);
+      err_t_wrap (kvlb_accept_type (&builder, inner, e), e);
 
       /* Check for comma or closing brace */
       if (parser_match (&parser->base, TT_RIGHT_BRACE))
@@ -247,7 +261,11 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   err_t_wrap (parser_expect (&parser->base, TT_RIGHT_BRACE, e), e);
 
   out->type = T_UNION;
-  return kvb_union_t_build (&out->un, &builder, e);
+  struct kvt_list list;
+  err_t_wrap (kvlb_build (&list, &builder, e), e);
+  struct union_builder ub;
+  unb_create (&ub, parser->persistent);
+  return unb_build (&out->un, &ub, list, e);
 }
 
 /* type ::= struct_type | union_type | enum_type | sarray_type | primitive_type */

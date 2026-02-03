@@ -50,22 +50,4 @@ bool sarray_t_equal (const struct sarray_t *left, const struct sarray_t *right);
 ////////////////////////////////////////////////////////////
 /// BUILDER
 
-struct dim_llnode
-{
-  u32 dim;
-  struct llnode link;
-};
-
-struct sarray_builder
-{
-  struct llnode *head;
-  struct type *type;
-
-  struct chunk_alloc *temp;
-  struct chunk_alloc *persistent;
-};
-
-void sab_create (struct sarray_builder *dest, struct chunk_alloc *temp, struct chunk_alloc *persistent);
-err_t sab_accept_dim (struct sarray_builder *eb, u32 dim, error *e);
-err_t sab_accept_type (struct sarray_builder *eb, struct type type, error *e);
-err_t sab_build (struct sarray_t *persistent, struct sarray_builder *eb, error *e);
+#include <numstore/types/sarray_builder.h>
