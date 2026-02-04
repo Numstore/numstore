@@ -176,7 +176,7 @@ nsdbrc_open (
     // Variables
     {
       dest->variables.len = stmt->vrefs.len;
-      dest->variables.cursors = chunk_malloc (&dest->alloc, dest->variables.len, sizeof *dest->variables.cursors, e);
+      dest->variables.cursors = chunk_malloc (&dest->alloc, dest->variables.len, sizeof (union cursor *), e);
       dest->variables.singles = chunk_malloc (&dest->alloc, dest->variables.len, sizeof *dest->variables.singles, e);
       dest->variables.types = chunk_malloc (&dest->alloc, dest->variables.len, sizeof *dest->variables.types, e);
 
