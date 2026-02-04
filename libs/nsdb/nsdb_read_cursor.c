@@ -6,9 +6,7 @@
 #include "numstore/rptree/_read.h"
 #include "numstore/rptree/rptree_cursor.h"
 #include "numstore/types/byte_accessor.h"
-#include "numstore/types/sarray.h"
 #include "numstore/types/type_accessor.h"
-#include "numstore/types/vref_list.h"
 #include <numstore/nsdb/nsdb_read_cursor.h>
 
 static inline err_t
@@ -138,15 +136,15 @@ nsdbrc_init_byte_accessors (
 {
   for (u32 i = 0; i < stmt->acc.len; ++i)
     {
-      i32 vid = vrefl_find_variable (&stmt->vrefs, stmt->acc.vnames[i]);
+      i32 vid = vrefl_find_variable (&stmt->vrefs, stmt->acc.items[i].vname);
       if (vid < 0)
         {
           return error_causef (
               e, ERR_INVALID_ARGUMENT,
               "Failed to find variable: %.*s",
-              stmt->acc.vnames[i].len, stmt->acc.vnames[i].data);
+              stmt->acc.items[i].vname.len, stmt->acc.items[i].vname.data);
         }
-      if (type_to_byte_accessor (&rc->accessors.acc[i], &stmt->acc.items[i], &rc->variables.types[i], e))
+      if (type_to_byte_accessor (&rc->accessors.acc[i], &stmt->acc.items[i].ta, &rc->variables.types[i], e))
         {
           goto failed;
         }
@@ -273,16 +271,16 @@ nsdbrc_ba_memcpy (struct nsdb_read_cursor *rc)
       struct cbuffer *src = &rc->variables.singles[vidx];
       struct byte_accessor *ba = &rc->accessors.acc[vidx];
 
-      cbuffer_mark (src);
-      ta_memcpy_from_once (&rc->dest, src, ba);
-      cbuffer_reset (src);
+      u32 mark = cbuffer_mark (src);
+      ba_memcpy_from (&rc->dest, src, ba);
+      cbuffer_reset (src, mark);
     }
 
   // "consume" source buffers
   for (u32 i = 0; i < rc->variables.len; ++i)
     {
       struct cbuffer *src = &rc->variables.singles[i];
-      cbuffer_reset (src);
+      cbuffer_reset (src, mark);
     }
 
   ASSERT (cbuffer_avail (&rc->dest) == 0);
