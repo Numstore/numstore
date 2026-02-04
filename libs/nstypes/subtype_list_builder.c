@@ -9,6 +9,19 @@ DEFINE_DBG_ASSERT (
       ASSERT (s);
     })
 
+err_t
+subtype_create (struct subtype *dest, struct string vname, struct type_accessor ta, error *e)
+{
+  *dest = (struct subtype){
+    .vname = vname,
+    .ta = ta,
+  };
+
+  // TODO - validate
+
+  return SUCCESS;
+}
+
 void
 stalb_create (
     struct subtype_list_builder *dest,
@@ -94,58 +107,3 @@ stalb_build (
 
   return SUCCESS;
 }
-
-#ifndef NTEST
-TEST (TT_UNIT, subtype_list_builder)
-{
-  error err = error_create ();
-
-  struct chunk_alloc arena;
-  chunk_alloc_create_default (&arena);
-
-  /* 0. freshly-created builder must be clean */
-  struct subtype_list_builder builder;
-  stalb_create (&builder, &arena, &arena);
-  test_fail_if (builder.head != NULL);
-  test_assert_int_equal (builder.count, 0);
-
-  /* 1. build with empty builder is valid - returns empty list */
-  struct subtype_list list = { 0 };
-  test_assert_int_equal (stalb_build (&list, &builder, &err), SUCCESS);
-  test_assert_int_equal (list.len, 0);
-
-  /* 2. create a type accessor and accept it */
-  struct subtype_builder tab;
-  tab_create (&tab, &arena, &arena);
-  struct string key1 = strfcstr ("field1");
-  test_assert_int_equal (tab_accept_select (&tab, key1, &err), SUCCESS);
-
-  struct subtype *acc1;
-  test_assert_int_equal (tab_build (&acc1, &tab, &err), SUCCESS);
-
-  test_assert_int_equal (stalb_accept (&builder, acc1, &err), SUCCESS);
-  test_assert_int_equal (builder.count, 1);
-
-  /* 3. create another type accessor and accept it */
-  struct subtype_builder tab2;
-  tab_create (&tab2, &arena, &arena);
-  test_assert_int_equal (tab_accept_range (&tab2, 0, 5, 1, &err), SUCCESS);
-
-  struct subtype *acc2;
-  test_assert_int_equal (tab_build (&acc2, &tab2, &err), SUCCESS);
-
-  test_assert_int_equal (stalb_accept (&builder, acc2, &err), SUCCESS);
-  test_assert_int_equal (builder.count, 2);
-
-  /* 4. successful build */
-  test_assert_int_equal (stalb_build (&list, &builder, &err), SUCCESS);
-  test_assert_int_equal (list.len, 2);
-  test_fail_if_null (list.items);
-
-  /* 5. verify contents */
-  test_assert_int_equal (list.items[0].type, TA_SELECT);
-  test_assert_int_equal (list.items[1].type, TA_RANGE);
-
-  chunk_alloc_free_all (&arena);
-}
-#endif

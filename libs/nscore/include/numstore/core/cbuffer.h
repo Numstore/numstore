@@ -41,9 +41,6 @@ struct cbuffer
   u32 head;
   u32 tail;
   bool isfull;
-
-  i32 mark;
-  bool isfullmark;
 };
 
 #define cbuffer_create_from(data) cbuffer_create (data, sizeof data)
@@ -51,8 +48,8 @@ struct cbuffer
 #define cbuffer_create_from_cstr(cstr) cbuffer_create_with (cstr, i_strlen (cstr), i_strlen (cstr))
 struct cbuffer cbuffer_create (void *data, u32 cap);
 struct cbuffer cbuffer_create_with (void *data, u32 cap, u32 len);
-void cbuffer_mark (struct cbuffer *c);
-void cbuffer_reset (struct cbuffer *c);
+u32 cbuffer_mark (struct cbuffer *c);
+void cbuffer_reset (struct cbuffer *c, u32 point);
 
 ////////////////////////////////////////////////////////////
 // Utils

@@ -1,6 +1,7 @@
-#include <numstore/types/vref_list_builder.h>
+#include <numstore/types/vref.h>
 
 #include <numstore/core/assert.h>
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
 

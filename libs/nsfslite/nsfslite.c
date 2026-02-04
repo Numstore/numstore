@@ -20,6 +20,7 @@
  *   with automatic or explicit transaction handling.
  */
 
+#include "numstore/compiler/compiler.h"
 #include "numstore/types/types.h"
 #include <fcntl.h>
 #include <nsfslite.h>
@@ -203,21 +204,10 @@ nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, e
   };
 
   // PARSE TYPE STRING
-  {
-    struct lexer lex;
-    if (lex_tokens (type, i_strlen (type), &lex, e))
-      {
-        goto theend;
-      }
-
-    struct type_parser parser;
-    if (parse_type (lex.tokens, lex.ntokens, &temp, &parser, e))
-      {
-        goto theend;
-      }
-
-    src.t = parser.dest;
-  }
+  if (compile_type (&src.t, type, &temp, e))
+    {
+      goto theend;
+    }
 
   // MAYBE BEGIN TXN
   struct txn auto_txn;

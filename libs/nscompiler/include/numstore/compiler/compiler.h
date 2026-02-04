@@ -9,3 +9,11 @@ err_t compile_statement (
     const char *text,
     struct chunk_alloc *dalloc,
     error *e);
+
+err_t compile_type (
+    struct type *dest,
+    const char *text,
+    struct chunk_alloc *dalloc,
+    error *e);
+
+err_t compile_stride

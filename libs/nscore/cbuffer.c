@@ -38,8 +38,6 @@ cbuffer_create (void *data, u32 cap)
     .cap = cap,
     .data = data,
     .isfull = 0,
-    .mark = -1,
-    .isfullmark = 0,
   };
   latch_init (&ret.latch);
   return ret;
@@ -57,33 +55,31 @@ cbuffer_create_with (void *data, u32 cap, u32 len)
     .cap = cap,
     .data = data,
     .isfull = len == cap,
-    .mark = -1,
-    .isfullmark = 0,
   };
   latch_init (&ret.latch);
   return ret;
 }
 
-void
+u32
 cbuffer_mark (struct cbuffer *c)
 {
-  // TODO - what to do when mark when head overrides tail on write
-  ASSERT (c->mark == -1);
+  u32 mark;
   latch_lock (&c->latch);
-  c->mark = c->tail;
-  c->isfullmark = c->isfull;
+  mark = c->tail;
+  if (c->isfull)
+    {
+      mark |= 1 << 31;
+    }
   latch_unlock (&c->latch);
+  return mark;
 }
 
 void
-cbuffer_reset (struct cbuffer *c)
+cbuffer_reset (struct cbuffer *c, u32 point)
 {
-  ASSERT (c->mark >= 0);
   latch_lock (&c->latch);
-  c->tail = c->mark;
-  c->isfull = c->isfullmark;
-  c->mark = -1;
-  c->isfullmark = false;
+  c->tail = point;
+  c->isfull = point >> 31;
   latch_unlock (&c->latch);
 }
 
@@ -113,7 +109,7 @@ TEST (TT_UNIT, cbuffer_mark_reset)
 
   for (u32 i = 0; i < 2; ++i)
     {
-      cbuffer_mark (&b);
+      u32 mark = cbuffer_mark (&b);
 
       /* read after write */
       u8 src[3] = { 7, 8, 9 };
@@ -124,7 +120,7 @@ TEST (TT_UNIT, cbuffer_mark_reset)
       test_assert_int_equal (out[1], 8);
       test_assert_int_equal (cbuffer_len (&b), 1);
 
-      cbuffer_reset (&b);
+      cbuffer_reset (&b, mark);
     }
 }
 
@@ -158,8 +154,6 @@ cbuffer_discard_all (struct cbuffer *b)
   b->tail = 0;
   b->head = 0;
   b->isfull = 0;
-  b->mark = -1;
-  b->isfullmark = false;
 
   latch_unlock (&b->latch);
 }

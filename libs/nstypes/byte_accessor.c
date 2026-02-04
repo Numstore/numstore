@@ -296,9 +296,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       },
     };
 
-    cbuffer_mark (&src);
+    u32 mark = cbuffer_mark (&src);
     ba_memcpy_from (&dest, &src, &dotb);
-    cbuffer_reset (&src);
+    cbuffer_reset (&src, mark);
     ba_memcpy_from (&dest, &src, &dota);
 
     u8 out[5];
@@ -340,9 +340,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
 
     cbuffer_discard_all (&dest);
 
-    cbuffer_mark (&src);
+    u32 mark = cbuffer_mark (&src);
     ba_memcpy_from (&dest, &src, &dota);
-    cbuffer_reset (&src);
+    cbuffer_reset (&src, mark);
     ba_memcpy_from (&dest, &src, &dotb);
 
     u8 out[5];
@@ -463,9 +463,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
       .size = 4,
     };
 
-    cbuffer_mark (&src);
+    u32 mark = cbuffer_mark (&src);
     ba_memcpy_from (&dest, &src, &dota);
-    cbuffer_reset (&src);
+    cbuffer_reset (&src, mark);
     ba_memcpy_from (&dest, &src, &dota);
 
     u8 out[8];
@@ -528,24 +528,29 @@ ba_memcpy_to (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *a
     case TA_SELECT:
       {
         // Skip offset bytes in dest, then recursively copy the selected field
-        ba_memcpy_to (dest + acc->select.bofst, src, acc->select.sub_ba);
+        u32 mark = cbuffer_mark (dest);
+        cbuffer_fakewrite (dest, acc->select.bofst);
+        ba_memcpy_to (dest, src, acc->select.sub_ba);
+        cbuffer_reset (dest, mark);
         return;
       }
     case TA_RANGE:
       {
         t_size elem_size = ba_byte_size (acc->range.sub_ba);
 
-        // Calculate starting position in dest
-        u8 *dest_pos = dest + (acc->range.stride.start * elem_size);
+        u32 mark = cbuffer_mark (dest);
+        cbuffer_fakewrite (dest, acc->range.stride.start * elem_size);
 
         t_size pos = acc->range.stride.start;
         while (pos < acc->range.stride.nelems)
           {
             // Copy one element from src to current dest position
-            ba_memcpy_to (dest_pos, src, acc->range.sub_ba);
+            ba_memcpy_to (dest, src, acc->range.sub_ba);
 
             // Advance dest position by stride elements
-            dest_pos += acc->range.stride.stride * elem_size;
+            cbuffer_reset (dest, mark);
+            cbuffer_fakewrite (dest, acc->range.stride.stride * elem_size);
+
             pos += acc->range.stride.stride;
           }
 
@@ -584,7 +589,8 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
   // struct { a int, b struct { b char, c [5]u16 } }
   u8 src_buf[64];
   u8 dest_buf[64];
-  struct cbuffer src = cbuffer_create (src_buf, 64);
+  struct cbuffer src = cbuffer_create_from (src_buf);
+  struct cbuffer dest = cbuffer_create_from (dest_buf);
 
   TEST_CASE ("[.a]")
   {
@@ -608,7 +614,7 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
           },
         };
 
-    ba_memcpy_to (dest_buf, &src, &acc);
+    ba_memcpy_to (&dest, &src, &acc);
 
     test_assert_int_equal (dest_buf[0], 78);
     test_assert_int_equal (dest_buf[1], 56);
@@ -638,7 +644,7 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
           },
         };
 
-    ba_memcpy_to (dest_buf, &src, &acc);
+    ba_memcpy_to (&dest, &src, &acc);
 
     test_assert_int_equal (dest_buf[4], 0xAB);
   }
@@ -678,10 +684,10 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       },
     };
 
-    cbuffer_mark (&src);
-    ba_memcpy_to (dest_buf, &src, &dotb);
-    cbuffer_reset (&src);
-    ba_memcpy_to (dest_buf, &src, &dota);
+    u32 mark = cbuffer_mark (&src);
+    ba_memcpy_to (&dest, &src, &dotb);
+    cbuffer_reset (&src, mark);
+    ba_memcpy_to (&dest, &src, &dota);
 
     test_assert_int_equal (dest_buf[0], 78); // .a
     test_assert_int_equal (dest_buf[1], 56);
@@ -726,8 +732,8 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       },
     };
 
-    ba_memcpy_to (dest_buf, &src, &dota);
-    ba_memcpy_to (dest_buf, &src, &dotb);
+    ba_memcpy_to (&dest, &src, &dota);
+    ba_memcpy_to (&dest, &src, &dotb);
 
     test_assert_int_equal (dest_buf[0], 78);
     test_assert_int_equal (dest_buf[1], 56);
@@ -778,7 +784,7 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
           },
         };
 
-    ba_memcpy_to (dest_buf, &src, &acc);
+    ba_memcpy_to (&dest, &src, &acc);
 
     // offset 4 + 1 + (1*2, 2*2, 3*2) = positions 7, 9, 11
     test_assert_int_equal (dest_buf[7], 2); // c[1]
@@ -831,7 +837,7 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
           },
         };
 
-    ba_memcpy_to (dest_buf, &src, &acc);
+    ba_memcpy_to (&dest, &src, &acc);
 
     // offset 4 + 1 + (0*2, 2*2, 4*2) = positions 5, 9, 13
     test_assert_int_equal (dest_buf[5], 1); // c[0]
@@ -856,7 +862,7 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       .size = 4,
     };
 
-    ba_memcpy_to (dest_buf, &src, &dota);
+    ba_memcpy_to (&dest, &src, &dota);
 
     // First 4 source bytes go to dest[0..3], then reset src
     // Next 4 bytes OVERWRITE dest[0..3]

@@ -1,4 +1,4 @@
-#include <numstore/types/vref_list.h>
+#include <numstore/types/vref.h>
 
 i32
 vrefl_find_variable (struct vref_list *list, struct string vname)

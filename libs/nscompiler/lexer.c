@@ -16,11 +16,8 @@
 
 #include <numstore/compiler/lexer.h>
 #include <numstore/compiler/tokens.h>
-#include <numstore/core/assert.h>
-#include <numstore/core/error.h>
 #include <numstore/core/numbers.h>
-#include <numstore/core/string.h>
-#include <numstore/intf/stdlib.h>
+#include <numstore/types/types.h>
 
 static inline bool
 is_at_end (struct lexer *lex)

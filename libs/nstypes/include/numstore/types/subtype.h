@@ -13,8 +13,7 @@ err_t subtype_create (struct subtype *dest, struct string vname, struct type_acc
 
 struct subtype_list
 {
-  struct string *vnames;
-  struct type_accessor *items;
+  struct subtype *items;
   u32 len;
 };
 

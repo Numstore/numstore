@@ -1,15 +1,9 @@
-#include "numstore/compiler/tokens.h"
+#include <numstore/types/types.h>
+
 #include <numstore/compiler/parser/type.h>
+#include <numstore/compiler/tokens.h>
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
-#include <numstore/types/enum.h>
-#include <numstore/types/enum_builder.h>
-#include <numstore/types/kvt_list_builder.h>
-#include <numstore/types/sarray.h>
-#include <numstore/types/sarray_builder.h>
-#include <numstore/types/struct_builder.h>
-#include <numstore/types/types.h>
-#include <numstore/types/union_builder.h>
 
 struct type_parser
 {
@@ -158,12 +152,7 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   struct kvt_list list;
   err_t_wrap (kvlb_build (&list, &builder, e), e);
 
-  // Union builder
-  struct struct_builder sb;
-  stb_create (&sb, parser->persistent);
-  err_t_wrap (stb_accept_kvt_list (&sb, list, e), e);
-
-  return stb_build (&out->st, &sb, e);
+  return struct_t_create (&out->st, list, NULL, e);
 }
 
 /* union_type ::= 'union' '{' field_list? '}' */
@@ -214,12 +203,7 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   struct kvt_list list;
   err_t_wrap (kvlb_build (&list, &builder, e), e);
 
-  // Union builder
-  struct union_builder ub;
-  unb_create (&ub, parser->persistent);
-  err_t_wrap (unb_accept_kvt_list (&ub, list, e), e);
-
-  return unb_build (&out->un, &ub, e);
+  return union_t_create (&out->un, list, NULL, e);
 }
 
 /* type ::= struct_type | union_type | enum_type | sarray_type | primitive_type */
