@@ -1,12 +1,8 @@
 #pragma once
 
-#include <numstore/core/stride.h>
-#include <numstore/types/sarray.h>
-#include <numstore/types/type_accessor.h>
-#include <numstore/types/type_accessor_list.h>
+#include <numstore/types/subtype.h>
 #include <numstore/types/types.h>
 #include <numstore/types/vref.h>
-#include <numstore/types/vref_list.h>
 
 struct statement
 {
@@ -51,14 +47,14 @@ struct statement
     struct read_stmt
     {
       struct vref_list vrefs;
-      struct type_accessor_list acc;
+      struct subtype_list acc;
       struct user_stride gstride;
     } read;
 
     struct take_stmt
     {
       struct vref_list vrefs;
-      struct type_accessor_list acc;
+      struct subtype_list acc;
       struct user_stride gstride;
     } take;
 
@@ -70,9 +66,18 @@ struct statement
 
     struct write_stmt
     {
-      struct vref vref;
-      struct type_accessor_list acc;
+      struct vref_list vrefs;
+      struct subtype_list acc;
       struct user_stride gstride;
     } write;
   };
 };
+
+err_t crtst_create (struct statement *dest, struct string vname, struct type t, error *e);
+err_t dltst_create (struct statement *dest, struct string vname, error *e);
+err_t insst_create (struct statement *dest, struct string vname, b_size ofst, b_size nelems, error *e);
+err_t appst_create (struct statement *dest, struct string vname, b_size nelems, error *e);
+err_t redst_create (struct statement *dest, struct vref_list vrefs, struct subtype_list acc, struct user_stride gstride, error *e);
+err_t takst_create (struct statement *dest, struct vref_list vrefs, struct subtype_list acc, struct user_stride gstride, error *e);
+err_t remst_create (struct statement *dest, struct vref ref, struct user_stride gstride, error *e);
+err_t wrtst_create (struct statement *dest, struct vref_list vrefs, struct subtype_list acc, struct user_stride gstride, error *e);

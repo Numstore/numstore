@@ -1,8 +1,5 @@
-#include <numstore/types/sarray.h>
-#include <numstore/types/sarray_builder.h>
 #include <numstore/types/types.h>
 
-#include <numstore/core/assert.h>
 #include <numstore/test/testing.h>
 
 DEFINE_DBG_ASSERT (
@@ -25,9 +22,14 @@ sab_create (struct sarray_builder *dest, struct chunk_alloc *temp, struct chunk_
 }
 
 err_t
-sab_accept_dim (struct sarray_builder *eb, u32 dim, error *e)
+sab_accept_dim (struct sarray_builder *eb, i32 dim, error *e)
 {
   DBG_ASSERT (sarray_builder, eb);
+
+  if (dim <= 0)
+    {
+      return error_causef (e, ERR_SYNTAX, "Expected positive sarray dimension");
+    }
 
   u16 idx = (u16)list_length (eb->head);
   struct llnode *slot = llnode_get_n (eb->head, idx);

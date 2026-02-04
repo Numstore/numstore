@@ -35,6 +35,7 @@ enum token_t
   TT_LEFT_PAREN,
   TT_RIGHT_PAREN,
   TT_COMMA,
+  TT_DOT,
 
   TT_STRING,
   TT_IDENTIFIER,
@@ -45,6 +46,11 @@ enum token_t
   TT_CREATE,
   TT_DELETE,
   TT_INSERT,
+  TT_APPEND,
+  TT_READ,
+  TT_WRITE,
+  TT_REMOVE,
+  TT_TAKE,
 
   TT_STRUCT,
   TT_UNION,
@@ -56,6 +62,8 @@ enum token_t
 
   TT_TRUE,
   TT_FALSE,
+
+  TT_AS,
 };
 
 struct token

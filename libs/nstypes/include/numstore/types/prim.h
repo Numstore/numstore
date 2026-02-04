@@ -21,7 +21,6 @@
  *   calculations and serialization support.
  */
 
-// core
 #include <numstore/core/deserializer.h>
 #include <numstore/core/error.h>
 #include <numstore/core/serializer.h>
@@ -176,22 +175,3 @@ prim_is_complex (enum prim_t p)
       func ("cu128", __VA_ARGS__);       \
     }                                    \
   while (0)
-
-typedef enum
-{
-  LUB_U64,
-  LUB_I64,
-  LUB_F128,
-  LUB_CF256,
-  LUB_CI128,
-  LUB_CU128,
-} lub_prim_t;
-
-const char *prim_to_str (enum prim_t p);
-err_t prim_t_validate (const enum prim_t *t, error *e);
-i32 prim_t_snprintf (char *str, u32 size, const enum prim_t *p);
-u32 prim_t_byte_size (const enum prim_t *t);
-void prim_t_serialize (struct serializer *dest, const enum prim_t *src);
-err_t prim_t_deserialize (enum prim_t *dest, struct deserializer *src, error *e);
-enum prim_t prim_t_random (void);
-enum prim_t strtoprim (const char *text, u32 len);

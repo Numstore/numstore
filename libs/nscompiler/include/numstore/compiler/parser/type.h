@@ -31,17 +31,5 @@
  *
  * enum_list       ::= IDENTIFIER (',' IDENTIFIER)* ','?
  */
-struct type_parser
-{
-  struct parser base;
-  struct type dest;
-  struct chunk_alloc temp;
-  struct chunk_alloc *persistent;
-};
 
-err_t parse_type (
-    struct token *src,
-    u32 src_len,
-    struct chunk_alloc *dest,
-    struct type_parser *parser,
-    error *e);
+err_t parse_type (struct parser *p, struct type *dest, struct chunk_alloc *dalloc, error *e);

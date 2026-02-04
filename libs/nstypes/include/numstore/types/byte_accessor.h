@@ -19,9 +19,7 @@ struct byte_accessor
 
     struct range_ba
     {
-      t_size bofst;
-      t_size stride;
-      t_size nelems;
+      struct stride stride;
       struct byte_accessor *sub_ba;
     } range;
   };
@@ -33,17 +31,14 @@ err_t type_to_byte_accessor (
     struct type *reftype,
     error *e);
 
-void ta_memcpy_from (
+t_size ba_byte_size (struct byte_accessor *ba);
+
+void ba_memcpy_from (
     struct cbuffer *dest,
     struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+    struct byte_accessor *acc);
 
-void ta_memcpy_to (
-    u8 *dest,
+void ba_memcpy_to (
+    struct cbuffer *dest,
     struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
-
-t_size ba_byte_size (struct byte_accessor *ba);
-void ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc);
+    struct byte_accessor *acc);

@@ -18,15 +18,10 @@
  *   byte size calculations, serialization, deserialization, and builder functions.
  */
 
-#include "numstore/core/chunk_alloc.h"
-#include <numstore/types/sarray.h>
-
-#include <numstore/core/assert.h>
-#include <numstore/core/error.h>
-#include <numstore/core/random.h>
-#include <numstore/intf/stdlib.h>
-#include <numstore/test/testing.h>
 #include <numstore/types/types.h>
+
+#include <numstore/core/random.h>
+#include <numstore/test/testing.h>
 
 //////////////////////////////
 /// MODEL

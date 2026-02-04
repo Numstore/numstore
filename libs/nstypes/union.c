@@ -18,18 +18,10 @@
  *   byte size calculations, serialization, deserialization, and random generation.
  */
 
-#include "numstore/core/chunk_alloc.h"
-#include <numstore/types/union.h>
-
-#include <numstore/core/assert.h>
-#include <numstore/core/error.h>
-#include <numstore/core/random.h>
-#include <numstore/core/string.h>
-#include <numstore/intf/stdlib.h>
-#include <numstore/test/testing.h>
-#include <numstore/types/kvt_list_builder.h>
 #include <numstore/types/types.h>
-#include <numstore/types/union_builder.h>
+
+#include <numstore/core/random.h>
+#include <numstore/test/testing.h>
 
 DEFINE_DBG_ASSERT (
     struct union_t, unchecked_union_t, s,
@@ -83,6 +75,42 @@ DEFINE_DBG_ASSERT (struct union_t, valid_union_t, s,
                      error e = error_create ();
                      ASSERT (union_t_validate_shallow (s, &e) == SUCCESS);
                    })
+
+err_t
+union_t_create (struct union_t *dest, struct kvt_list list, struct chunk_alloc *dalloc, error *e)
+{
+  if (list.len == 0)
+    {
+      return union_t_type_err ("union must have greater than 0 keys", e);
+    }
+
+  // Copy stuff over
+  if (dalloc)
+    {
+      dest->len = list.len;
+      dest->keys = chunk_alloc_move_mem (dalloc, list.keys, list.len * sizeof *dest->keys, e);
+      if (dest->keys == NULL)
+        {
+          return e->cause_code;
+        }
+
+      dest->types = chunk_alloc_move_mem (dalloc, list.types, list.len * sizeof *dest->types, e);
+      if (dest->keys == NULL)
+        {
+          return e->cause_code;
+        }
+    }
+
+  // Don't copy
+  else
+    {
+      dest->len = list.len;
+      dest->keys = list.keys;
+      dest->types = list.types;
+    }
+
+  return SUCCESS;
+}
 
 err_t
 union_t_validate (const struct union_t *s, error *e)
@@ -550,11 +578,7 @@ union_t_deserialize (
 
   struct kvt_list list;
   err_t_wrap_goto (kvlb_build (&list, &unb, e), theend, e);
-
-  struct union_builder ub;
-  unb_create (&ub, a);
-  err_t_wrap_goto (unb_accept_kvt_list (&ub, list, e), theend, e);
-  err_t_wrap_goto (unb_build (dest, &ub, e), theend, e);
+  err_t_wrap_goto (union_t_create (dest, list, NULL, e), theend, e);
 
   return SUCCESS;
 

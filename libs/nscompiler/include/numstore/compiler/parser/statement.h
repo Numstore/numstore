@@ -40,14 +40,7 @@
  *
  * field_selection ::= '[' type_accessor (',' type_accessor)* ']'
  */
-struct statement_parser
-{
-  struct parser base;
 
-  struct statement dest;
+err_t parse_statement (struct parser *p, struct statement *dest, struct chunk_alloc *dalloc, error *e);
 
-  struct chunk_alloc temp;
-  struct chunk_alloc *persistent;
-};
-
-err_t parse_type (struct token *src, u32 src_len, struct chunk_alloc *dest, struct statement_parser *parser, error *e);
+bool statement_equal (struct statement left, struct statement right);

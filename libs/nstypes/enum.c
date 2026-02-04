@@ -18,20 +18,10 @@
  *   serialization, deserialization, random generation, and builder functions.
  */
 
-#include "numstore/core/chunk_alloc.h"
-#include "numstore/core/error.h"
-#include <numstore/types/enum.h>
-
-#include <numstore/core/assert.h>
-#include <numstore/core/random.h>
-#include <numstore/core/string.h>
-#include <numstore/intf/stdlib.h>
-#include <numstore/test/testing.h>
 #include <numstore/types/types.h>
 
-// core
-//////////////////////////////
-/// MODEL
+#include <numstore/core/random.h>
+#include <numstore/test/testing.h>
 
 DEFINE_DBG_ASSERT (
     struct enum_t, unchecked_enum_t, e,
@@ -154,7 +144,7 @@ enum_t_snprintf (char *str, u32 size, const struct enum_t *st)
             }
         }
 
-      if ((u16) (i + 1) < st->len)
+      if ((u16)(i + 1) < st->len)
         {
           n = i_snprintf (out, avail, ", ");
           if (n < 0)

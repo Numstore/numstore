@@ -23,6 +23,7 @@
 #pragma once
 
 #include <numstore/core/error.h>
+#include <numstore/core/signatures.h>
 #include <numstore/intf/types.h>
 
 struct stride
@@ -44,6 +45,17 @@ struct user_stride
 
   int present; // bit mask for present -> 0000...00[START][STEP][STOP]
 };
+
+HEADER_FUNC struct user_stride
+ustridefrom (sb_size start, sb_size step, sb_size stop)
+{
+  return (struct user_stride){
+    .start = start,
+    .step = step,
+    .stop = stop,
+    .present = ~0,
+  };
+}
 
 void stride_resolve_expect (struct stride *dest, struct user_stride src, b_size arrlen);
 err_t stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e);

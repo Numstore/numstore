@@ -14,10 +14,4 @@
  *                | NUMBER? ':' NUMBER? ':' NUMBER?
  */
 
-struct stride_parser
-{
-  struct parser base;
-  struct user_stride dest;
-};
-
-err_t parse_stride (struct token *src, u32 src_len, struct stride_parser *parser, error *e);
+err_t parse_stride (struct parser *parser, struct user_stride *dest, error *e);

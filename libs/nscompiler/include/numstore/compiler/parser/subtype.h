@@ -19,29 +19,13 @@
  *   Supports field selection, array indexing, and slicing operations.
  */
 
+#include "numstore/types/subtype.h"
 #include <numstore/compiler/parser/parser.h>
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/types/type_accessor.h>
 
 /**
- * type_accessor   ::= accessor_part ('.' accessor_part)*
- *
- * accessor_part   ::= IDENT stride*
+ * subtype    ::= IDENT stride* ('.' IDENT stride*)*
  */
-struct type_accessor_parser
-{
-  struct parser base;
-
-  struct string vname_dest;
-  struct type_accessor dest;
-
-  struct chunk_alloc temp;
-  struct chunk_alloc *persistent;
-};
-
-err_t parse_type_accessor (
-    struct token *src,
-    u32 src_len,
-    struct type_accessor_parser *parser,
-    error *e);
+err_t parse_subtype (struct parser *p, struct sub_type *dest, struct chunk_alloc *dalloc, error *e);

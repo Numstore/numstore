@@ -18,17 +18,15 @@
  *   byte size calculations, serialization, deserialization, and random generation.
  */
 
-#include "numstore/core/chunk_alloc.h"
-#include <numstore/types/struct.h>
+#include <numstore/types/types.h>
 
 #include <numstore/core/assert.h>
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
 #include <numstore/core/random.h>
 #include <numstore/core/string.h>
 #include <numstore/intf/stdlib.h>
 #include <numstore/test/testing.h>
-#include <numstore/types/kvt_list_builder.h>
-#include <numstore/types/struct_builder.h>
 #include <numstore/types/types.h>
 
 DEFINE_DBG_ASSERT (struct struct_t, unchecked_struct_t, s,
@@ -82,6 +80,42 @@ DEFINE_DBG_ASSERT (struct struct_t, valid_struct_t, s,
                      error e = error_create ();
                      ASSERT (struct_t_validate_shallow (s, &e) == SUCCESS);
                    })
+
+err_t
+struct_t_create (struct struct_t *dest, struct kvt_list list, struct chunk_alloc *dalloc, error *e)
+{
+  if (list.len == 0)
+    {
+      return struct_t_type_err ("struct must have greater than 0 keys", e);
+    }
+
+  // Copy stuff over
+  if (dalloc)
+    {
+      dest->len = list.len;
+      dest->keys = chunk_alloc_move_mem (dalloc, list.keys, list.len * sizeof *dest->keys, e);
+      if (dest->keys == NULL)
+        {
+          return e->cause_code;
+        }
+
+      dest->types = chunk_alloc_move_mem (dalloc, list.types, list.len * sizeof *dest->types, e);
+      if (dest->keys == NULL)
+        {
+          return e->cause_code;
+        }
+    }
+
+  // Don't copy
+  else
+    {
+      dest->len = list.len;
+      dest->keys = list.keys;
+      dest->types = list.types;
+    }
+
+  return SUCCESS;
+}
 
 err_t
 struct_t_validate (const struct struct_t *s, error *e)
@@ -552,10 +586,7 @@ struct_t_deserialize (
   struct kvt_list list;
   err_t_wrap_goto (kvlb_build (&list, &unb, e), theend, e);
 
-  struct struct_builder sb;
-  stb_create (&sb, a);
-  err_t_wrap_goto (stb_accept_kvt_list (&sb, list, e), theend, e);
-  err_t_wrap_goto (stb_build (dest, &sb, e), theend, e);
+  err_t_wrap_goto (struct_t_create (dest, list, NULL, e), theend, e);
 
 theend:
   chunk_alloc_free_all (&temp);
