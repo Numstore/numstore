@@ -115,6 +115,8 @@ rptof_read (
   struct cbuffer destbuf = cbuffer_create (dest, nbytes);
   rptc_seeked_to_read (c, &destbuf, nelems, size, stride);
 
+  // TODO - UNSEEKED FROM LENGTH 0
+
   while (c->state == RPTS_DL_READING)
     {
       err_t_wrap (rptc_read_execute (c, e), e);

@@ -25,11 +25,7 @@
 #include <numstore/core/random.h>
 #include <numstore/intf/logging.h>
 #include <numstore/intf/os.h>
-#include <numstore/types/enum.h>
 #include <numstore/types/prim.h>
-#include <numstore/types/sarray.h>
-#include <numstore/types/struct.h>
-#include <numstore/types/union.h>
 
 // core
 DEFINE_DBG_ASSERT (

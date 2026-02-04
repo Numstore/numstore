@@ -1,8 +1,11 @@
 #pragma once
 
 #include <numstore/core/cbuffer.h>
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
-#include <numstore/types/types.h>
+#include <numstore/core/stride.h>
+#include <numstore/core/string.h>
+#include <numstore/intf/types.h>
 
 enum ta_type
 {
@@ -25,37 +28,38 @@ struct type_accessor
 
     struct range_ta
     {
-      t_size start;
-      t_size step;
-      t_size stop;
+      struct user_stride stride;
       struct type_accessor *sub_ta;
     } range;
   };
 };
 
-struct byte_accessor
+struct type_accessor_builder
 {
-  enum ta_type type;
-  t_size size;
-
-  union
-  {
-    struct select_ba
-    {
-      t_size bofst;
-      struct byte_accessor *sub_ba;
-    } select;
-
-    struct range_ba
-    {
-      t_size bofst;
-      t_size stride;
-      t_size nelems;
-      struct byte_accessor *sub_ba;
-    } range;
-  };
+  struct type_accessor ret;
+  struct type_accessor *head;
+  struct type_accessor *tail;
+  struct chunk_alloc *persistent;
 };
 
-err_t type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, struct type *reftype, error *e);
-void ta_memcpy_from (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc, u32 acclen);
-void ta_memcpy_to (u8 *dest, struct cbuffer *src, struct byte_accessor *acc, u32 acclen);
+void tab_create (
+    struct type_accessor_builder *dest,
+    struct chunk_alloc *persistent);
+
+err_t tab_accept_select (
+    struct type_accessor_builder *builder,
+    struct string key,
+    error *e);
+
+err_t tab_accept_range (
+    struct type_accessor_builder *builder,
+    struct user_stride stride,
+    error *e);
+
+err_t tab_build (
+    struct type_accessor *dest,
+    struct type_accessor_builder *builder,
+    error *e);
+
+bool user_stride_equal (const struct user_stride *left, const struct user_stride *right);
+bool type_accessor_equal (const struct type_accessor *left, const struct type_accessor *right);

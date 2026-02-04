@@ -16,11 +16,8 @@
 
 #include <numstore/compiler/lexer.h>
 #include <numstore/compiler/tokens.h>
-#include <numstore/core/assert.h>
-#include <numstore/core/error.h>
 #include <numstore/core/numbers.h>
-#include <numstore/core/string.h>
-#include <numstore/intf/stdlib.h>
+#include <numstore/types/types.h>
 
 static inline bool
 is_at_end (struct lexer *lex)
@@ -153,6 +150,35 @@ check_keyword (const char *text, u32 len)
     {
       return TT_INSERT;
     }
+  if (len == sizeof ("append") - 1 && i_strncmp (text, "append", len) == 0)
+    {
+      return TT_APPEND;
+    }
+  if (len == sizeof ("read") - 1 && i_strncmp (text, "read", len) == 0)
+    {
+      return TT_READ;
+    }
+  if (len == sizeof ("write") - 1 && i_strncmp (text, "write", len) == 0)
+    {
+      return TT_WRITE;
+    }
+  if (len == sizeof ("remove") - 1 && i_strncmp (text, "remove", len) == 0)
+    {
+      return TT_REMOVE;
+    }
+  if (len == sizeof ("take") - 1 && i_strncmp (text, "take", len) == 0)
+    {
+      return TT_TAKE;
+    }
+
+  if (len == sizeof ("file") - 1 && i_strncmp (text, "file", len) == 0)
+    {
+      return TT_FILE;
+    }
+  if (len == sizeof ("query") - 1 && i_strncmp (text, "query", len) == 0)
+    {
+      return TT_QUERY;
+    }
 
   if (len == sizeof ("struct") - 1 && i_strncmp (text, "struct", len) == 0)
     {
@@ -174,6 +200,11 @@ check_keyword (const char *text, u32 len)
   if (len == sizeof ("false") - 1 && i_strncmp (text, "false", len) == 0)
     {
       return TT_FALSE;
+    }
+
+  if (len == sizeof ("as") - 1 && i_strncmp (text, "as", len) == 0)
+    {
+      return TT_AS;
     }
 
   return TT_IDENTIFIER;
@@ -364,6 +395,11 @@ scan_token (struct lexer *lex, error *e)
     case ',':
       {
         add_token (lex, TT_COMMA);
+        return SUCCESS;
+      }
+    case '.':
+      {
+        add_token (lex, TT_DOT);
         return SUCCESS;
       }
     case '!':
@@ -579,12 +615,14 @@ TEST (TT_UNIT, lexer_numbers)
 
 TEST (TT_UNIT, lexer_keywords)
 {
-  const char *src = "create delete insert struct union enum true false";
+  const char *src = "create delete insert file query struct union enum true false";
 
   struct token expected[] = {
     quick_tok (TT_CREATE),
     quick_tok (TT_DELETE),
     quick_tok (TT_INSERT),
+    quick_tok (TT_FILE),
+    quick_tok (TT_QUERY),
     quick_tok (TT_STRUCT),
     quick_tok (TT_UNION),
     quick_tok (TT_ENUM),

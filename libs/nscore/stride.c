@@ -2,22 +2,19 @@
 #include <numstore/core/stride.h>
 #include <numstore/test/testing.h>
 
-err_t
-stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e)
+void
+stride_resolve_expect (struct stride *dest, struct user_stride src, b_size arrlen)
 {
   sb_size step = (src.present & STEP_PRESENT) ? src.step : 1;
 
-  if (step <= 0)
-    {
-      return error_causef (e, ERR_INVALID_ARGUMENT, "stride step must be positive");
-    }
+  ASSERT (step > 0);
 
   if (arrlen == 0)
     {
       dest->start = 0;
       dest->stride = (u32)step;
       dest->nelems = 0;
-      return SUCCESS;
+      return;
     }
 
   sb_size start, stop;
@@ -82,6 +79,21 @@ stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, erro
   dest->start = (b_size)start;
   dest->stride = (u32)step;
   dest->nelems = nelems;
+
+  return;
+}
+
+err_t
+stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e)
+{
+  sb_size step = (src.present & STEP_PRESENT) ? src.step : 1;
+
+  if (step <= 0)
+    {
+      return error_causef (e, ERR_INVALID_ARGUMENT, "stride step must be positive");
+    }
+
+  stride_resolve_expect (dest, src, arrlen);
 
   return SUCCESS;
 }

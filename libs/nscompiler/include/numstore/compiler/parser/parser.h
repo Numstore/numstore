@@ -17,14 +17,24 @@ DEFINE_DBG_ASSERT (struct parser, parser, p, {
   ASSERT (p->pos <= p->src_len);
 })
 
-HEADER_FUNC void
-parser_init (struct parser *p, struct token *src, u32 src_len)
+HEADER_FUNC struct parser
+parser_init (struct token *src, u32 src_len)
 {
-  p->src = src;
-  p->src_len = src_len;
-  p->pos = 0;
+  struct parser ret = {
+    .src = src,
+    .src_len = src_len,
+    .pos = 0,
+  };
 
-  DBG_ASSERT (parser, p);
+  DBG_ASSERT (parser, &ret);
+
+  return ret;
+}
+
+HEADER_FUNC u32
+parser_remain (struct parser *p)
+{
+  return p->src_len - p->pos;
 }
 
 HEADER_FUNC struct token *
@@ -95,7 +105,7 @@ parser_at_end (struct parser *p)
 HEADER_FUNC err_t
 parser_check_end (struct parser *p, error *e)
 {
-  if (parser_at_end (p))
+  if (!parser_at_end (p))
     {
       return error_causef (e, ERR_SYNTAX, "Unexpected tokens after expression at position %u", p->pos);
     }

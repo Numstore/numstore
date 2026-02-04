@@ -32,6 +32,10 @@
 
 #define is_alpha_num(c) (is_alpha (c) || is_num (c))
 
+#define is_friendly_punc(c) (c == '.' || c == '/' || c == '-')
+
+#define is_alpha_num_generous(c) (is_alpha (c) || is_num (c) || is_friendly_punc (c))
+
 #define arrlen(a) (sizeof (a) / sizeof (*a))
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))

@@ -4,7 +4,7 @@
 #include <numstore/core/string.h>
 #include <numstore/intf/os/memory.h>
 #include <numstore/test/testing.h>
-#include <numstore/types/type_accessor.h>
+#include <numstore/types/byte_accessor.h>
 #include <numstore/types/types.h>
 
 static inline err_t
@@ -71,9 +71,11 @@ sarray_t_to_range_ttoba (struct range_ba *dest, struct range_ta *src, struct sar
   err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, sa->t, e), e);
 
   *dest = (struct range_ba){
-    .bofst = size * src->start,
-    .stride = size * src->step,
-    .nelems = size * (src->stop - src->start),
+    .stride = (struct stride){
+        .start = size * src->stride.start,
+        .stride = size * src->stride.step,
+        .nelems = size * (src->stride.stop - src->stride.start),
+    },
     .sub_ba = sub_ba,
   };
 
@@ -136,13 +138,11 @@ type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, st
   UNREACHABLE ();
 }
 
-static t_size ta_sizeof (struct byte_accessor *acc);
-
-static void
-ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc)
+void
+ba_memcpy_from (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc)
 {
-  ASSERT (cbuffer_avail (dest) >= ta_sizeof (acc));
-  ASSERT (cbuffer_len (src) >= ta_sizeof (acc));
+  ASSERT (cbuffer_avail (dest) >= ba_byte_size (acc));
+  ASSERT (cbuffer_len (src) >= ba_byte_size (acc));
 
   switch (acc->type)
     {
@@ -159,76 +159,42 @@ ta_memcpy_from_once (struct cbuffer *dest, struct cbuffer *src, struct byte_acce
           {
             cbuffer_read (NULL, 1, acc->select.bofst, src);
           }
-        ta_memcpy_from_once (dest, src, acc->select.sub_ba);
+        ba_memcpy_from (dest, src, acc->select.sub_ba);
         return;
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.sub_ba);
+        t_size elem_size = ba_byte_size (acc->range.sub_ba);
 
         // Skip to start position
-        if (acc->range.bofst > 0)
+        if (acc->range.stride.start > 0)
           {
-            cbuffer_read (NULL, acc->range.bofst, elem_size, src);
+            cbuffer_read (NULL, acc->range.stride.start, elem_size, src);
           }
 
         t_size copied_count = 0;
-        t_size pos = acc->range.bofst;
+        t_size pos = acc->range.stride.start;
 
-        while (pos < acc->range.nelems)
+        while (pos < acc->range.stride.nelems)
           {
             // Copy one element
-            ta_memcpy_from_once (dest, src, acc->range.sub_ba);
+            ba_memcpy_from (dest, src, acc->range.sub_ba);
             copied_count++;
 
             // Skip (stride - 1) elements to get to next one
-            if (acc->range.stride > 1)
+            if (acc->range.stride.stride > 1)
               {
-                cbuffer_read (NULL, acc->range.stride - 1, elem_size, src);
+                cbuffer_read (NULL, acc->range.stride.stride - 1, elem_size, src);
               }
 
             // Advance position
-            pos += acc->range.stride;
+            pos += acc->range.stride.stride;
           }
 
         return;
       }
     }
   UNREACHABLE ();
-}
-
-static t_size
-ta_sizeof (struct byte_accessor *acc)
-{
-  switch (acc->type)
-    {
-    case TA_TAKE:
-      {
-        return acc->size;
-      }
-    case TA_SELECT:
-      {
-        return ta_sizeof (acc->select.sub_ba);
-      }
-    case TA_RANGE:
-      {
-        t_size elem_size = ta_sizeof (acc->range.sub_ba);
-        t_size count = (acc->range.nelems - acc->range.bofst + acc->range.stride - 1) / acc->range.stride;
-        return count * elem_size;
-      }
-    }
-  UNREACHABLE ();
-}
-
-void
-ta_memcpy_from (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc, u32 acclen)
-{
-  for (u32 i = 0; i < acclen; i++)
-    {
-      cbuffer_mark (src);
-      ta_memcpy_from_once (dest, src, &acc[i]);
-      cbuffer_reset (src);
-    }
 }
 
 #ifndef NTEST
@@ -256,9 +222,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
   {
     cbuffer_discard_all (&dest);
 
-    struct byte_accessor acc[] = {
-      // SELECT(0, TAKE(4))
-      {
+    struct byte_accessor acc =
+        // SELECT(0, TAKE(4))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 0,
@@ -267,10 +233,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
                   .size = 4,
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_from (&dest, &src, acc, 1);
+    ba_memcpy_from (&dest, &src, &acc);
 
     u8 out[4];
     cbuffer_read (out, 1, 4, &dest);
@@ -282,9 +247,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
 
   TEST_CASE ("[.b]")
   {
-    struct byte_accessor acc[] = {
-      // SELECT(4, TAKE(1))
-      {
+    struct byte_accessor acc =
+        // SELECT(4, TAKE(1))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -293,11 +258,10 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
                   .size = 1,
               },
           },
-      },
-    };
+        };
 
     cbuffer_discard_all (&dest);
-    ta_memcpy_from (&dest, &src, acc, 1);
+    ba_memcpy_from (&dest, &src, &acc);
 
     u8 out[4];
     cbuffer_read (out, 1, 1, &dest);
@@ -308,9 +272,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
   {
     cbuffer_discard_all (&dest);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, TAKE(1))
-      {
+    struct byte_accessor dotb =
+        // SELECT(4, TAKE(1))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -319,21 +283,23 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
                   .size = 1,
               },
           },
-      },
-      // SELECT(0, TAKE(4))
-      {
-          .type = TA_SELECT,
-          .select = {
-              .bofst = 0,
-              .sub_ba = &(struct byte_accessor){
-                  .type = TA_TAKE,
-                  .size = 4,
-              },
+        };
+    // SELECT(0, TAKE(4))
+    struct byte_accessor dota = {
+      .type = TA_SELECT,
+      .select = {
+          .bofst = 0,
+          .sub_ba = &(struct byte_accessor){
+              .type = TA_TAKE,
+              .size = 4,
           },
       },
     };
 
-    ta_memcpy_from (&dest, &src, acc, 2);
+    u32 mark = cbuffer_mark (&src);
+    ba_memcpy_from (&dest, &src, &dotb);
+    cbuffer_reset (&src, mark);
+    ba_memcpy_from (&dest, &src, &dota);
 
     u8 out[5];
     cbuffer_read (out, 5, 1, &dest);
@@ -348,9 +314,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
   {
     cbuffer_discard_all (&dest);
 
-    struct byte_accessor acc[] = {
-      // SELECT(0, TAKE(4))
-      {
+    struct byte_accessor dota =
+        // SELECT(0, TAKE(4))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 0,
@@ -359,22 +325,25 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
                   .size = 4,
               },
           },
-      },
-      // SELECT(4, TAKE(1))
-      {
-          .type = TA_SELECT,
-          .select = {
-              .bofst = 4,
-              .sub_ba = &(struct byte_accessor){
-                  .type = TA_TAKE,
-                  .size = 1,
-              },
+        };
+    // SELECT(4, TAKE(1))
+    struct byte_accessor dotb = {
+      .type = TA_SELECT,
+      .select = {
+          .bofst = 4,
+          .sub_ba = &(struct byte_accessor){
+              .type = TA_TAKE,
+              .size = 1,
           },
       },
     };
 
     cbuffer_discard_all (&dest);
-    ta_memcpy_from (&dest, &src, acc, 2);
+
+    u32 mark = cbuffer_mark (&src);
+    ba_memcpy_from (&dest, &src, &dota);
+    cbuffer_reset (&src, mark);
+    ba_memcpy_from (&dest, &src, &dotb);
 
     u8 out[5];
     cbuffer_read (out, 5, 1, &dest);
@@ -389,9 +358,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
   {
     cbuffer_discard_all (&dest);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, SELECT(1, RANGE(1, 1, 4, TAKE(2)))
-      {
+    struct byte_accessor acc =
+        // SELECT(4, SELECT(1, RANGE(1, 1, 4, TAKE(2)))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -406,18 +375,19 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
                                   .type = TA_TAKE,
                                   .size = 2,
                               },
-                              .bofst = 1,
-                              .stride = 1,
-                              .nelems = 4,
+                              .stride = (struct stride){
+                                  .start = 1,
+                                  .stride = 1,
+                                  .nelems = 4,
+                              },
                           },
                       },
                   },
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_from (&dest, &src, acc, 1);
+    ba_memcpy_from (&dest, &src, &acc);
 
     u8 range_out[6];
     cbuffer_read (range_out, 1, 6, &dest);
@@ -433,9 +403,9 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
   {
     cbuffer_discard_all (&dest);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, SELECT(1, RANGE(0, 2, 5, TAKE(2))))
-      {
+    struct byte_accessor acc =
+        // SELECT(4, SELECT(1, RANGE(0, 2, 5, TAKE(2))))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -450,18 +420,19 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
                                   .type = TA_TAKE,
                                   .size = 2,
                               },
-                              .bofst = 0,
-                              .stride = 2,
-                              .nelems = 5,
+                              .stride = (struct stride){
+                                  .start = 0,
+                                  .stride = 2,
+                                  .nelems = 5,
+                              },
                           },
                       },
                   },
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_from (&dest, &src, acc, 1);
+    ba_memcpy_from (&dest, &src, &acc);
 
     u8 out[6];
     cbuffer_read (out, 1, 6, &dest);
@@ -487,18 +458,15 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
     cbuffer_write (test_data, 1, 12, &src);
 
     // Two accessors: both take first 4 bytes
-    struct byte_accessor acc[] = {
-      {
-          .type = TA_TAKE,
-          .size = 4,
-      },
-      {
-          .type = TA_TAKE,
-          .size = 4,
-      },
+    struct byte_accessor dota = {
+      .type = TA_TAKE,
+      .size = 4,
     };
 
-    ta_memcpy_from (&dest, &src, acc, 2);
+    u32 mark = cbuffer_mark (&src);
+    ba_memcpy_from (&dest, &src, &dota);
+    cbuffer_reset (&src, mark);
+    ba_memcpy_from (&dest, &src, &dota);
 
     u8 out[8];
     u32 read = cbuffer_read (out, 1, 8, &dest);
@@ -513,13 +481,13 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
     test_assert_int_equal (out[7], 3);
   }
 
-  TEST_CASE ("ta_sizeof")
+  TEST_CASE ("ba_byte_size")
   {
     struct byte_accessor take = {
       .type = TA_TAKE,
       .size = 8,
     };
-    test_assert_int_equal (ta_sizeof (&take), 8);
+    test_assert_int_equal (ba_byte_size (&take), 8);
 
     struct byte_accessor select = {
       .type = TA_SELECT,
@@ -528,24 +496,26 @@ TEST (TT_UNIT, ta_memcpy_from_basic)
           .sub_ba = &take,
       },
     };
-    test_assert_int_equal (ta_sizeof (&select), 8);
+    test_assert_int_equal (ba_byte_size (&select), 8);
 
     struct byte_accessor range = {
       .type = TA_RANGE,
       .range = {
           .sub_ba = &take,
-          .bofst = 0,
-          .stride = 2,
-          .nelems = 10,
+          .stride = (struct stride){
+              .start = 0,
+              .stride = 2,
+              .nelems = 10,
+          },
       },
     };
-    test_assert_int_equal (ta_sizeof (&range), 5 * 8);
+    test_assert_int_equal (ba_byte_size (&range), 5 * 8);
   }
 }
 #endif
 
-static void
-ta_memcpy_to_once (u8 *dest, struct cbuffer *src, struct byte_accessor *acc)
+void
+ba_memcpy_to (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *acc)
 {
   switch (acc->type)
     {
@@ -558,40 +528,59 @@ ta_memcpy_to_once (u8 *dest, struct cbuffer *src, struct byte_accessor *acc)
     case TA_SELECT:
       {
         // Skip offset bytes in dest, then recursively copy the selected field
-        ta_memcpy_to_once (dest + acc->select.bofst, src, acc->select.sub_ba);
+        u32 mark = cbuffer_mark (dest);
+        cbuffer_fakewrite (dest, acc->select.bofst);
+        ba_memcpy_to (dest, src, acc->select.sub_ba);
+        cbuffer_reset (dest, mark);
         return;
       }
     case TA_RANGE:
       {
-        t_size elem_size = ta_sizeof (acc->range.sub_ba);
+        t_size elem_size = ba_byte_size (acc->range.sub_ba);
 
-        // Calculate starting position in dest
-        u8 *dest_pos = dest + (acc->range.bofst * elem_size);
+        u32 mark = cbuffer_mark (dest);
+        t_size pos = acc->range.stride.start;
 
-        t_size pos = acc->range.bofst;
-        while (pos < acc->range.nelems)
+        while (pos < acc->range.stride.nelems)
           {
-            // Copy one element from src to current dest position
-            ta_memcpy_to_once (dest_pos, src, acc->range.sub_ba);
+            // Position dest at pos * elem_size from mark
+            cbuffer_reset (dest, mark);
+            cbuffer_fakewrite (dest, pos * elem_size);
 
-            // Advance dest position by stride elements
-            dest_pos += acc->range.stride * elem_size;
-            pos += acc->range.stride;
+            // Copy one element from src to current dest position
+            ba_memcpy_to (dest, src, acc->range.sub_ba);
+
+            pos += acc->range.stride.stride;
           }
 
+        cbuffer_reset (dest, mark);
         return;
       }
     }
   UNREACHABLE ();
 }
 
-void
-ta_memcpy_to (u8 *dest, struct cbuffer *src, struct byte_accessor *acc, u32 acclen)
+t_size
+ba_byte_size (struct byte_accessor *acc)
 {
-  for (u32 i = 0; i < acclen; i++)
+  switch (acc->type)
     {
-      ta_memcpy_to_once (dest, src, &acc[i]);
+    case TA_TAKE:
+      {
+        return acc->size;
+      }
+    case TA_SELECT:
+      {
+        return ba_byte_size (acc->select.sub_ba);
+      }
+    case TA_RANGE:
+      {
+        t_size elem_size = ba_byte_size (acc->range.sub_ba);
+        t_size count = (acc->range.stride.nelems - acc->range.stride.start + acc->range.stride.stride - 1) / acc->range.stride.stride;
+        return count * elem_size;
+      }
     }
+  UNREACHABLE ();
 }
 
 #ifndef NTEST
@@ -600,7 +589,8 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
   // struct { a int, b struct { b char, c [5]u16 } }
   u8 src_buf[64];
   u8 dest_buf[64];
-  struct cbuffer src = cbuffer_create (src_buf, 64);
+  struct cbuffer src = cbuffer_create_from (src_buf);
+  struct cbuffer dest = cbuffer_create_from (dest_buf);
 
   TEST_CASE ("[.a]")
   {
@@ -611,9 +601,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     u8 test_data[] = { 78, 56, 34, 12 };
     cbuffer_write (test_data, 1, sizeof (test_data), &src);
 
-    struct byte_accessor acc[] = {
-      // SELECT(0, TAKE(4))
-      {
+    struct byte_accessor acc =
+        // SELECT(0, TAKE(4))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 0,
@@ -622,10 +612,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
                   .size = 4,
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_to (dest_buf, &src, acc, 1);
+    ba_memcpy_to (&dest, &src, &acc);
 
     test_assert_int_equal (dest_buf[0], 78);
     test_assert_int_equal (dest_buf[1], 56);
@@ -642,9 +631,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     u8 test_data[] = { 0xAB };
     cbuffer_write (test_data, 1, sizeof (test_data), &src);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, TAKE(1))
-      {
+    struct byte_accessor acc =
+        // SELECT(4, TAKE(1))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -653,10 +642,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
                   .size = 1,
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_to (dest_buf, &src, acc, 1);
+    ba_memcpy_to (&dest, &src, &acc);
 
     test_assert_int_equal (dest_buf[4], 0xAB);
   }
@@ -672,9 +660,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     };
     cbuffer_write (test_data, 1, sizeof (test_data), &src);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, TAKE(1))
-      {
+    struct byte_accessor dotb =
+        // SELECT(4, TAKE(1))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -683,21 +671,23 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
                   .size = 1,
               },
           },
-      },
-      // SELECT(0, TAKE(4))
-      {
-          .type = TA_SELECT,
-          .select = {
-              .bofst = 0,
-              .sub_ba = &(struct byte_accessor){
-                  .type = TA_TAKE,
-                  .size = 4,
-              },
+        };
+    // SELECT(0, TAKE(4))
+    struct byte_accessor dota = {
+      .type = TA_SELECT,
+      .select = {
+          .bofst = 0,
+          .sub_ba = &(struct byte_accessor){
+              .type = TA_TAKE,
+              .size = 4,
           },
       },
     };
 
-    ta_memcpy_to (dest_buf, &src, acc, 2);
+    u32 mark = cbuffer_mark (&src);
+    ba_memcpy_to (&dest, &src, &dotb);
+    cbuffer_reset (&src, mark);
+    ba_memcpy_to (&dest, &src, &dota);
 
     test_assert_int_equal (dest_buf[0], 78); // .a
     test_assert_int_equal (dest_buf[1], 56);
@@ -718,9 +708,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     };
     cbuffer_write (test_data, 1, sizeof (test_data), &src);
 
-    struct byte_accessor acc[] = {
-      // SELECT(0, TAKE(4))
-      {
+    struct byte_accessor dota =
+        // SELECT(0, TAKE(4))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 0,
@@ -729,21 +719,21 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
                   .size = 4,
               },
           },
-      },
-      // SELECT(4, TAKE(1))
-      {
-          .type = TA_SELECT,
-          .select = {
-              .bofst = 4,
-              .sub_ba = &(struct byte_accessor){
-                  .type = TA_TAKE,
-                  .size = 1,
-              },
+        };
+    // SELECT(4, TAKE(1))
+    struct byte_accessor dotb = {
+      .type = TA_SELECT,
+      .select = {
+          .bofst = 4,
+          .sub_ba = &(struct byte_accessor){
+              .type = TA_TAKE,
+              .size = 1,
           },
       },
     };
 
-    ta_memcpy_to (dest_buf, &src, acc, 2);
+    ba_memcpy_to (&dest, &src, &dota);
+    ba_memcpy_to (&dest, &src, &dotb);
 
     test_assert_int_equal (dest_buf[0], 78);
     test_assert_int_equal (dest_buf[1], 56);
@@ -765,9 +755,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     };
     cbuffer_write (test_data, 1, sizeof (test_data), &src);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, SELECT(1, RANGE(1, 1, 4, TAKE(2))))
-      {
+    struct byte_accessor acc =
+        // SELECT(4, SELECT(1, RANGE(1, 1, 4, TAKE(2))))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -782,18 +772,19 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
                                   .type = TA_TAKE,
                                   .size = 2,
                               },
-                              .bofst = 1,
-                              .stride = 1,
-                              .nelems = 4,
+                              .stride = (struct stride){
+                                  .start = 1,
+                                  .stride = 1,
+                                  .nelems = 4,
+                              },
                           },
                       },
                   },
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_to (dest_buf, &src, acc, 1);
+    ba_memcpy_to (&dest, &src, &acc);
 
     // offset 4 + 1 + (1*2, 2*2, 3*2) = positions 7, 9, 11
     test_assert_int_equal (dest_buf[7], 2); // c[1]
@@ -817,9 +808,9 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     };
     cbuffer_write (test_data, 1, sizeof (test_data), &src);
 
-    struct byte_accessor acc[] = {
-      // SELECT(4, SELECT(1, RANGE(0, 2, 5, TAKE(2))))
-      {
+    struct byte_accessor acc =
+        // SELECT(4, SELECT(1, RANGE(0, 2, 5, TAKE(2))))
+        {
           .type = TA_SELECT,
           .select = {
               .bofst = 4,
@@ -834,18 +825,19 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
                                   .type = TA_TAKE,
                                   .size = 2,
                               },
-                              .bofst = 0,
-                              .stride = 2,
-                              .nelems = 5,
+                              .stride = (struct stride){
+                                  .start = 0,
+                                  .stride = 2,
+                                  .nelems = 5,
+                              },
                           },
                       },
                   },
               },
           },
-      },
-    };
+        };
 
-    ta_memcpy_to (dest_buf, &src, acc, 1);
+    ba_memcpy_to (&dest, &src, &acc);
 
     // offset 4 + 1 + (0*2, 2*2, 4*2) = positions 5, 9, 13
     test_assert_int_equal (dest_buf[5], 1); // c[0]
@@ -865,22 +857,18 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
     u8 test_data[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
     cbuffer_write (test_data, 1, 8, &src);
 
-    struct byte_accessor acc[] = {
-      {
-          .type = TA_TAKE,
-          .size = 4,
-      },
-      {
-          .type = TA_TAKE,
-          .size = 4,
-      },
+    struct byte_accessor dota = {
+      .type = TA_TAKE,
+      .size = 4,
     };
 
-    ta_memcpy_to (dest_buf, &src, acc, 2);
+    // First write: copies 0,1,2,3 to dest[0..3]
+    ba_memcpy_to (&dest, &src, &dota);
+    // Second write: copies 4,5,6,7 and OVERWRITES dest[0..3]
+    ba_memcpy_to (&dest, &src, &dota);
 
-    // First 4 source bytes go to dest[0..3], then reset src
-    // Next 4 bytes OVERWRITE dest[0..3]
-    test_assert_int_equal (dest_buf[0], 4); // Second write wins
+    // Second write wins since both TAKE accessors write to same position
+    test_assert_int_equal (dest_buf[0], 4);
     test_assert_int_equal (dest_buf[1], 5);
     test_assert_int_equal (dest_buf[2], 6);
     test_assert_int_equal (dest_buf[3], 7);

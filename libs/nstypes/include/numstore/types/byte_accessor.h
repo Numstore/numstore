@@ -4,39 +4,41 @@
 #include <numstore/types/type_accessor.h>
 #include <numstore/types/types.h>
 
-// Type unaware accessor with just stride lengths
 struct byte_accessor
 {
-  enum type_accessor_type type;
+  enum ta_type type;
+  t_size size;
+
   union
   {
-    struct
+    struct select_ba
     {
-      t_size size;
-    } take;
-    struct
-    {
-      struct byte_accessor *query;
-      t_size offset;
+      t_size bofst;
+      struct byte_accessor *sub_ba;
     } select;
-    struct
+
+    struct range_ba
     {
-      struct byte_accessor *query;
-      t_size start;  // Start element index
-      t_size stride; // Element stride (1 = every element, 2 = every other, etc)
-      t_size end;    // End element index (exclusive)
+      struct stride stride;
+      struct byte_accessor *sub_ba;
     } range;
   };
 };
 
-void ta_memcpy_from (
+err_t type_to_byte_accessor (
+    struct byte_accessor *dest,
+    struct type_accessor *src,
+    struct type *reftype,
+    error *e);
+
+t_size ba_byte_size (struct byte_accessor *ba);
+
+void ba_memcpy_from (
     struct cbuffer *dest,
     struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+    struct byte_accessor *acc);
 
-void ta_memcpy_to (
-    u8 *dest,
+void ba_memcpy_to (
+    struct cbuffer *dest,
     struct cbuffer *src,
-    struct byte_accessor *acc,
-    u32 acclen);
+    struct byte_accessor *acc);

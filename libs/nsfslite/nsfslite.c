@@ -20,6 +20,7 @@
  *   with automatic or explicit transaction handling.
  */
 
+#include "numstore/compiler/compiler.h"
 #include "numstore/types/types.h"
 #include <fcntl.h>
 #include <nsfslite.h>
@@ -203,21 +204,10 @@ nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, e
   };
 
   // PARSE TYPE STRING
-  {
-    struct lexer lex;
-    if (lex_tokens (type, i_strlen (type), &lex, e))
-      {
-        goto theend;
-      }
-
-    struct type_parser parser;
-    if (parse_type (lex.tokens, lex.ntokens, &temp, &parser, e))
-      {
-        goto theend;
-      }
-
-    src.t = parser.dest;
-  }
+  if (compile_type (&src.t, type, &temp, e))
+    {
+      goto theend;
+    }
 
   // MAYBE BEGIN TXN
   struct txn auto_txn;
@@ -575,10 +565,11 @@ nsfslite_write (
   struct stride _stride;
 
   // PARSE STRIDE STRING
-  struct lexer lex;
-  struct stride_parser parser;
-  err_t_wrap (lex_tokens (stride, i_strlen (stride), &lex, e), e);
-  err_t_wrap (parse_stride (lex.tokens, lex.ntokens, &parser, e), e);
+  struct user_stride ustride;
+  if (compile_stride (&ustride, stride, e))
+    {
+      goto theend;
+    }
 
   if (nsfslite_get_root (n, &rc, &vc, &temp, &params, e))
     {
@@ -587,7 +578,7 @@ nsfslite_write (
 
   // RESOLVE STRIDE
   t_size size = type_byte_size (&params.t);
-  if (stride_resolve (&_stride, parser.dest, rc->rptc.total_size / size, e))
+  if (stride_resolve (&_stride, ustride, rc->rptc.total_size / size, e))
     {
       rptc_cleanup (&rc->rptc, e);
       goto theend;
@@ -666,10 +657,11 @@ nsfslite_read (
   sb_size ret = -1;
 
   // PARSE STRIDE STRING
-  struct lexer lex;
-  struct stride_parser parser;
-  err_t_wrap (lex_tokens (stride, i_strlen (stride), &lex, e), e);
-  err_t_wrap (parse_stride (lex.tokens, lex.ntokens, &parser, e), e);
+  struct user_stride ustride;
+  if (compile_stride (&ustride, stride, e))
+    {
+      goto theend;
+    }
 
   if (nsfslite_get_root (n, &rc, &vc, &temp, &params, e))
     {
@@ -678,7 +670,7 @@ nsfslite_read (
 
   // RESOLVE STRIDE
   t_size size = type_byte_size (&params.t);
-  if (stride_resolve (&_stride, parser.dest, rc->rptc.total_size / size, e))
+  if (stride_resolve (&_stride, ustride, rc->rptc.total_size / size, e))
     {
       rptc_cleanup (&rc->rptc, e);
       goto theend;
@@ -739,10 +731,11 @@ nsfslite_remove (
   struct stride _stride;
 
   // PARSE STRIDE STRING
-  struct lexer lex;
-  struct stride_parser parser;
-  err_t_wrap (lex_tokens (stride, i_strlen (stride), &lex, e), e);
-  err_t_wrap (parse_stride (lex.tokens, lex.ntokens, &parser, e), e);
+  struct user_stride ustride;
+  if (compile_stride (&ustride, stride, e))
+    {
+      goto theend;
+    }
 
   if (nsfslite_get_root (n, &rc, &vc, &temp, &params, e))
     {
@@ -751,7 +744,7 @@ nsfslite_remove (
 
   // RESOLVE STRIDE
   t_size size = type_byte_size (&params.t);
-  if (stride_resolve (&_stride, parser.dest, rc->rptc.total_size / size, e))
+  if (stride_resolve (&_stride, ustride, rc->rptc.total_size / size, e))
     {
       rptc_cleanup (&rc->rptc, e);
       goto theend;
