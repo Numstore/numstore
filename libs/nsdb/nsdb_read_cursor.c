@@ -280,7 +280,7 @@ nsdbrc_ba_memcpy (struct nsdb_read_cursor *rc)
   for (u32 i = 0; i < rc->variables.len; ++i)
     {
       struct cbuffer *src = &rc->variables.singles[i];
-      cbuffer_reset (src, mark);
+      cbuffer_discard_all (src);
     }
 
   ASSERT (cbuffer_avail (&rc->dest) == 0);
