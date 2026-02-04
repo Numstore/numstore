@@ -19,5 +19,4 @@ err_t compile_type (
 err_t compile_stride (
     struct user_stride *dest,
     const char *text,
-    struct chunk_alloc *dalloc,
     error *e);

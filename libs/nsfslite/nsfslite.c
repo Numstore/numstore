@@ -566,7 +566,7 @@ nsfslite_write (
 
   // PARSE STRIDE STRING
   struct user_stride ustride;
-  if (compile_stride (&ustride, stride, &temp, e))
+  if (compile_stride (&ustride, stride, e))
     {
       goto theend;
     }
@@ -658,7 +658,7 @@ nsfslite_read (
 
   // PARSE STRIDE STRING
   struct user_stride ustride;
-  if (compile_stride (&ustride, stride, &temp, e))
+  if (compile_stride (&ustride, stride, e))
     {
       goto theend;
     }
@@ -732,7 +732,7 @@ nsfslite_remove (
 
   // PARSE STRIDE STRING
   struct user_stride ustride;
-  if (compile_stride (&ustride, stride, &temp, e))
+  if (compile_stride (&ustride, stride, e))
     {
       goto theend;
     }
