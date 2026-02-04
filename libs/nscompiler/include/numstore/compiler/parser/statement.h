@@ -42,5 +42,3 @@
  */
 
 err_t parse_statement (struct parser *p, struct statement *dest, struct chunk_alloc *dalloc, error *e);
-
-bool statement_equal (struct statement left, struct statement right);

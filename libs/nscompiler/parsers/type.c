@@ -111,7 +111,7 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   err_t err;
 
   // 'struct'
-  err_t_wrap (parser_expect (parser->base, TT_UNION, e), e);
+  err_t_wrap (parser_expect (parser->base, TT_STRUCT, e), e);
 
   // '{ '
   err_t_wrap (parser_expect (parser->base, TT_LEFT_BRACE, e), e);
@@ -146,7 +146,7 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
 
   err_t_wrap (parser_expect (parser->base, TT_RIGHT_BRACE, e), e);
 
-  out->type = T_UNION;
+  out->type = T_STRUCT;
 
   // Build kvt list
   struct kvt_list list;

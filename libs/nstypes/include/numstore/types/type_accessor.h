@@ -60,3 +60,6 @@ err_t tab_build (
     struct type_accessor *dest,
     struct type_accessor_builder *builder,
     error *e);
+
+bool user_stride_equal (const struct user_stride *left, const struct user_stride *right);
+bool type_accessor_equal (const struct type_accessor *left, const struct type_accessor *right);

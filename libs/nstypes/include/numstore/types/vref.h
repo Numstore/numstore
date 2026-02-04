@@ -46,3 +46,6 @@ err_t vrlb_build (
     struct vref_list *dest,
     struct vref_list_builder *builder,
     error *e);
+
+bool vref_equal (const struct vref *left, const struct vref *right);
+bool vref_list_equal (const struct vref_list *left, const struct vref_list *right);

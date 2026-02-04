@@ -92,3 +92,60 @@ wrtst_create (struct statement *dest, struct vref_list vrefs, struct subtype_lis
   };
   return SUCCESS;
 }
+
+bool
+statement_equal (const struct statement *left, const struct statement *right)
+{
+  if (left->type != right->type)
+    {
+      return false;
+    }
+
+  switch (left->type)
+    {
+    case ST_CREATE:
+      {
+        return string_equal (left->create.vname, right->create.vname)
+               && type_equal (&left->create.vtype, &right->create.vtype);
+      }
+    case ST_DELETE:
+      {
+        return string_equal (left->delete.vname, right->delete.vname);
+      }
+    case ST_INSERT:
+      {
+        return string_equal (left->insert.vname, right->insert.vname)
+               && left->insert.ofst == right->insert.ofst && left->insert.nelems == right->insert.nelems;
+      }
+    case ST_APPEND:
+      {
+        return string_equal (left->append.vname, right->append.vname)
+               && left->append.nelems == right->append.nelems;
+      }
+    case ST_READ:
+      {
+        return vref_list_equal (&left->read.vrefs, &right->read.vrefs)
+               && subtype_list_equal (&left->read.acc, &right->read.acc)
+               && user_stride_equal (&left->read.gstride, &right->read.gstride);
+      }
+    case ST_TAKE:
+      {
+        return vref_list_equal (&left->take.vrefs, &right->take.vrefs)
+               && subtype_list_equal (&left->take.acc, &right->take.acc)
+               && user_stride_equal (&left->take.gstride, &right->take.gstride);
+      }
+    case ST_REMOVE:
+      {
+        return vref_equal (&left->remove.ref, &right->remove.ref)
+               && user_stride_equal (&left->remove.gstride, &right->remove.gstride);
+      }
+    case ST_WRITE:
+      {
+        return vref_list_equal (&left->write.vrefs, &right->write.vrefs)
+               && subtype_list_equal (&left->write.acc, &right->write.acc)
+               && user_stride_equal (&left->write.gstride, &right->write.gstride);
+      }
+    }
+
+  return false;
+}

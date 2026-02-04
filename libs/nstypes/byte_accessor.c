@@ -539,21 +539,21 @@ ba_memcpy_to (struct cbuffer *dest, struct cbuffer *src, struct byte_accessor *a
         t_size elem_size = ba_byte_size (acc->range.sub_ba);
 
         u32 mark = cbuffer_mark (dest);
-        cbuffer_fakewrite (dest, acc->range.stride.start * elem_size);
-
         t_size pos = acc->range.stride.start;
+
         while (pos < acc->range.stride.nelems)
           {
+            // Position dest at pos * elem_size from mark
+            cbuffer_reset (dest, mark);
+            cbuffer_fakewrite (dest, pos * elem_size);
+
             // Copy one element from src to current dest position
             ba_memcpy_to (dest, src, acc->range.sub_ba);
-
-            // Advance dest position by stride elements
-            cbuffer_reset (dest, mark);
-            cbuffer_fakewrite (dest, acc->range.stride.stride * elem_size);
 
             pos += acc->range.stride.stride;
           }
 
+        cbuffer_reset (dest, mark);
         return;
       }
     }
@@ -862,11 +862,13 @@ TEST (TT_UNIT, ta_memcpy_to_basic)
       .size = 4,
     };
 
+    // First write: copies 0,1,2,3 to dest[0..3]
+    ba_memcpy_to (&dest, &src, &dota);
+    // Second write: copies 4,5,6,7 and OVERWRITES dest[0..3]
     ba_memcpy_to (&dest, &src, &dota);
 
-    // First 4 source bytes go to dest[0..3], then reset src
-    // Next 4 bytes OVERWRITE dest[0..3]
-    test_assert_int_equal (dest_buf[0], 4); // Second write wins
+    // Second write wins since both TAKE accessors write to same position
+    test_assert_int_equal (dest_buf[0], 4);
     test_assert_int_equal (dest_buf[1], 5);
     test_assert_int_equal (dest_buf[2], 6);
     test_assert_int_equal (dest_buf[3], 7);

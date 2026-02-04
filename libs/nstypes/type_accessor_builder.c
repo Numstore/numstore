@@ -4,6 +4,64 @@
 #include <numstore/core/assert.h>
 #include <numstore/test/testing.h>
 
+bool
+user_stride_equal (const struct user_stride *left, const struct user_stride *right)
+{
+  return left->start == right->start && left->step == right->step && left->stop == right->stop
+         && left->present == right->present;
+}
+
+bool
+type_accessor_equal (const struct type_accessor *left, const struct type_accessor *right)
+{
+  if (left->type != right->type)
+    {
+      return false;
+    }
+
+  switch (left->type)
+    {
+    case TA_TAKE:
+      {
+        return true;
+      }
+    case TA_SELECT:
+      {
+        if (!string_equal (left->select.key, right->select.key))
+          {
+            return false;
+          }
+        if (left->select.sub_ta == NULL && right->select.sub_ta == NULL)
+          {
+            return true;
+          }
+        if (left->select.sub_ta == NULL || right->select.sub_ta == NULL)
+          {
+            return false;
+          }
+        return type_accessor_equal (left->select.sub_ta, right->select.sub_ta);
+      }
+    case TA_RANGE:
+      {
+        if (!user_stride_equal (&left->range.stride, &right->range.stride))
+          {
+            return false;
+          }
+        if (left->range.sub_ta == NULL && right->range.sub_ta == NULL)
+          {
+            return true;
+          }
+        if (left->range.sub_ta == NULL || right->range.sub_ta == NULL)
+          {
+            return false;
+          }
+        return type_accessor_equal (left->range.sub_ta, right->range.sub_ta);
+      }
+    }
+
+  return false;
+}
+
 DEFINE_DBG_ASSERT (
     struct type_accessor_builder, type_accessor_builder, s,
     {

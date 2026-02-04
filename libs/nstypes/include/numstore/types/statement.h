@@ -81,3 +81,5 @@ err_t redst_create (struct statement *dest, struct vref_list vrefs, struct subty
 err_t takst_create (struct statement *dest, struct vref_list vrefs, struct subtype_list acc, struct user_stride gstride, error *e);
 err_t remst_create (struct statement *dest, struct vref ref, struct user_stride gstride, error *e);
 err_t wrtst_create (struct statement *dest, struct vref_list vrefs, struct subtype_list acc, struct user_stride gstride, error *e);
+
+bool statement_equal (const struct statement *left, const struct statement *right);

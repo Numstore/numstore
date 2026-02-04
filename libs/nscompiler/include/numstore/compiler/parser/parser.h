@@ -105,7 +105,7 @@ parser_at_end (struct parser *p)
 HEADER_FUNC err_t
 parser_check_end (struct parser *p, error *e)
 {
-  if (parser_at_end (p))
+  if (!parser_at_end (p))
     {
       return error_causef (e, ERR_SYNTAX, "Unexpected tokens after expression at position %u", p->pos);
     }

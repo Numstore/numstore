@@ -3,6 +3,31 @@
 #include <numstore/core/assert.h>
 #include <numstore/test/testing.h>
 
+bool
+subtype_equal (const struct subtype *left, const struct subtype *right)
+{
+  return string_equal (left->vname, right->vname) && type_accessor_equal (&left->ta, &right->ta);
+}
+
+bool
+subtype_list_equal (const struct subtype_list *left, const struct subtype_list *right)
+{
+  if (left->len != right->len)
+    {
+      return false;
+    }
+
+  for (u32 i = 0; i < left->len; ++i)
+    {
+      if (!subtype_equal (&left->items[i], &right->items[i]))
+        {
+          return false;
+        }
+    }
+
+  return true;
+}
+
 DEFINE_DBG_ASSERT (
     struct subtype_list_builder, subtype_list_builder, s,
     {

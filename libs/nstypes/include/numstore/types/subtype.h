@@ -45,3 +45,6 @@ err_t stalb_build (
     struct subtype_list *dest,
     struct subtype_list_builder *builder,
     error *e);
+
+bool subtype_equal (const struct subtype *left, const struct subtype *right);
+bool subtype_list_equal (const struct subtype_list *left, const struct subtype_list *right);
