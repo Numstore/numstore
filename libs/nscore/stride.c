@@ -1,3 +1,4 @@
+#include "numstore/core/assert.h"
 #include "numstore/core/error.h"
 #include <numstore/core/stride.h>
 #include <numstore/test/testing.h>

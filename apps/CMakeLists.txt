@@ -40,3 +40,4 @@ add_ns_executable(client_server
 )
 
 add_subdirectory(scratch)
+add_subdirectory(performance)

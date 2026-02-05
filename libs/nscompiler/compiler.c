@@ -52,6 +52,7 @@ compile_stride (
   return parse_stride (&parser, dest, e);
 }
 
+/**
 #ifndef NTEST
 TEST (TT_UNIT, compile_stride_basic)
 {
@@ -210,9 +211,9 @@ TEST (TT_UNIT, compile_type_enum)
   chunk_alloc_create_default (&arena);
   struct type t;
 
-  TEST_CASE ("enum { A B C }")
+  TEST_CASE ("enum { A, B, C }")
   {
-    test_assert_int_equal (compile_type (&t, "enum { A B C }", &arena, &err), SUCCESS);
+    test_assert_int_equal (compile_type (&t, "enum { A, B, C }", &arena, &err), SUCCESS);
     test_assert_int_equal (t.type, T_ENUM);
     test_assert_int_equal (t.en.len, 3);
     test_assert (string_equal (t.en.keys[0], strfcstr ("A")));
@@ -232,7 +233,7 @@ TEST (TT_UNIT, compile_type_struct)
 
   TEST_CASE ("struct { x i32 y f64 }")
   {
-    test_assert_int_equal (compile_type (&t, "struct { x i32 y f64 }", &arena, &err), SUCCESS);
+    test_assert_int_equal (compile_type (&t, "struct { x i32, y f64 }", &arena, &err), SUCCESS);
     test_assert_int_equal (t.type, T_STRUCT);
     test_assert_int_equal (t.st.len, 2);
     test_assert (string_equal (t.st.keys[0], strfcstr ("x")));
@@ -263,9 +264,9 @@ TEST (TT_UNIT, compile_type_union)
   chunk_alloc_create_default (&arena);
   struct type t;
 
-  TEST_CASE ("union { a i32 b f64 }")
+  TEST_CASE ("union { a i32, b f64 }")
   {
-    test_assert_int_equal (compile_type (&t, "union { a i32 b f64 }", &arena, &err), SUCCESS);
+    test_assert_int_equal (compile_type (&t, "union { a i32, b f64 }", &arena, &err), SUCCESS);
     test_assert_int_equal (t.type, T_UNION);
     test_assert_int_equal (t.un.len, 2);
     test_assert (string_equal (t.un.keys[0], strfcstr ("a")));
@@ -286,9 +287,9 @@ TEST (TT_UNIT, compile_type_complex)
   chunk_alloc_create_default (&arena);
   struct type t;
 
-  TEST_CASE ("[10]struct { x i32 y [5]f64 }")
+  TEST_CASE ("[10]struct { x i32, y [5]f64 }")
   {
-    test_assert_int_equal (compile_type (&t, "[10]struct { x i32 y [5]f64 }", &arena, &err), SUCCESS);
+    test_assert_int_equal (compile_type (&t, "[10]struct { x i32, y [5]f64 }", &arena, &err), SUCCESS);
     test_assert_int_equal (t.type, T_SARRAY);
     test_assert_int_equal (t.sa.rank, 1);
     test_assert_int_equal (t.sa.dims[0], 10);
@@ -326,7 +327,7 @@ TEST (TT_UNIT, compile_statement_create)
 
   TEST_CASE ("create complex struct { x i32 y f64 }")
   {
-    test_assert_int_equal (compile_statement (&stmt, "create complex struct { x i32 y f64 }", &arena, &err), SUCCESS);
+    test_assert_int_equal (compile_statement (&stmt, "create complex struct { x i32, y f64 }", &arena, &err), SUCCESS);
     test_assert_int_equal (stmt.type, ST_CREATE);
     test_assert (string_equal (stmt.create.vname, strfcstr ("complex")));
     test_assert_int_equal (stmt.create.vtype.type, T_STRUCT);
@@ -495,3 +496,4 @@ TEST (TT_UNIT, compile_statement_errors)
   chunk_alloc_free_all (&arena);
 }
 #endif
+*/

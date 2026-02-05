@@ -1,3 +1,4 @@
+#include "numstore/compiler/parser/parser.h"
 #include <numstore/types/types.h>
 
 #include <numstore/compiler/parser/type.h>
@@ -65,7 +66,7 @@ parse_sarray_type (struct type_parser *parser, struct type *out, error *e)
   return sab_build (&out->sa, &builder, e);
 }
 
-/* enum_type ::= 'enum' '{' enum_list? '}' */
+// enum_type       ::= 'enum' '{' IDENT (',') IDENT '}'
 static err_t
 parse_enum_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -77,15 +78,34 @@ parse_enum_type (struct type_parser *parser, struct type *out, error *e)
   struct enum_builder builder;
   enb_create (&builder, &parser->temp, parser->persistent);
 
-  while (!parser_match (parser->base, TT_RIGHT_BRACE))
+  // IDENT
+  if (!parser_match (parser->base, TT_IDENTIFIER))
     {
-      // Enum value
+      return error_causef (e, ERR_SYNTAX, "Expected identifier at position %u", parser->base->pos);
+    }
+
+  struct token *tok = parser_advance (parser->base);
+  err_t_wrap (
+      enb_accept_key (
+          &builder,
+          (struct string){
+              .data = (char *)tok->str.data,
+              .len = tok->str.len,
+          },
+          e),
+      e);
+
+  while (parser_match (parser->base, TT_COMMA))
+    {
+      parser_advance (parser->base);
+
+      // IDENT
       if (!parser_match (parser->base, TT_IDENTIFIER))
         {
           return error_causef (e, ERR_SYNTAX, "Expected identifier at position %u", parser->base->pos);
         }
 
-      struct token *tok = parser_advance (parser->base);
+      tok = parser_advance (parser->base);
       err_t_wrap (
           enb_accept_key (
               &builder,
@@ -104,7 +124,36 @@ parse_enum_type (struct type_parser *parser, struct type *out, error *e)
   return enb_build (&out->en, &builder, e);
 }
 
-/* struct_type ::= 'struct' '{' field_list? '}' */
+// field           ::= IDENTIFIER type
+static inline err_t
+parse_field (struct kvt_list_builder *builder, struct type_parser *parser, error *e)
+{
+  // IDENT
+  if (!parser_match (parser->base, TT_IDENTIFIER))
+    {
+      return error_causef (e, ERR_SYNTAX, "Expected identifier at position %u", parser->base->pos);
+    }
+
+  struct token *tok = parser_advance (parser->base);
+  err_t_wrap (
+      kvlb_accept_key (
+          builder,
+          (struct string){
+              .data = (char *)tok->str.data,
+              .len = tok->str.len,
+          },
+          e),
+      e);
+
+  // Type
+  struct type inner;
+  err_t_wrap (parse_type_inner (parser, &inner, e), e);
+  err_t_wrap (kvlb_accept_type (builder, inner, e), e);
+
+  return SUCCESS;
+}
+
+// struct_type     ::= 'struct' '{' IDENT type (',' IDENT type)* '}'
 static err_t
 parse_struct_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -119,43 +168,26 @@ parse_struct_type (struct type_parser *parser, struct type *out, error *e)
   struct kvt_list_builder builder;
   kvlb_create (&builder, &parser->temp, parser->persistent);
 
-  while (!parser_match (parser->base, TT_RIGHT_BRACE))
+  err_t_wrap (parse_field (&builder, parser, e), e);
+
+  while (parser_match (parser->base, TT_COMMA))
     {
-      // Key
-      if (!parser_match (parser->base, TT_IDENTIFIER))
-        {
-          return error_causef (e, ERR_SYNTAX, "Expected field name at position %u", parser->base->pos);
-        }
-
-      struct token *tok = parser_advance (parser->base);
-      err_t_wrap (
-          kvlb_accept_key (
-              &builder,
-              (struct string){
-                  .data = tok->str.data,
-                  .len = tok->str.len,
-              },
-              e),
-          e);
-
-      // Type
-      struct type inner;
-      err_t_wrap (parse_type_inner (parser, &inner, e), e);
-      err_t_wrap (kvlb_accept_type (&builder, inner, e), e);
+      parser_advance (parser->base);
+      err_t_wrap (parse_field (&builder, parser, e), e);
     }
 
   err_t_wrap (parser_expect (parser->base, TT_RIGHT_BRACE, e), e);
-
-  out->type = T_STRUCT;
 
   // Build kvt list
   struct kvt_list list;
   err_t_wrap (kvlb_build (&list, &builder, e), e);
 
+  out->type = T_STRUCT;
+
   return struct_t_create (&out->st, list, NULL, e);
 }
 
-/* union_type ::= 'union' '{' field_list? '}' */
+// union_type     ::= 'union' '{' IDENT type (',' IDENT type)* '}'
 static err_t
 parse_union_type (struct type_parser *parser, struct type *out, error *e)
 {
@@ -170,38 +202,21 @@ parse_union_type (struct type_parser *parser, struct type *out, error *e)
   struct kvt_list_builder builder;
   kvlb_create (&builder, &parser->temp, parser->persistent);
 
-  while (!parser_match (parser->base, TT_RIGHT_BRACE))
+  err_t_wrap (parse_field (&builder, parser, e), e);
+
+  while (parser_match (parser->base, TT_COMMA))
     {
-      // Key
-      if (!parser_match (parser->base, TT_IDENTIFIER))
-        {
-          return error_causef (e, ERR_SYNTAX, "Expected field name at position %u", parser->base->pos);
-        }
-
-      struct token *tok = parser_advance (parser->base);
-      err_t_wrap (
-          kvlb_accept_key (
-              &builder,
-              (struct string){
-                  .data = tok->str.data,
-                  .len = tok->str.len,
-              },
-              e),
-          e);
-
-      // Type
-      struct type inner;
-      err_t_wrap (parse_type_inner (parser, &inner, e), e);
-      err_t_wrap (kvlb_accept_type (&builder, inner, e), e);
+      parser_advance (parser->base);
+      err_t_wrap (parse_field (&builder, parser, e), e);
     }
 
   err_t_wrap (parser_expect (parser->base, TT_RIGHT_BRACE, e), e);
 
-  out->type = T_UNION;
-
   // Build kvt list
   struct kvt_list list;
   err_t_wrap (kvlb_build (&list, &builder, e), e);
+
+  out->type = T_UNION;
 
   return union_t_create (&out->un, list, NULL, e);
 }

@@ -15,21 +15,17 @@
  *                   | sarray_type
  *                   | primitive_type
  *
- * struct_type     ::= 'struct' '{' field_list? '}'
+ * struct_type     ::= 'struct' '{' field (',' field)* '}'
  *
- * union_type      ::= 'union' '{' field_list? '}'
+ * union_type      ::= 'union' '{' field (',' field)* '}'
  *
- * enum_type       ::= 'enum' '{' enum_list? '}'
+ * enum_type       ::= 'enum' '{' IDENT (',') IDENT '}'
  *
  * sarray_type     ::= '[' INTEGER ']'+ type
  *
  * primitive_type  ::= PRIM
  *
- * field_list      ::= field (',' field)* ','?
- *
  * field           ::= IDENTIFIER type
- *
- * enum_list       ::= IDENTIFIER (',' IDENTIFIER)* ','?
  */
 
 err_t parse_type (struct parser *p, struct type *dest, struct chunk_alloc *dalloc, error *e);

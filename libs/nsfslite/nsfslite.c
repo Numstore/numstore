@@ -151,7 +151,6 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
   return ret;
 
 failed:
-  error_log_consume (e);
   return NULL;
 }
 

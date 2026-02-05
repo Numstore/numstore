@@ -41,3 +41,11 @@ void lalloc_reset_to_state (struct lalloc *l, u32 state);
 void *lmalloc (struct lalloc *a, u32 req, u32 size, error *e);
 void *lcalloc (struct lalloc *a, u32 req, u32 size, error *e);
 void lalloc_reset (struct lalloc *a);
+
+HEADER_FUNC void *
+lmalloc_expect (struct lalloc *a, u32 req, u32 size)
+{
+  void *ret = lmalloc (a, req, size, NULL);
+  ASSERT (ret);
+  return ret;
+}

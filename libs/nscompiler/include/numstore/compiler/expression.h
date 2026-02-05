@@ -21,9 +21,9 @@
  *   for arithmetic, logical, and bitwise operations.
  */
 
-#include <numstore/compiler/literal.h>
 #include <numstore/compiler/tokens.h>
 #include <numstore/core/assert.h>
+#include <numstore/types/literal.h>
 
 struct expr;
 
@@ -88,10 +88,11 @@ struct expr
 {
   enum expr_t
   {
-    ET_VALUE,
+    ET_LITERAL,
     ET_UNARY,
     ET_BINARY,
     ET_GROUPING,
+    ET_VARREF,
   } type;
 
   union
@@ -100,53 +101,11 @@ struct expr
     struct unary u;
     struct binary b;
     struct expr *g;
-    char *v;
   };
 };
 
-HEADER_FUNC struct expr
-create_literal_expr (struct literal l)
-{
-  return (struct expr){ .type = ET_VALUE, .l = l };
-}
-
-HEADER_FUNC struct expr
-create_grouping_expr (struct expr *e)
-{
-  return (struct expr){ .type = ET_GROUPING, .g = e };
-}
-
-HEADER_FUNC struct expr
-create_unary_expr (struct expr *e, enum token_t op)
-{
-  struct unary ret = {
-    .op = op,
-    .e = e,
-  };
-
-  DBG_ASSERT (unary, &ret);
-
-  return (struct expr){
-    .type = ET_UNARY,
-    .u = ret,
-  };
-}
-
-HEADER_FUNC struct expr
-create_binary_expr (struct expr *left, enum token_t op, struct expr *right)
-{
-  struct binary ret = {
-    .left = left,
-    .op = op,
-    .right = right,
-  };
-
-  DBG_ASSERT (binary, &ret);
-
-  return (struct expr){
-    .type = ET_BINARY,
-    .b = ret,
-  };
-}
-
-err_t expr_evaluate (struct literal *dest, struct expr *exp, struct lalloc *work, error *e);
+err_t expr_evaluate (
+    struct literal *dest,
+    struct expr *exp,
+    struct lalloc *work,
+    error *e);

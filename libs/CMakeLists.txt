@@ -8,6 +8,7 @@ add_subdirectory(nsfslite)
 add_subdirectory(nscompiler)
 add_subdirectory(nsnet)
 add_subdirectory(nsdb)
+add_subdirectory(nsfile)
 add_subdirectory(nsapps/nsserver)
 
 add_library(numstore STATIC ${NS_ALL_OBJECTS})

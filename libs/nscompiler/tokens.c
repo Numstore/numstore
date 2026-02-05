@@ -129,6 +129,8 @@ tt_tostr (enum token_t t)
       case_ENUM_RETURN_STRING (TT_FALSE);
 
       case_ENUM_RETURN_STRING (TT_AS);
+
+      case_ENUM_RETURN_STRING (TT_EOF);
     }
 
   UNREACHABLE ();

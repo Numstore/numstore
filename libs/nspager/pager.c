@@ -76,7 +76,7 @@ pgr_flush (struct pager *p, struct page_frame *mp, error *e)
        * no point in writing pages during evict because we SHOULDN't
        * be creating new data.
        */
-      if (!p->restarting)
+      if (!p->restarting && p->wal_enabled)
         {
           lsn plsn = page_get_page_lsn (&mp->page);
           err_t_wrap (wal_flush_to (&p->ww, plsn, e), e);
@@ -313,16 +313,19 @@ theend:
 ////// LIFECYCLE
 
 static struct pager *
-pgr_open_new (const char *fname, const char *walname, struct pager *p, error *e)
+pgr_open_new (const char *fname, struct pager *p, error *e)
 {
   i_log_info ("Creating new database: %s\n", fname);
   if (fpgr_reset (&p->fp, e))
     {
       return NULL;
     }
-  if (wal_reset (&p->ww, e))
+  if (p->wal_enabled)
     {
-      return NULL;
+      if (wal_reset (&p->ww, e))
+        {
+          return NULL;
+        }
     }
 
   if (txnt_open (&p->tnxt, e))
@@ -364,50 +367,53 @@ failed:
 }
 
 static struct pager *
-pgr_open_existing (const char *fname, const char *walname, struct pager *ret, error *e)
+pgr_open_existing (const char *fname, struct pager *ret, error *e)
 {
   i_log_info ("Opening existing database: %s\n", fname);
 
-  // Open the transaction table
   if (txnt_open (&ret->tnxt, e))
     {
       return NULL;
     }
 
-  // Run ARIES recovery if WAL is enabled
-  i_log_info ("Running ARIES recovery (analysis/redo/undo)...\n");
-
-  i_log_info ("Read master LSN: %" PRlsn "\n", ret->master_lsn);
-
-  if (ret->master_lsn == 0)
+  // Open the transaction table
+  if (ret->wal_enabled)
     {
-      i_log_info ("No checkpoint found, starting recovery from beginning\n");
-    }
-  else
-    {
-      i_log_info ("Starting recovery from checkpoint at LSN %" PRlsn "\n", ret->master_lsn);
-    }
+      // Run ARIES recovery if WAL is enabled
+      i_log_info ("Running ARIES recovery (analysis/redo/undo)...\n");
 
-  struct aries_ctx ctx;
-  if (aries_ctx_create (&ctx, ret->master_lsn, e))
-    {
-      goto failed;
+      i_log_info ("Read master LSN: %" PRlsn "\n", ret->master_lsn);
+
+      if (ret->master_lsn == 0)
+        {
+          i_log_info ("No checkpoint found, starting recovery from beginning\n");
+        }
+      else
+        {
+          i_log_info ("Starting recovery from checkpoint at LSN %" PRlsn "\n", ret->master_lsn);
+        }
+
+      struct aries_ctx ctx;
+      if (aries_ctx_create (&ctx, ret->master_lsn, e))
+        {
+          goto failed;
+        }
+      err_t result = pgr_restart (ret, &ctx, e);
+      // Go back to write mode
+      if (result != SUCCESS)
+        {
+          i_log_error ("ARIES recovery failed with error code %d: %s\n", e->cause_code, e->cause_msg);
+          goto failed;
+        }
+
+      i_log_info ("ARIES recovery completed successfully\n");
+
+      // Enter optimized write mode
+      err_t_wrap_goto (wal_write_mode (&ret->ww, e), failed, e);
+      ret->next_tid = ctx.max_tid + 1;
+
+      i_log_info ("Opened existing database, starting with next_tid: %" PRtxid "\n", ret->next_tid);
     }
-  err_t result = pgr_restart (ret, &ctx, e);
-  // Go back to write mode
-  if (result != SUCCESS)
-    {
-      i_log_error ("ARIES recovery failed with error code %d: %s\n", e->cause_code, e->cause_msg);
-      goto failed;
-    }
-
-  i_log_info ("ARIES recovery completed successfully\n");
-
-  // Enter optimized write mode
-  err_t_wrap_goto (wal_write_mode (&ret->ww, e), failed, e);
-  ret->next_tid = ctx.max_tid + 1;
-
-  i_log_info ("Opened existing database, starting with next_tid: %" PRtxid "\n", ret->next_tid);
 
   return ret;
 
@@ -469,10 +475,6 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
       err_t_wrap_goto (wal_open (&ret->ww, walname, e), failed, e);
       wal_opened = true;
     }
-  else
-    {
-      panic ("TODO - optional WAL");
-    }
 
   // Initialize the hash table from pgno -> table index
   ht_init_idx (&ret->pgno_to_value, ret->_hdata, MEMORY_PAGE_LEN);
@@ -491,15 +493,16 @@ pgr_open (const char *fname, const char *walname, struct lockt *lt, struct threa
   ret->next_tid = 1;
   ret->lt = lt;
   ret->tp = tp;
+  ret->wal_enabled = wal_opened;
 
   // More work
   if (pgr_isnew (ret))
     {
-      err_t_wrap_null_goto (pgr_open_new (fname, walname, ret, e), failed, e);
+      err_t_wrap_null_goto (pgr_open_new (fname, ret, e), failed, e);
     }
   else
     {
-      err_t_wrap_null_goto (pgr_open_existing (fname, walname, ret, e), failed, e);
+      err_t_wrap_null_goto (pgr_open_existing (fname, ret, e), failed, e);
     }
 
   DBG_ASSERT (pager, ret);
@@ -622,10 +625,14 @@ pgr_close (struct pager *p, error *e)
   // Save all in memory pages
   pgr_evict_all (p, e);
 
-  wal_close (&p->ww, e);
-  fpgr_close (&p->fp, e);
+  if (p->wal_enabled)
+    {
+      wal_close (&p->ww, e);
+    }
 
   txnt_close (&p->tnxt);
+  fpgr_close (&p->fp, e);
+
   dpgt_close (&p->dpt);
 
   i_free (p);
@@ -681,18 +688,29 @@ pgr_begin_txn (struct txn *tx, struct pager *p, error *e)
   txid tid = p->next_tid++;
   latch_unlock (&p->l);
 
-  // Append begin record
-  slsn l = wal_append_begin_log (&p->ww, tid, e);
-  if (l < 0)
+  if (p->wal_enabled)
     {
-      return e->cause_code;
-    }
+      // Append begin record
+      slsn l = wal_append_begin_log (&p->ww, tid, e);
+      if (l < 0)
+        {
+          return e->cause_code;
+        }
 
-  txn_init (tx, tid, (struct txn_data){
-                         .last_lsn = l,
-                         .undo_next_lsn = 0,
-                         .state = TX_RUNNING,
-                     });
+      txn_init (tx, tid, (struct txn_data){
+                             .last_lsn = l,
+                             .undo_next_lsn = 0,
+                             .state = TX_RUNNING,
+                         });
+    }
+  else
+    {
+      txn_init (tx, tid, (struct txn_data){
+                             .last_lsn = 0,
+                             .undo_next_lsn = 0,
+                             .state = TX_RUNNING,
+                         });
+    }
 
   // Create a new transaction entry
   err_t_wrap (txnt_insert_txn (&p->tnxt, tx, e), e);
@@ -709,38 +727,40 @@ pgr_commit (struct pager *p, struct txn *tx, error *e)
 
   if (tx->data.state != TX_RUNNING)
     {
-      latch_unlock (&tx->l);
-      return error_causef (e, ERR_DUPLICATE_COMMIT, "Committing a transaction that is already committed\n");
+      error_causef (e, ERR_DUPLICATE_COMMIT, "Committing a transaction that is already committed\n");
+      goto theend;
     }
 
-  // Append a commit log for this transaction
-  slsn l = wal_append_commit_log (&p->ww, tx->tid, tx->data.last_lsn, e);
-  if (l < 0)
+  if (p->wal_enabled)
     {
-      latch_unlock (&tx->l);
-      return e->cause_code;
-    }
+      // Append a commit log for this transaction
+      slsn l = wal_append_commit_log (&p->ww, tx->tid, tx->data.last_lsn, e);
+      if (l < 0)
+        {
+          goto theend;
+        }
 
-  // Flush the wal to the expected lsn
-  err_t_wrap (wal_flush_to (&p->ww, l, e), e);
+      // Flush the wal to the expected lsn
+      if (wal_flush_to (&p->ww, l, e))
+        {
+          goto theend;
+        }
 
-  // Append an end log to the wal
-  l = wal_append_end_log (&p->ww, tx->tid, l, e);
-  if (l < 0)
-    {
-      latch_unlock (&tx->l);
-      return e->cause_code;
+      // Append an end log to the wal
+      l = wal_append_end_log (&p->ww, tx->tid, l, e);
+      if (l < 0)
+        {
+          goto theend;
+        }
     }
 
   err_t_wrap (txnt_remove_txn_expect (&p->tnxt, tx, e), e);
-
   tx->data.state = TX_DONE;
-
   err_t_wrap (lockt_unlock_tx (p->lt, tx, e), e);
 
+theend:
   latch_unlock (&tx->l);
-
-  return SUCCESS;
+  return e->cause_code;
 }
 
 static err_t
@@ -749,12 +769,6 @@ pgr_update_master_lsn (struct pager *p, lsn mlsn, error *e)
   // BEGIN TXN
   struct txn tx;
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
-
-  // X(root)
-  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, &tx, e))
-    {
-      goto theend;
-    }
 
   // GET ROOT
   page_h root = page_h_create ();
@@ -796,22 +810,31 @@ theend:
 err_t
 pgr_checkpoint (struct pager *p, error *e)
 {
-  // BEGIN CHECKPOINT
-  slsn mlsn = wal_append_ckpt_begin (&p->ww, e);
-  err_t_wrap (mlsn, e);
+  slsn mlsn = 0;
+  slsn end_lsn = 0;
+
+  if (p->wal_enabled)
+    {
+      // BEGIN CHECKPOINT
+      mlsn = wal_append_ckpt_begin (&p->ww, e);
+      err_t_wrap (mlsn, e);
+    }
 
   // FLUSH PAGES
   err_t_wrap (pgr_evict_all (p, e), e);
 
   // END CHECKPOINT
-  slsn end_lsn = wal_append_ckpt_end (&p->ww, &p->tnxt, &p->dpt, e);
-  if (end_lsn < 0)
+  if (p->wal_enabled)
     {
-      return e->cause_code;
-    }
+      end_lsn = wal_append_ckpt_end (&p->ww, &p->tnxt, &p->dpt, e);
+      if (end_lsn < 0)
+        {
+          return e->cause_code;
+        }
 
-  // Flush the wal so that master lsn is accurate
-  err_t_wrap (wal_flush_to (&p->ww, end_lsn, e), e);
+      // Flush the wal so that master lsn is accurate
+      err_t_wrap (wal_flush_to (&p->ww, end_lsn, e), e);
+    }
 
   // Update master lsn
   err_t_wrap (pgr_update_master_lsn (p, mlsn, e), e);
@@ -1132,38 +1155,46 @@ pgr_save (struct pager *p, page_h *h, int flags, error *e)
   ASSERT (h->mode == PHM_X);
   ASSERTF (page_validate_for_db (page_h_w (h), flags, NULL) == SUCCESS, "%.*s\n", e->cmlen, e->cause_msg);
 
-  // Save log
-  latch_lock (&h->tx->l);
+  spgno page_lsn = 0;
 
-  // Construct an update log record
-  struct wal_update_write update = {
-    .tid = h->tx->tid,
-    .pg = page_h_pgno (h),
-    .prev = h->tx->data.last_lsn,
-    .undo = h->pgr->page.raw,
-    .redo = h->pgw->page.raw,
-  };
-
-  // Append that update to the wal and get it's lsn
-  slsn page_lsn = wal_append_update_log (&p->ww, update, e);
-  if (page_lsn < 0)
+  if (p->wal_enabled)
     {
-      latch_unlock (&h->tx->l);
-      return e->cause_code;
+      // Save log
+      latch_lock (&h->tx->l);
+
+      // Construct an update log record
+      struct wal_update_write update = {
+        .tid = h->tx->tid,
+        .pg = page_h_pgno (h),
+        .prev = h->tx->data.last_lsn,
+        .undo = h->pgr->page.raw,
+        .redo = h->pgw->page.raw,
+      };
+
+      // Append that update to the wal and get it's lsn
+      page_lsn = wal_append_update_log (&p->ww, update, e);
+      if (page_lsn < 0)
+        {
+          latch_unlock (&h->tx->l);
+          return e->cause_code;
+        }
+
+      // Update the page lsn
+      page_set_page_lsn (page_h_w (h), (lsn)page_lsn);
+
+      h->tx->data.last_lsn = page_lsn;
+      h->tx->data.undo_next_lsn = page_lsn;
     }
-
-  // Update the page lsn
-  page_set_page_lsn (page_h_w (h), (lsn)page_lsn);
-
-  h->tx->data.last_lsn = page_lsn;
-  h->tx->data.undo_next_lsn = page_lsn;
 
   // Add page to DPT if this is the first update (RecLSN = LSN of first update)
   if (!dpgt_exists (&p->dpt, page_h_pgno (h)))
     {
       if (dpgt_add (&p->dpt, page_h_pgno (h), (lsn)page_lsn, e))
         {
-          latch_unlock (&h->tx->l);
+          if (p->wal_enabled)
+            {
+              latch_unlock (&h->tx->l);
+            }
           return e->cause_code;
         }
     }
@@ -1203,12 +1234,6 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
   err_t ret = SUCCESS;
   page_h root_node = page_h_create ();
 
-  // S(root)
-  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, tx, e))
-    {
-      return e->cause_code;
-    }
-
   /**
    * First, we'll check the tombstone to see if we can
    * dish out a new page that's already been deleted
@@ -1221,12 +1246,6 @@ pgr_new (page_h *dest, struct pager *p, struct txn *tx, enum page_type type, err
     {
       pgr_release_no_tx (p, &root_node, PG_ROOT_NODE, e);
       return ret;
-    }
-
-  // X(tombstone)
-  if (lockt_lock (p->lt, (struct lt_lock){ .type = LOCK_TMBST, .data = { .tmbst_pg = ftpg } }, LM_X, tx, e))
-    {
-      return e->cause_code;
     }
 
   if (ftpg < fpgr_get_npages (&p->fp))
@@ -1460,7 +1479,14 @@ pgr_release (struct pager *p, page_h *h, int flags, error *e)
 err_t
 pgr_flush_wall (struct pager *p, error *e)
 {
-  return wal_flush_all (&p->ww, e);
+  if (p->wal_enabled)
+    {
+      return wal_flush_all (&p->ww, e);
+    }
+  else
+    {
+      return SUCCESS;
+    }
 }
 
 #ifndef NTEST

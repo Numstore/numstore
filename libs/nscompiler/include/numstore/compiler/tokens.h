@@ -64,6 +64,8 @@ enum token_t
   TT_FALSE,
 
   TT_AS,
+
+  TT_EOF,
 };
 
 struct token

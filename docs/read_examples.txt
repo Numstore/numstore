@@ -1,0 +1,77 @@
+
+
+database state:
+  variable1
+  variable2
+
+VALID
+  read (a.value, b.count)
+    from variable1 as a
+         variable2 as b
+    where a.value > b.count
+
+  read (subq.total * 2)
+    from (read (a.value + b.value as total)
+            from variable1 a
+                 variable2 b) as subq
+    where subq.total > 10
+
+  read (a.value as v, a.count as c)
+    from variable1 a
+    order by v, c  
+
+  read (middle.total, middle.userid)
+    from (read (inner.sum_val as total, inner.uid as userid)
+            from (read (a.value as sum_val, a.id as uid)
+                    from variable1 a) as inner) as middle
+    where middle.total > 100
+
+  read (a.value, b.value, c.result)
+    from variable1 a
+         variable2 b
+         (read (x.computed as result) 
+            from variable1 x) as c
+    where a.id = b.id and c.result > 0
+
+INVALID 
+read (a.value, b.value)
+  from (read (a.x, b.y) 
+          from variable1 a 
+               variable2 b) as foo
+# ERROR: 'a' and 'b' only exist inside foo's scope
+
+read (a.value as v)
+  from variable1 a
+  where v > 10
+# ERROR: 'v' not available until after SELECT
+
+read (a.value as v, v * 2 as doubled)
+  from variable1 a
+# ERROR: can't reference 'v' while defining it
+
+read (foo.value, foo.internal_calc)
+  from (read (a.value) 
+        from variable1 a
+        where a.calc > 10) as foo
+# ERROR: 'internal_calc' (a.calc) wasn't selected, not available
+
+read (sub1.x, sub2.x)
+  from (read (a.value as x) 
+          from variable1 a) as sub1
+               (read (sub1.x * 2 as x) from variable2 b) as sub2
+# ERROR: sub2 can't see sub1.x
+
+read (inner_total)
+  from (read (middle_val)
+          from (read (a.value as inner_total) 
+                  from variable1 a) as inner) as middle
+# ERROR: inner_total not passed through middle
+
+read (a.value)
+  from (read (x.value) from variable1 as a) as foo
+# ERROR: 'a' only exists inside foo, use foo.value
+
+read (a.value as v, count(*) as cnt)
+  from variable1 a
+  group by v
+# ERROR: 'v' not available yet, must use a.value

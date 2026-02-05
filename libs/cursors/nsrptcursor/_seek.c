@@ -303,6 +303,15 @@ rptc_start_seek (
 {
   DBG_ASSERT (rptc_unseeked, r);
 
+  if (newroot)
+    {
+      // X(root)
+      if (lockt_lock (r->lt, (struct lt_lock){ .type = LOCK_ROOT, .data = { 0 } }, LM_X, r->tx, e))
+        {
+          return e->cause_code;
+        }
+    }
+
   if (r->root == PGNO_NULL)
     {
       if (newroot)

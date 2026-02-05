@@ -23,6 +23,7 @@
  */
 
 // core
+#include "numstore/types/vbank.h"
 #include <numstore/core/error.h>
 #include <numstore/core/lalloc.h>
 #include <numstore/core/llist.h>
@@ -128,54 +129,6 @@ err_t objb_build (struct object *dest, struct object_builder *b, error *e);
 struct array_builder arb_create (struct lalloc *work, struct lalloc *dest);
 err_t arb_accept_literal (struct array_builder *o, struct literal v, error *e);
 err_t arb_build (struct array *dest, struct array_builder *b, error *e);
-
-/////////////////////////
-// Simple constructors for the other types
-
-HEADER_FUNC struct literal
-literal_string_create (struct string str)
-{
-  return (struct literal){
-    .str = str,
-    .type = LT_STRING,
-  };
-}
-
-HEADER_FUNC struct literal
-literal_integer_create (i64 integer)
-{
-  return (struct literal){
-    .type = LT_INTEGER,
-    .integer = integer,
-  };
-}
-
-HEADER_FUNC struct literal
-literal_decimal_create (f128 decimal)
-{
-  return (struct literal){
-    .type = LT_DECIMAL,
-    .decimal = decimal,
-  };
-}
-
-HEADER_FUNC struct literal
-literal_complex_create (cf128 cplx)
-{
-  return (struct literal){
-    .type = LT_COMPLEX,
-    .cplx = cplx,
-  };
-}
-
-HEADER_FUNC struct literal
-literal_bool_create (bool bl)
-{
-  return (struct literal){
-    .type = LT_BOOL,
-    .bl = bl,
-  };
-}
 
 void i_log_literal (struct literal *v);
 

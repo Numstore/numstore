@@ -22,6 +22,51 @@
 
 #include <numstore/core/assert.h>
 
+HEADER_FUNC struct expr
+create_literal_expr (struct literal l)
+{
+  return (struct expr){ .type = ET_LITERAL, .l = l };
+}
+
+HEADER_FUNC struct expr
+create_grouping_expr (struct expr *e)
+{
+  return (struct expr){ .type = ET_GROUPING, .g = e };
+}
+
+HEADER_FUNC struct expr
+create_unary_expr (struct expr *e, enum token_t op)
+{
+  struct unary ret = {
+    .op = op,
+    .e = e,
+  };
+
+  DBG_ASSERT (unary, &ret);
+
+  return (struct expr){
+    .type = ET_UNARY,
+    .u = ret,
+  };
+}
+
+HEADER_FUNC struct expr
+create_binary_expr (struct expr *left, enum token_t op, struct expr *right)
+{
+  struct binary ret = {
+    .left = left,
+    .op = op,
+    .right = right,
+  };
+
+  DBG_ASSERT (binary, &ret);
+
+  return (struct expr){
+    .type = ET_BINARY,
+    .b = ret,
+  };
+}
+
 static inline err_t
 binary_evaluate (struct literal *dest, struct binary *b, struct lalloc *alloc, error *err)
 {
@@ -142,22 +187,22 @@ expr_evaluate (struct literal *dest, struct expr *ex, struct lalloc *alloc, erro
 {
   switch (ex->type)
     {
-    case ET_BINARY:
+    case ET_LITERAL:
       {
-        return binary_evaluate (dest, &ex->b, alloc, err);
+        *dest = ex->l;
+        return SUCCESS;
       }
     case ET_UNARY:
       {
         return unary_evaluate (dest, &ex->u, alloc, err);
       }
+    case ET_BINARY:
+      {
+        return binary_evaluate (dest, &ex->b, alloc, err);
+      }
     case ET_GROUPING:
       {
         return expr_evaluate (dest, ex->g, alloc, err);
-      }
-    case ET_VALUE:
-      {
-        *dest = ex->l;
-        return SUCCESS;
       }
     default:
       {

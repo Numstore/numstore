@@ -474,6 +474,8 @@ lex_tokens (const char *src, u32 src_len, struct lexer *lex, error *e)
       err_t_wrap (scan_token (lex, e), e);
     }
 
+  add_token (lex, TT_EOF);
+
   return SUCCESS;
 }
 

@@ -32,6 +32,11 @@ struct latch
   int holder_uuid;
 };
 
+#define latch_init(l)
+#define latch_lock(l)
+#define latch_unlock(l)
+
+/**
 HEADER_FUNC void
 latch_init (struct latch *latch)
 {
@@ -52,3 +57,4 @@ latch_unlock (struct latch *latch)
   latch->holder_uuid++;
   i_spinlock_unlock (&latch->lock);
 }
+*/
