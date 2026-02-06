@@ -110,7 +110,7 @@ clck_alloc_free (struct clck_alloc *ca, void *ptr)
   ASSERT ((size_t)offset < ca->nelems * ca->elem_size);
   ASSERT (offset % ca->elem_size == 0);
 
-  u32 index = (u32)(offset / ca->elem_size);
+  u32 index = (u32) (offset / ca->elem_size);
   ASSERT (ca->occupied[index]);
   ca->occupied[index] = false;
   latch_unlock (&ca->l);

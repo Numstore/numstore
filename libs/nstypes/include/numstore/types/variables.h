@@ -3,18 +3,12 @@
 #include <numstore/core/error.h>
 #include <numstore/core/string.h>
 
-struct var_data
-{
-  struct type *vtype;
-  const u8 *data;
-};
-
-struct var_with_alias
+struct variable
 {
   struct string vname;
-  struct string alias;
-  struct type *vtype;
-  u8 *data;
+  struct type *dtype;
+  pgno root;
+  b_size nbytes;
 };
 
 err_t validate_vname (struct string vname, error *e);

@@ -219,7 +219,7 @@ reset_local_coverage (void)
   do                                                    \
     {                                                   \
       (ename)->print_trace = true;                      \
-      err_t __ret = (err_t)(expr);                      \
+      err_t __ret = (err_t) (expr);                     \
       if ((__ret) < SUCCESS)                            \
         {                                               \
           fail_test ("Expression: %s failed\n", #expr); \
