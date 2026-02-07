@@ -611,8 +611,13 @@ vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params
           // Type
           if (dalloc)
             {
+              dest->t = chunk_malloc (dalloc, 1, sizeof (struct type), e);
+              if (dest->t == NULL)
+                {
+                  goto theend;
+                }
               struct deserializer d = dsrlizr_create (v->tstr, v->tlen);
-              if ((type_deserialize (&dest->t, &d, dalloc, e)))
+              if ((type_deserialize (dest->t, &d, dalloc, e)))
                 {
                   goto theend;
                 }
@@ -620,7 +625,8 @@ vpc_get (struct var_cursor *v, struct chunk_alloc *dalloc, struct var_get_params
             }
 
           // Root
-          dest->pg0 = vp_get_root (page_h_ro (&v->cur));
+          dest->rpt_root = vp_get_root (page_h_ro (&v->cur));
+          dest->var_root = page_h_pgno (&v->cur);
           dest->nbytes = vp_get_nbytes (page_h_ro (&v->cur));
           ret = page_h_pgno (&v->cur);
 
@@ -925,8 +931,8 @@ RANDOM_TEST (TT_UNIT, vpc_write_and_verify, 1)
 
     // Validate data
     {
-      test_assert_int_equal (dest.t.type, T_PRIM);
-      test_assert_int_equal (dest.t.p, U32);
+      test_assert_int_equal (dest.t->type, T_PRIM);
+      test_assert_int_equal (dest.t->p, U32);
     }
 
     i_free (_src);
@@ -1053,8 +1059,8 @@ RANDOM_TEST (TT_HEAVY, vpc_write_and_verify_then_write_and_delete, 1)
 
     // Verify
     {
-      test_assert_int_equal (dest.t.type, T_PRIM);
-      test_assert_int_equal (dest.t.p, U32);
+      test_assert_int_equal (dest.t->type, T_PRIM);
+      test_assert_int_equal (dest.t->p, U32);
     }
 
     i_free (_src);

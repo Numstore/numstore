@@ -18,6 +18,7 @@
  *   serialization, deserialization, byte size calculations, and type equality checks.
  */
 
+#include "numstore/core/chunk_alloc.h"
 #include "numstore/core/error.h"
 #include <numstore/types/types.h>
 

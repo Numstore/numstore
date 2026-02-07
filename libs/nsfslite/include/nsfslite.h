@@ -34,16 +34,11 @@ err_t nsfslite_close (nsfslite *n, error *e);
 struct txn *nsfslite_begin_txn (nsfslite *n, error *e);
 err_t nsfslite_commit (nsfslite *n, struct txn *tx, error *e);
 
-spgno nsfslite_new (
+err_t nsfslite_new (
     nsfslite *n,
     struct txn *tx,
     const char *name,
     const char *type,
-    error *e);
-
-spgno nsfslite_get_id (
-    nsfslite *n,
-    const char *name,
     error *e);
 
 err_t nsfslite_delete (
@@ -54,12 +49,12 @@ err_t nsfslite_delete (
 
 sb_size nsfslite_fsize (
     nsfslite *n,
-    pgno id,
+    const char *vname,
     error *e);
 
 err_t nsfslite_insert (
     nsfslite *n,
-    pgno id,
+    const char *vname,
     struct txn *tx,
     const void *src,
     b_size ofst,
@@ -68,7 +63,7 @@ err_t nsfslite_insert (
 
 err_t nsfslite_write (
     nsfslite *n,
-    pgno id,
+    const char *vname,
     struct txn *tx,
     const void *src,
     const char *stride,
@@ -76,14 +71,14 @@ err_t nsfslite_write (
 
 sb_size nsfslite_read (
     nsfslite *n,
-    pgno id,
+    const char *vname,
     void *dest,
     const char *stride,
     error *e);
 
 err_t nsfslite_remove (
     nsfslite *n,
-    pgno id,
+    const char *vname,
     struct txn *tx,
     void *dest,
     const char *stride,

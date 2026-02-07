@@ -26,40 +26,38 @@
  * vrds_insert(ds, "variable3", ta3, &e)
  * vrds_insert(ds, "variable5", ta5, &e)
  *
- * // ── Layer 3: leaf sources for biz's FROM ─────────
- * vrds_insert_alias(ds, "variable3", "variable3", ta3, 3, 0, &e)
- * vrds_insert_alias(ds, "variable5", "variable5", ta5, 3, 1, &e)
+ * // ── Scope (1,0): biz's read ──────────────────────
+ * // FROM — leaf sources into this scope
+ * vrds_insert_alias(ds, "c", "variable3", ta3, 1, 0, &e)
+ * vrds_insert_alias(ds, "f", "variable5", ta5, 1, 0, &e)
  *
- * // ── Layer 2 ──────────────────────────────────────
- * //   (2,0)-(2,2): leaf sources for outer FROM
- * //   (2,3)-(2,4): FROM scopes for biz (aliases c,f visible to (1,3))
- * vrds_insert_alias(ds, "variable1", "variable1", ta1_ab, 2, 0, &e)
- * vrds_insert_alias(ds, "variable1", "variable1", ta1,    2, 1, &e)
- * vrds_insert_alias(ds, "variable3", "variable3", ta3,    2, 2, &e)
- * vrds_insert_alias(ds, "c",         "variable3", ta3,    2, 3, &e)
- * vrds_insert_alias(ds, "f",         "variable5", ta5,    2, 4, &e)
+ * // WHERE — sees {c, f}
+ * vrds_add_predicate(ds, pred_ce_gt_0, ctx, 1, 0, &e)
+ * vrds_add_predicate(ds, pred_cf_eq_1, ctx, 1, 0, &e)
  *
- * // ── Layer 1: (1,3) biz's read — WHERE, SELECT ───
- * vrds_add_predicate(ds, pred_ce_gt_0, ctx, 1, 3, &e)
- * vrds_add_predicate(ds, pred_cf_eq_1, ctx, 1, 3, &e)
- * vrds_append_output(ds, "biz", "d",     c_out, &acc_d,     1, 3, &e)
- * vrds_append_output(ds, "biz", "f_col", f_out, &acc_f_col, 1, 3, &e)
- * vrds_apply_stride(ds, stride_0_1_1000, 1, 3, &e)
+ * // SELECT
+ * vrds_append_output(ds, "biz", "d",     c_out, &acc_d,     1, 0, &e)
+ * vrds_append_output(ds, "biz", "f_col", f_out, &acc_f_col, 1, 0, &e)
+ * vrds_apply_stride(ds, stride_0_1_1000, 1, 0, VRDS_RESULT_SET, &e)
  *
- * // ── Layer 1: (1,0)-(1,2) pass-through reads ─────
- * vrds_insert_alias(ds, "a", "variable1", ta1_ab, 1, 0, &e)
- * vrds_insert_alias(ds, "b", "variable1", ta1,    1, 1, &e)
- * vrds_apply_stride(ds, stride_0_10_100, 1, 1, &e)
- * vrds_insert_alias(ds, "d", "variable3", ta3,    1, 2, &e)
+ * // ── Scope (0,0): outer query ─────────────────────
+ * // FROM — leaf sources + biz's output aliased in
+ * vrds_insert_alias(ds, "a", "variable1", ta1_ab, 0, 0, &e)
+ * vrds_insert_alias(ds, "b", "variable1", ta1,    0, 0, &e)
+ * vrds_apply_stride(ds, stride_0_10_100, 0, 0, VRDS_SOURCE, "b", &e)
+ * vrds_insert_alias(ds, "d", "variable3", ta3,    0, 0, &e)
+ * // biz is aliased automatically from (1,0) output
  *
- * // ── Layer 0: outer query — WHERE, SELECT ─────────
+ * // WHERE — sees {a, b, d, biz}
  * vrds_add_predicate(ds, pred_ab_gt_10, ctx, 0, 0, &e)
  * vrds_add_predicate(ds, pred_sum_dc,   ctx, 0, 0, &e)
  * vrds_add_predicate(ds, pred_ac_df,    ctx, 0, 0, &e)
+ *
+ * // SELECT
  * vrds_append_output(ds, NULL, "foo",     a_out, &acc_b, 0, 0, &e)
  * vrds_append_output(ds, NULL, "bar",     b_out, &acc_c, 0, 0, &e)
  * vrds_append_output(ds, NULL, "biz_val", d_out, &acc_e, 0, 0, &e)
- * vrds_apply_stride(ds, stride_0_100_1000, 0, 0, &e)
+ * vrds_apply_stride(ds, stride_0_100_1000, 0, 0, VRDS_RESULT_SET, &e)
  */
 
 struct var_r_ds;

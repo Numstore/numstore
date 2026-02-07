@@ -5,6 +5,7 @@ add_ns_library(nsfslite
     ${NSFSLITE_SRC}
   DEPENDENCIES
     ${LIBS}/nscore
+    ${LIBS}/nsdb
     ${LIBS}/nspager
     ${LIBS}/nscompiler
     ${LIBS}/cursors/nsrptcursor

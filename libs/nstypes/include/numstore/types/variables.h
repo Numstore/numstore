@@ -7,7 +7,8 @@ struct variable
 {
   struct string vname;
   struct type *dtype;
-  pgno root;
+  pgno var_root;
+  pgno rpt_root;
   b_size nbytes;
 };
 

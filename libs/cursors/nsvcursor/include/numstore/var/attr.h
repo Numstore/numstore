@@ -49,8 +49,9 @@ struct var_get_params
   // Dest
   struct
   {
-    pgno pg0;
-    struct type t;
+    pgno var_root;
+    pgno rpt_root;
+    struct type *t;
     b_size nbytes;
   };
 };

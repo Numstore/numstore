@@ -21,6 +21,10 @@
  */
 
 #include "numstore/compiler/compiler.h"
+#include "numstore/core/string.h"
+#include "numstore/core/threadpool.h"
+#include "numstore/datasource/rptc_ds.h"
+#include "numstore/datasource/var_ds.h"
 #include "numstore/types/types.h"
 #include <fcntl.h>
 #include <nsfslite.h>
@@ -43,19 +47,15 @@
 
 #include <pthread.h>
 
-union cursor
-{
-  struct rptree_cursor rptc;
-  struct var_cursor vpc;
-};
-
 struct nsfslite_s
 {
   struct pager *p;
-  struct slab_alloc alloc;
   struct lockt lt;
   struct thread_pool *tp;
   struct latch l;
+
+  struct rptc_ds rds;
+  struct var_ds vds;
 };
 
 DEFINE_DBG_ASSERT (
@@ -121,13 +121,32 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
       goto failed;
     }
 
+  if (rptds_init (&ret->rds, ret->p, e))
+    {
+      lockt_destroy (&ret->lt);
+      i_free (ret);
+      tp_free (ret->tp, e);
+      goto failed;
+    }
+
+  if (vars_init (&ret->vds, ret->p, e))
+    {
+      lockt_destroy (&ret->lt);
+      i_free (ret);
+      tp_free (ret->tp, e);
+      rptds_close (&ret->rds);
+      goto failed;
+    }
+
   // Create a new pager
   ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, e);
   if (ret->p == NULL)
     {
-      tp_free (ret->tp, e);
       lockt_destroy (&ret->lt);
       i_free (ret);
+      tp_free (ret->tp, e);
+      rptds_close (&ret->rds);
+      vars_close (&ret->vds);
       goto failed;
     }
 
@@ -139,14 +158,16 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
       if (varh_init_hash_page (ret->p, e) < 0)
         {
           e->print_msg_on_error = before;
-          pgr_close (ret->p, e);
+          lockt_destroy (&ret->lt);
           i_free (ret);
+          tp_free (ret->tp, e);
+          rptds_close (&ret->rds);
+          vars_close (&ret->vds);
+          pgr_close (ret->p, e);
           goto failed;
         }
       e->print_msg_on_error = before;
     }
-
-  slab_alloc_init (&ret->alloc, sizeof (union cursor), 512);
 
   return ret;
 
@@ -160,9 +181,10 @@ nsfslite_close (nsfslite *n, error *e)
   DBG_ASSERT (nsfslite, n);
 
   pgr_close (n->p, e);
-  slab_alloc_destroy (&n->alloc);
   tp_free (n->tp, e);
   lockt_destroy (&n->lt);
+  vars_close (&n->vds);
+  rptds_close (&n->rds);
 
   if (e->cause_code < 0)
     {
@@ -174,36 +196,21 @@ nsfslite_close (nsfslite *n, error *e)
   return SUCCESS;
 }
 
-spgno
+err_t
 nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, error *e)
 {
   DBG_ASSERT (nsfslite, n);
 
   i_log_info ("nsfslite_new: name=%s\n", name);
 
-  spgno ret = -1;
-
   // INIT
-  union cursor *vc = slab_alloc_alloc (&n->alloc, e);
-  if (vc == NULL)
-    {
-      return e->cause_code;
-    }
-
   struct chunk_alloc temp;
   chunk_alloc_create_default (&temp);
 
-  if (varc_initialize (&vc->vpc, n->p, e) < 0)
-    {
-      goto theend;
-    }
-
-  struct var_create_params src = {
-    .vname = strfcstr (name),
-  };
+  struct type t;
 
   // PARSE TYPE STRING
-  if (compile_type (&src.t, type, &temp, e))
+  if (compile_type (&t, type, &temp, e))
     {
       goto theend;
     }
@@ -216,18 +223,11 @@ nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, e
       goto theend;
     }
 
-  // CREATE A NEW VARIABLE PAGE
-  {
-    varc_enter_transaction (&vc->vpc, tx);
-
-    ret = vpc_new (&vc->vpc, src, e);
-    if (ret < 0)
-      {
-        goto theend;
-      }
-
-    varc_leave_transaction (&vc->vpc);
-  }
+  // CREATE A NEW VARIABLE
+  if (vars_create (&n->vds, tx, strfcstr (name), &t, e))
+    {
+      goto theend;
+    }
 
   // COMMIT
   if (auto_txn_started)
@@ -239,17 +239,9 @@ nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, e
     }
 
 theend:
-  slab_alloc_free (&n->alloc, vc);
   chunk_alloc_free_all (&temp);
 
-  if (e->cause_code)
-    {
-      return e->cause_code;
-    }
-  else
-    {
-      return ret;
-    }
+  return e->cause_code;
 }
 
 spgno
@@ -257,30 +249,13 @@ nsfslite_get_id (nsfslite *n, const char *name, error *e)
 {
   DBG_ASSERT (nsfslite, n);
 
-  spgno ret = -1;
-
-  // INIT
-  union cursor *c = slab_alloc_alloc (&n->alloc, e);
-  if (c == NULL)
+  const struct variable *var = vars_get (&n->vds, (struct string){ .data = name, .len = i_strlen (name) }, e);
+  if (var == NULL)
     {
       return e->cause_code;
     }
-
-  err_t_wrap_goto (varc_initialize (&c->vpc, n->p, e), theend, e);
-
-  // GET VARIABLE
-  struct var_get_params params = {
-    .vname = strfcstr (name),
-  };
-
-  ret = vpc_get (&c->vpc, NULL, &params, e);
-  if (ret < 0)
-    {
-      goto theend;
-    }
-
-theend:
-  slab_alloc_free (&n->alloc, c);
+  pgno ret = var->var_root;
+  vars_free (&n->vds, var, e);
 
   if (e->cause_code)
     {
@@ -297,16 +272,6 @@ nsfslite_delete (nsfslite *n, struct txn *tx, const char *name, error *e)
 {
   DBG_ASSERT (nsfslite, n);
 
-  // INIT
-  union cursor *c = slab_alloc_alloc (&n->alloc, e);
-
-  if (c == NULL)
-    {
-      return e->cause_code;
-    }
-
-  varc_initialize (&c->vpc, n->p, e);
-
   // MAYBE BEGIN AUTO TXN
   struct txn auto_txn;
   int auto_txn_started = nsfslite_auto_begin_txn (n, &tx, &auto_txn, e);
@@ -316,16 +281,10 @@ nsfslite_delete (nsfslite *n, struct txn *tx, const char *name, error *e)
     }
 
   // DELETE VARIABLE
-  {
-    varc_enter_transaction (&c->vpc, tx);
-
-    if (vpc_delete (&c->vpc, strfcstr (name), e))
-      {
-        goto theend;
-      }
-
-    varc_leave_transaction (&c->vpc);
-  }
+  if (vars_delete (&n->vds, tx, strfcstr (name), e))
+    {
+      goto theend;
+    }
 
   // TODO - delete the rptree
 
@@ -336,40 +295,27 @@ nsfslite_delete (nsfslite *n, struct txn *tx, const char *name, error *e)
     }
 
 theend:
-  slab_alloc_free (&n->alloc, &c->vpc);
+
+  if (e->cause_code)
+    {
+      pgr_rollback (n->p, tx, 0, e);
+    }
+
   return e->cause_code;
 }
 
 sb_size
-nsfslite_fsize (nsfslite *n, pgno id, error *e)
+nsfslite_fsize (nsfslite *n, const char *name, error *e)
 {
   DBG_ASSERT (nsfslite, n);
 
-  union cursor *vc = slab_alloc_alloc (&n->alloc, e);
-  if (vc == NULL)
+  const struct variable *var = vars_get (&n->vds, (struct string){ .data = name, .len = i_strlen (name) }, e);
+  if (var == NULL)
     {
       return e->cause_code;
     }
-
-  struct var_get_by_id_params params = {
-    .id = id,
-  };
-
-  if (varc_initialize (&vc->vpc, n->p, e))
-    {
-      goto theend;
-    }
-
-  // FETCH THE VARIABLE
-  if (vpc_get_by_id (&vc->vpc, NULL, &params, e))
-    {
-      goto theend;
-    }
-
-  slab_alloc_free (&n->alloc, vc);
-
-theend:
-  slab_alloc_free (&n->alloc, vc);
+  pgno ret = var->var_root;
+  vars_free (&n->vds, var, e);
 
   if (e->cause_code)
     {
@@ -377,7 +323,7 @@ theend:
     }
   else
     {
-      return params.nbytes;
+      return ret;
     }
 }
 
@@ -407,122 +353,62 @@ nsfslite_commit (nsfslite *n, struct txn *tx, error *e)
   return ret;
 }
 
-static err_t
-nsfslite_get_root (
-    nsfslite *n,
-    union cursor **rc,
-    union cursor **vc,
-    struct chunk_alloc *temp,
-    struct var_get_by_id_params *params,
-    error *e)
-{
-  DBG_ASSERT (nsfslite, n);
-  *rc = NULL;
-  *vc = NULL;
-
-  // ALLOCATE MEMORY
-  *rc = slab_alloc_alloc (&n->alloc, e);
-  if (rc == NULL)
-    {
-      return e->cause_code;
-    }
-
-  *vc = slab_alloc_alloc (&n->alloc, e);
-  if (vc == NULL)
-    {
-      slab_alloc_free (&n->alloc, *rc);
-      *rc = NULL;
-      return e->cause_code;
-    }
-
-  if (varc_initialize (&(*vc)->vpc, n->p, e))
-    {
-      goto failed;
-    }
-
-  // GET VARIABLE
-  if (vpc_get_by_id (&(*vc)->vpc, temp, params, e))
-    {
-      goto failed;
-    }
-
-  // INIT RPTREE CURSOR
-  if (rptc_open (&(*rc)->rptc, params->pg0, n->p, &n->lt, e))
-    {
-      goto failed;
-    }
-
-  return SUCCESS;
-
-failed:
-  slab_alloc_free (&n->alloc, *rc);
-  slab_alloc_free (&n->alloc, *vc);
-  *rc = NULL;
-  *vc = NULL;
-  return e->cause_code;
-}
-
 err_t
 nsfslite_insert (
     nsfslite *n,
-    pgno id,
+    const char *name,
     struct txn *tx,
     const void *src,
     b_size ofst,
     b_size nelem,
     error *e)
 {
-  union cursor *rc;
-  union cursor *vc;
-  struct chunk_alloc temp;
-  chunk_alloc_create_default (&temp);
-  struct var_get_by_id_params params = {
-    .id = id,
-  };
+  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  if (var == NULL)
+    {
+      return e->cause_code;
+    }
 
-  err_t_wrap (nsfslite_get_root (n, &rc, &vc, &temp, &params, e), e);
+  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  if (rc == NULL)
+    {
+      vars_free (&n->vds, var, e);
+      return e->cause_code;
+    }
 
   // MAYBE BEGIN TXN
   struct txn auto_txn;
   int auto_txn_started = nsfslite_auto_begin_txn (n, &tx, &auto_txn, e);
   if (auto_txn_started < 0)
     {
+      vars_free (&n->vds, var, e);
+      rpts_close (&n->rds, rc, e);
       goto theend;
     }
 
   // DO INSERT
-  {
-    rptc_enter_transaction (&rc->rptc, tx);
+  rptc_enter_transaction (rc, tx);
 
-    t_size size = type_byte_size (&params.t);
-    if (rptof_insert (&rc->rptc, src, size * ofst, size, nelem, e))
-      {
-        rptc_cleanup (&rc->rptc, e);
-        goto theend;
-      }
+  t_size size = type_byte_size (var->dtype);
+  if (rptof_insert (rc, src, size * ofst, size, nelem, e))
+    {
+      vars_free (&n->vds, var, e);
+      rpts_close (&n->rds, rc, e);
+      goto theend;
+    }
 
-    rptc_leave_transaction (&rc->rptc);
-
-    if (rptc_cleanup (&rc->rptc, e))
-      {
-        goto theend;
-      }
-  }
+  rptc_leave_transaction (rc);
+  if (rpts_close (&n->rds, rc, e))
+    {
+      vars_free (&n->vds, var, e);
+      goto theend;
+    }
 
   // UPDATE VARIABLE META
-  {
-    varc_enter_transaction (&vc->vpc, tx);
-
-    struct var_update_by_id_params uparams = {
-      .id = id,
-      .root = rc->rptc.root,
-      .nbytes = rc->rptc.total_size,
-    };
-    if (vpc_update_by_id (&vc->vpc, &uparams, e))
-      {
-        goto theend;
-      }
-  }
+  if (vars_update (&n->vds, tx, var, rc->root, rc->total_size, e))
+    {
+      goto theend;
+    }
 
   // COMMIT
   if (nsfslite_auto_commit (n, tx, auto_txn_started, e))
@@ -531,9 +417,6 @@ nsfslite_insert (
     }
 
 theend:
-  slab_alloc_free (&n->alloc, rc);
-  slab_alloc_free (&n->alloc, vc);
-
   if (e->cause_code)
     {
       pgr_rollback (n->p, tx, 0, e);
