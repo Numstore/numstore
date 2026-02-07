@@ -22,4 +22,4 @@ err_t rptds_init (struct rptc_ds *r, struct pager *p, error *e);
 void rptds_free (struct rptc_ds *r);
 
 struct rptree_cursor *rptds_open (struct rptc_ds *r, const struct variable *v, error *e);
-err_t rpts_close (struct rptc_ds *r, struct rptree_cursor *c, error *e);
+err_t rptds_close (struct rptc_ds *r, struct rptree_cursor *c, error *e);

@@ -31,7 +31,7 @@
 #define SUFFIX int
 #endif
 #ifndef HASH_FUNC
-#define HASH_FUNC(v) ((u32) (v))
+#define HASH_FUNC(v) ((u32)(v))
 #endif
 #ifndef CMP_FUNC
 #define CMP_FUNC(a, b) ((a) == (b))

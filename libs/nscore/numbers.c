@@ -173,7 +173,7 @@ parse_f32_expect (f32 *dest, const char *s, u32 len, error *e)
   bool saw_digit = false;
   while (i < len && s[i] >= '0' && s[i] <= '9')
     {
-      f32 d = (f32) (s[i] - '0');
+      f32 d = (f32)(s[i] - '0');
       if (!SAFE_MUL_F32 (&acc, acc, 10.0f))
         {
           goto failed;
@@ -194,7 +194,7 @@ parse_f32_expect (f32 *dest, const char *s, u32 len, error *e)
       f32 frac = 0.0f, scale = 1.0f;
       while (i < len && s[i] >= '0' && s[i] <= '9')
         {
-          f32 d = (f32) (s[i] - '0');
+          f32 d = (f32)(s[i] - '0');
           if (!SAFE_MUL_F32 (&frac, frac, 10.0f))
             {
               goto failed;
@@ -239,7 +239,7 @@ parse_f32_expect (f32 *dest, const char *s, u32 len, error *e)
       bool saw_exp = false;
       while (i < len && s[i] >= '0' && s[i] <= '9')
         {
-          u32 d = (u32) (s[i] - '0');
+          u32 d = (u32)(s[i] - '0');
           ASSERT (exp <= (UINT32_MAX - d) / 10);
           exp = exp * 10 + d;
           i++;

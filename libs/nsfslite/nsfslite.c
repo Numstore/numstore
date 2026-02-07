@@ -134,7 +134,7 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
       lockt_destroy (&ret->lt);
       i_free (ret);
       tp_free (ret->tp, e);
-      rptds_close (&ret->rds);
+      rptds_free (&ret->rds);
       goto failed;
     }
 
@@ -145,7 +145,7 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
       lockt_destroy (&ret->lt);
       i_free (ret);
       tp_free (ret->tp, e);
-      rptds_close (&ret->rds);
+      rptds_free (&ret->rds);
       vars_close (&ret->vds);
       goto failed;
     }
@@ -161,7 +161,7 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
           lockt_destroy (&ret->lt);
           i_free (ret);
           tp_free (ret->tp, e);
-          rptds_close (&ret->rds);
+          rptds_free (&ret->rds);
           vars_close (&ret->vds);
           pgr_close (ret->p, e);
           goto failed;
@@ -184,7 +184,7 @@ nsfslite_close (nsfslite *n, error *e)
   tp_free (n->tp, e);
   lockt_destroy (&n->lt);
   vars_close (&n->vds);
-  rptds_close (&n->rds);
+  rptds_free (&n->rds);
 
   if (e->cause_code < 0)
     {
@@ -242,29 +242,6 @@ theend:
   chunk_alloc_free_all (&temp);
 
   return e->cause_code;
-}
-
-spgno
-nsfslite_get_id (nsfslite *n, const char *name, error *e)
-{
-  DBG_ASSERT (nsfslite, n);
-
-  const struct variable *var = vars_get (&n->vds, (struct string){ .data = name, .len = i_strlen (name) }, e);
-  if (var == NULL)
-    {
-      return e->cause_code;
-    }
-  pgno ret = var->var_root;
-  vars_free (&n->vds, var, e);
-
-  if (e->cause_code)
-    {
-      return e->cause_code;
-    }
-  else
-    {
-      return ret;
-    }
 }
 
 err_t
@@ -381,34 +358,41 @@ nsfslite_insert (
   int auto_txn_started = nsfslite_auto_begin_txn (n, &tx, &auto_txn, e);
   if (auto_txn_started < 0)
     {
-      vars_free (&n->vds, var, e);
-      rpts_close (&n->rds, rc, e);
       goto theend;
     }
 
   // DO INSERT
-  rptc_enter_transaction (rc, tx);
-
-  t_size size = type_byte_size (var->dtype);
-  if (rptof_insert (rc, src, size * ofst, size, nelem, e))
-    {
-      vars_free (&n->vds, var, e);
-      rpts_close (&n->rds, rc, e);
-      goto theend;
-    }
-
-  rptc_leave_transaction (rc);
-  if (rpts_close (&n->rds, rc, e))
-    {
-      vars_free (&n->vds, var, e);
-      goto theend;
-    }
+  {
+    rptc_enter_transaction (rc, tx);
+    t_size size = type_byte_size (var->dtype);
+    if (rptof_insert (rc, src, size * ofst, size, nelem, e))
+      {
+        goto theend;
+      }
+    rptc_leave_transaction (rc);
+  }
 
   // UPDATE VARIABLE META
-  if (vars_update (&n->vds, tx, var, rc->root, rc->total_size, e))
-    {
-      goto theend;
-    }
+  {
+    if (vars_update (&n->vds, tx, var, rc->root, rc->total_size, e))
+      {
+        goto theend;
+      }
+  }
+
+  // CLOSE RPTC
+  {
+    if (rptds_close (&n->rds, rc, e))
+      {
+        goto theend;
+      }
+    rc = NULL;
+    if (vars_free (&n->vds, var, e))
+      {
+        goto theend;
+      }
+    var = NULL;
+  }
 
   // COMMIT
   if (nsfslite_auto_commit (n, tx, auto_txn_started, e))
@@ -417,6 +401,15 @@ nsfslite_insert (
     }
 
 theend:
+  if (rc != NULL)
+    {
+      rptds_close (&n->rds, rc, e);
+    }
+  if (var != NULL)
+    {
+      vars_free (&n->vds, var, e);
+    }
+
   if (e->cause_code)
     {
       pgr_rollback (n->p, tx, 0, e);
@@ -431,38 +424,37 @@ theend:
 err_t
 nsfslite_write (
     nsfslite *n,
-    pgno id,
+    const char *name,
     struct txn *tx,
     const void *src,
     const char *stride,
     error *e)
 {
-  union cursor *rc;
-  union cursor *vc;
-  struct chunk_alloc temp;
-  chunk_alloc_create_default (&temp);
-  struct var_get_by_id_params params = {
-    .id = id,
-  };
   struct stride _stride;
-
-  // PARSE STRIDE STRING
   struct user_stride ustride;
+
+  // COMPILE STRIDE
   if (compile_stride (&ustride, stride, e))
     {
       goto theend;
     }
 
-  if (nsfslite_get_root (n, &rc, &vc, &temp, &params, e))
+  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  if (var == NULL)
     {
-      goto theend;
+      return e->cause_code;
     }
 
-  // RESOLVE STRIDE
-  t_size size = type_byte_size (&params.t);
-  if (stride_resolve (&_stride, ustride, rc->rptc.total_size / size, e))
+  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  if (rc == NULL)
     {
-      rptc_cleanup (&rc->rptc, e);
+      vars_free (&n->vds, var, e);
+      return e->cause_code;
+    }
+
+  t_size size = type_byte_size (var->dtype);
+  if (stride_resolve (&_stride, ustride, rc->total_size / size, e))
+    {
       goto theend;
     }
 
@@ -476,27 +468,27 @@ nsfslite_write (
 
   // DO WRITE
   {
-    rptc_enter_transaction (&rc->rptc, tx);
+    rptc_enter_transaction (rc, tx);
 
-    if (rptof_write (
-            &rc->rptc,
-            src,
-            size,
-            size * _stride.start,
-            _stride.stride,
-            _stride.nelems,
-            e))
-      {
-        rptc_cleanup (&rc->rptc, e);
-        goto theend;
-      }
-
-    rptc_leave_transaction (&rc->rptc);
-
-    if (rptc_cleanup (&rc->rptc, e))
+    if (rptof_write (rc, src, size, size * _stride.start, _stride.stride, _stride.nelems, e))
       {
         goto theend;
       }
+    rptc_leave_transaction (rc);
+  }
+
+  // CLOSE RPTC
+  {
+    if (rptds_close (&n->rds, rc, e))
+      {
+        goto theend;
+      }
+    rc = NULL;
+    if (vars_free (&n->vds, var, e))
+      {
+        goto theend;
+      }
+    var = NULL;
   }
 
   // COMMIT
@@ -506,8 +498,14 @@ nsfslite_write (
     }
 
 theend:
-  slab_alloc_free (&n->alloc, rc);
-  slab_alloc_free (&n->alloc, vc);
+  if (rc != NULL)
+    {
+      rptds_close (&n->rds, rc, e);
+    }
+  if (var != NULL)
+    {
+      vars_free (&n->vds, var, e);
+    }
 
   if (e->cause_code)
     {
@@ -523,66 +521,71 @@ theend:
 sb_size
 nsfslite_read (
     nsfslite *n,
-    pgno id,
+    const char *name,
     void *dest,
     const char *stride,
     error *e)
 {
-  union cursor *rc;
-  union cursor *vc;
-  struct chunk_alloc temp;
-  chunk_alloc_create_default (&temp);
-  struct var_get_by_id_params params = {
-    .id = id,
-  };
   struct stride _stride;
-  sb_size ret = -1;
-
-  // PARSE STRIDE STRING
   struct user_stride ustride;
+
+  // COMPILE STRIDE
   if (compile_stride (&ustride, stride, e))
     {
       goto theend;
     }
 
-  if (nsfslite_get_root (n, &rc, &vc, &temp, &params, e))
+  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  if (var == NULL)
     {
-      goto theend;
+      return e->cause_code;
     }
 
-  // RESOLVE STRIDE
-  t_size size = type_byte_size (&params.t);
-  if (stride_resolve (&_stride, ustride, rc->rptc.total_size / size, e))
+  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  if (rc == NULL)
     {
-      rptc_cleanup (&rc->rptc, e);
+      vars_free (&n->vds, var, e);
+      return e->cause_code;
+    }
+
+  t_size size = type_byte_size (var->dtype);
+  if (stride_resolve (&_stride, ustride, rc->total_size / size, e))
+    {
       goto theend;
     }
 
   // DO READ
-  {
-    ret = rptof_read (
-        &rc->rptc,
-        dest,
-        size,
-        size * _stride.start,
-        _stride.stride,
-        _stride.nelems,
-        e);
-    if (ret < 0)
-      {
-        rptc_cleanup (&rc->rptc, e);
-        goto theend;
-      }
+  sb_size ret = rptof_read (rc, dest, size, size * _stride.start, _stride.stride, _stride.nelems, e);
+  if (ret < 0)
+    {
+      vars_free (&n->vds, var, e);
+      rptds_close (&n->rds, rc, e);
+      goto theend;
+    }
 
-    if (rptc_cleanup (&rc->rptc, e))
+  // CLOSE RPTC
+  {
+    if (rptds_close (&n->rds, rc, e))
       {
         goto theend;
       }
+    rc = NULL;
+    if (vars_free (&n->vds, var, e))
+      {
+        goto theend;
+      }
+    var = NULL;
   }
 
 theend:
-  slab_alloc_free (&n->alloc, rc);
-  slab_alloc_free (&n->alloc, vc);
+  if (rc != NULL)
+    {
+      rptds_close (&n->rds, rc, e);
+    }
+  if (var != NULL)
+    {
+      vars_free (&n->vds, var, e);
+    }
 
   if (e->cause_code)
     {
@@ -597,38 +600,37 @@ theend:
 err_t
 nsfslite_remove (
     nsfslite *n,
-    pgno id,
+    const char *name,
     struct txn *tx,
     void *dest,
     const char *stride,
     error *e)
 {
-  union cursor *rc;
-  union cursor *vc;
-  struct chunk_alloc temp;
-  chunk_alloc_create_default (&temp);
-  struct var_get_by_id_params params = {
-    .id = id,
-  };
   struct stride _stride;
-
-  // PARSE STRIDE STRING
   struct user_stride ustride;
+
+  // COMPILE STRIDE
   if (compile_stride (&ustride, stride, e))
     {
       goto theend;
     }
 
-  if (nsfslite_get_root (n, &rc, &vc, &temp, &params, e))
+  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  if (var == NULL)
     {
-      goto theend;
+      return e->cause_code;
     }
 
-  // RESOLVE STRIDE
-  t_size size = type_byte_size (&params.t);
-  if (stride_resolve (&_stride, ustride, rc->rptc.total_size / size, e))
+  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  if (rc == NULL)
     {
-      rptc_cleanup (&rc->rptc, e);
+      vars_free (&n->vds, var, e);
+      return e->cause_code;
+    }
+
+  t_size size = type_byte_size (var->dtype);
+  if (stride_resolve (&_stride, ustride, rc->total_size / size, e))
+    {
       goto theend;
     }
 
@@ -642,42 +644,27 @@ nsfslite_remove (
 
   // DO REMOVE
   {
-    rptc_enter_transaction (&rc->rptc, tx);
+    rptc_enter_transaction (rc, tx);
 
-    if (rptof_remove (
-            &rc->rptc,
-            dest,
-            size,
-            size * _stride.start,
-            _stride.stride,
-            _stride.nelems,
-            e))
-      {
-        rptc_cleanup (&rc->rptc, e);
-        goto theend;
-      }
-
-    rptc_leave_transaction (&rc->rptc);
-
-    if (rptc_cleanup (&rc->rptc, e))
+    if (rptof_remove (rc, dest, size, size * _stride.start, _stride.stride, _stride.nelems, e))
       {
         goto theend;
       }
+    rptc_leave_transaction (rc);
   }
 
-  // UPDATE VARIABLE META
+  // CLOSE RPTC
   {
-    varc_enter_transaction (&vc->vpc, tx);
-
-    struct var_update_by_id_params uparams = {
-      .id = id,
-      .root = rc->rptc.root,
-      .nbytes = rc->rptc.total_size,
-    };
-    if (vpc_update_by_id (&vc->vpc, &uparams, e))
+    if (rptds_close (&n->rds, rc, e))
       {
         goto theend;
       }
+    rc = NULL;
+    if (vars_free (&n->vds, var, e))
+      {
+        goto theend;
+      }
+    var = NULL;
   }
 
   // COMMIT
@@ -687,8 +674,14 @@ nsfslite_remove (
     }
 
 theend:
-  slab_alloc_free (&n->alloc, rc);
-  slab_alloc_free (&n->alloc, vc);
+  if (rc != NULL)
+    {
+      rptds_close (&n->rds, rc, e);
+    }
+  if (var != NULL)
+    {
+      vars_free (&n->vds, var, e);
+    }
 
   if (e->cause_code)
     {

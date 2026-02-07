@@ -1,13 +1,13 @@
-#include "numstore/core/adptv_hash_table.h"
-#include "numstore/core/chunk_alloc.h"
-#include "numstore/core/error.h"
-#include "numstore/core/hash_table.h"
-#include "numstore/core/hashing.h"
-#include "numstore/core/slab_alloc.h"
-#include "numstore/core/string.h"
-#include "numstore/var/attr.h"
-#include "numstore/var/var_cursor.h"
+#include <numstore/core/adptv_hash_table.h>
+#include <numstore/core/chunk_alloc.h>
+#include <numstore/core/error.h>
+#include <numstore/core/hash_table.h>
+#include <numstore/core/hashing.h>
+#include <numstore/core/slab_alloc.h>
+#include <numstore/core/string.h>
 #include <numstore/datasource/var_ds.h>
+#include <numstore/var/attr.h>
+#include <numstore/var/var_cursor.h>
 
 struct var_entry
 {

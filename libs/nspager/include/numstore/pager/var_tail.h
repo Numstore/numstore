@@ -28,7 +28,7 @@
 
 // OFFSETS and _Static_asserts
 #define VT_NEXT_OFST PG_COMMN_END
-#define VT_DATA_OFST ((p_size) (VT_NEXT_OFST + sizeof (pgno)))
+#define VT_DATA_OFST ((p_size)(VT_NEXT_OFST + sizeof (pgno)))
 #define VT_DATA_LEN (PAGE_SIZE - VT_DATA_OFST)
 
 // Setters
