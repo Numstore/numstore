@@ -1,5 +1,6 @@
 #pragma once
 
+#include "numstore/types/types.h"
 #include <numstore/core/cbuffer.h>
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
@@ -59,6 +60,12 @@ err_t tab_accept_range (
 err_t tab_build (
     struct type_accessor *dest,
     struct type_accessor_builder *builder,
+    error *e);
+
+err_t ta_subtype (
+    struct type *dest,
+    struct type *reftype,
+    struct type_accessor *ta,
     error *e);
 
 bool user_stride_equal (const struct user_stride *left, const struct user_stride *right);

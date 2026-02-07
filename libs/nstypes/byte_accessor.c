@@ -8,7 +8,12 @@
 #include <numstore/types/types.h>
 
 static inline err_t
-struct_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct struct_t *st, error *e)
+struct_t_select_ttoba (
+    struct select_ba *dest,
+    struct select_ta *src,
+    struct struct_t *st,
+    struct chunk_alloc *dalloc,
+    error *e)
 {
   t_size bofst;
   struct type *subtype = struct_t_resolve_key (&bofst, st, src->key, e);
@@ -23,7 +28,7 @@ struct_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct str
       return e->cause_code;
     }
 
-  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, subtype, e), e);
+  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, subtype, dalloc, e), e);
 
   *dest = (struct select_ba){
     .bofst = bofst,
@@ -34,7 +39,12 @@ struct_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct str
 }
 
 static inline err_t
-union_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct union_t *un, error *e)
+union_t_select_ttoba (
+    struct select_ba *dest,
+    struct select_ta *src,
+    struct union_t *un,
+    struct chunk_alloc *dalloc,
+    error *e)
 {
   struct type *subtype = union_t_resolve_key (un, src->key, e);
   if (subtype == NULL)
@@ -48,7 +58,7 @@ union_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct unio
       return e->cause_code;
     }
 
-  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, subtype, e), e);
+  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, subtype, dalloc, e), e);
 
   *dest = (struct select_ba){
     .bofst = 0,
@@ -59,7 +69,12 @@ union_t_select_ttoba (struct select_ba *dest, struct select_ta *src, struct unio
 }
 
 static inline err_t
-sarray_t_to_range_ttoba (struct range_ba *dest, struct range_ta *src, struct sarray_t *sa, error *e)
+sarray_t_to_range_ttoba (
+    struct range_ba *dest,
+    struct range_ta *src,
+    struct sarray_t *sa,
+    struct chunk_alloc *dalloc,
+    error *e)
 {
   t_size size = type_byte_size (sa->t);
   struct byte_accessor *sub_ba = i_malloc (1, sizeof *sub_ba, e);
@@ -68,7 +83,7 @@ sarray_t_to_range_ttoba (struct range_ba *dest, struct range_ta *src, struct sar
       return e->cause_code;
     }
 
-  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, sa->t, e), e);
+  err_t_wrap (type_to_byte_accessor (sub_ba, src->sub_ta, sa->t, dalloc, e), e);
 
   *dest = (struct range_ba){
     .stride = (struct stride){
@@ -83,7 +98,12 @@ sarray_t_to_range_ttoba (struct range_ba *dest, struct range_ta *src, struct sar
 }
 
 err_t
-type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, struct type *reftype, error *e)
+type_to_byte_accessor (
+    struct byte_accessor *dest,
+    struct type_accessor *src,
+    struct type *reftype,
+    struct chunk_alloc *dalloc,
+    error *e)
 {
   dest->type = src->type;
   dest->size = type_byte_size (reftype);
@@ -100,11 +120,11 @@ type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, st
           {
           case T_STRUCT:
             {
-              return struct_t_select_ttoba (&dest->select, &src->select, &reftype->st, e);
+              return struct_t_select_ttoba (&dest->select, &src->select, &reftype->st, dalloc, e);
             }
           case T_UNION:
             {
-              return union_t_select_ttoba (&dest->select, &src->select, &reftype->un, e);
+              return union_t_select_ttoba (&dest->select, &src->select, &reftype->un, dalloc, e);
             }
           case T_PRIM:
           case T_SARRAY:
@@ -121,7 +141,7 @@ type_to_byte_accessor (struct byte_accessor *dest, struct type_accessor *src, st
           {
           case T_SARRAY:
             {
-              return sarray_t_to_range_ttoba (&dest->range, &src->range, &reftype->sa, e);
+              return sarray_t_to_range_ttoba (&dest->range, &src->range, &reftype->sa, dalloc, e);
             }
           case T_STRUCT:
           case T_UNION:

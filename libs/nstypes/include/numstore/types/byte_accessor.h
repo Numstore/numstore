@@ -29,6 +29,7 @@ err_t type_to_byte_accessor (
     struct byte_accessor *dest,
     struct type_accessor *src,
     struct type *reftype,
+    struct chunk_alloc *dalloc, // Where to allocate data onto
     error *e);
 
 t_size ba_byte_size (struct byte_accessor *ba);

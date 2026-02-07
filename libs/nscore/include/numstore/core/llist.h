@@ -87,6 +87,24 @@ list_pop (struct llnode **head)
   return n;
 }
 
+HEADER_FUNC struct llnode *
+list_find (
+    u32 *didx,
+    struct llnode *head,
+    struct llnode *node,
+    bool (*eq) (const struct llnode *left, const struct llnode *right))
+{
+  *didx = 0;
+  for (struct llnode *iter = (head); iter; iter = iter->next, *didx = *didx + 1)
+    {
+      if (eq (iter, node))
+        {
+          return iter;
+        }
+    }
+  return NULL;
+}
+
 HEADER_FUNC void
 list_remove (struct llnode **head, struct llnode *n)
 {
