@@ -26,7 +26,7 @@
 
 #define PAGE_POW 12
 #define PAGE_SIZE ((p_size)1 << PAGE_POW)
-#define MEMORY_PAGE_LEN ((u32)40960)
+#define MEMORY_PAGE_LEN ((u32)100)
 #define MAX_VSTR 10000
 #define MAX_TSTR 10000
 #define TXN_TBL_SIZE 512

@@ -59,6 +59,8 @@ enum token_t
 
   TT_FILE,
   TT_QUERY,
+  TT_OFST,
+  TT_LEN,
 
   TT_TRUE,
   TT_FALSE,

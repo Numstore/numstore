@@ -111,7 +111,7 @@ vars_get (struct var_ds *v, struct string vname, error *e)
       struct var_get_params params = {
         .vname = ret->var.vname,
       };
-      if (vpc_get (&v->cursor, &ret->alloc, &params, e))
+      if (vpc_get (&v->cursor, &ret->alloc, &params, e) < 0)
         {
           var_ds_freevar (v, ret);
           return NULL;

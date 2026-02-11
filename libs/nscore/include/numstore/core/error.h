@@ -83,13 +83,35 @@ typedef struct
   u32 cmlen;
   bool print_trace;
   bool print_msg_on_error;
+  bool abort_on_failure;
 
   bool prev_print_trace;
   bool prev_print_msg_on_error;
+  bool prev_abort_on_failure;
 } error;
 
+static inline void
+error_expect_failure (error *e)
+{
+  e->prev_print_msg_on_error = e->print_msg_on_error;
+  e->prev_print_trace = e->print_trace;
+  e->prev_abort_on_failure = e->abort_on_failure;
+
+  e->print_msg_on_error = false;
+  e->print_trace = false;
+  e->abort_on_failure = false;
+}
+
+static inline void
+error_unexpect_failure (error *e)
+{
+  e->print_msg_on_error = e->prev_print_msg_on_error;
+  e->print_trace = e->prev_print_trace;
+  e->abort_on_failure = e->prev_abort_on_failure;
+  e->cause_code = SUCCESS;
+}
+
 ////////////////////////////////////////////////////////////
-// /
 /// Main API
 error error_create (void);
 

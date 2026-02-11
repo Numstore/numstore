@@ -20,14 +20,12 @@
  *   with automatic or explicit transaction handling.
  */
 
-#include "numstore/compiler/compiler.h"
-#include "numstore/core/string.h"
-#include "numstore/core/threadpool.h"
-#include "numstore/datasource/rptc_ds.h"
-#include "numstore/datasource/var_ds.h"
-#include "numstore/types/types.h"
-#include <fcntl.h>
 #include <nsfslite.h>
+#include <numstore/compiler/compiler.h>
+#include <numstore/core/string.h>
+#include <numstore/core/threadpool.h>
+#include <numstore/repository/nsdb_rp.h>
+#include <numstore/types/types.h>
 
 #include <numstore/compiler/lexer.h>
 #include <numstore/compiler/parser/stride.h>
@@ -45,6 +43,7 @@
 #include <numstore/var/attr.h>
 #include <numstore/var/var_cursor.h>
 
+#include <fcntl.h>
 #include <pthread.h>
 
 struct nsfslite_s
@@ -52,10 +51,7 @@ struct nsfslite_s
   struct pager *p;
   struct lockt lt;
   struct thread_pool *tp;
-  struct latch l;
-
-  struct rptc_ds rds;
-  struct var_ds vds;
+  struct nsdb_rp rp;
 };
 
 DEFINE_DBG_ASSERT (
@@ -121,23 +117,6 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
       goto failed;
     }
 
-  if (rptds_init (&ret->rds, ret->p, e))
-    {
-      lockt_destroy (&ret->lt);
-      i_free (ret);
-      tp_free (ret->tp, e);
-      goto failed;
-    }
-
-  if (vars_init (&ret->vds, ret->p, e))
-    {
-      lockt_destroy (&ret->lt);
-      i_free (ret);
-      tp_free (ret->tp, e);
-      rptds_free (&ret->rds);
-      goto failed;
-    }
-
   // Create a new pager
   ret->p = pgr_open (fname, recovery_fname, &ret->lt, ret->tp, e);
   if (ret->p == NULL)
@@ -145,8 +124,15 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
       lockt_destroy (&ret->lt);
       i_free (ret);
       tp_free (ret->tp, e);
-      rptds_free (&ret->rds);
-      vars_close (&ret->vds);
+      goto failed;
+    }
+
+  if (nsdb_rp_init (&ret->rp, ret->p, &ret->lt, e))
+    {
+      lockt_destroy (&ret->lt);
+      i_free (ret);
+      tp_free (ret->tp, e);
+      pgr_close (ret->p, e);
       goto failed;
     }
 
@@ -161,8 +147,7 @@ nsfslite_open (const char *fname, const char *recovery_fname, error *e)
           lockt_destroy (&ret->lt);
           i_free (ret);
           tp_free (ret->tp, e);
-          rptds_free (&ret->rds);
-          vars_close (&ret->vds);
+          nsdb_rp_free (&ret->rp);
           pgr_close (ret->p, e);
           goto failed;
         }
@@ -183,8 +168,7 @@ nsfslite_close (nsfslite *n, error *e)
   pgr_close (n->p, e);
   tp_free (n->tp, e);
   lockt_destroy (&n->lt);
-  vars_close (&n->vds);
-  rptds_free (&n->rds);
+  nsdb_rp_free (&n->rp);
 
   if (e->cause_code < 0)
     {
@@ -224,7 +208,7 @@ nsfslite_new (nsfslite *n, struct txn *tx, const char *name, const char *type, e
     }
 
   // CREATE A NEW VARIABLE
-  if (vars_create (&n->vds, tx, strfcstr (name), &t, e))
+  if (nsdb_rp_create (&n->rp, tx, strfcstr (name), &t, e))
     {
       goto theend;
     }
@@ -258,7 +242,7 @@ nsfslite_delete (nsfslite *n, struct txn *tx, const char *name, error *e)
     }
 
   // DELETE VARIABLE
-  if (vars_delete (&n->vds, tx, strfcstr (name), e))
+  if (nsdb_rp_delete (&n->rp, tx, strfcstr (name), e))
     {
       goto theend;
     }
@@ -286,13 +270,15 @@ nsfslite_fsize (nsfslite *n, const char *name, error *e)
 {
   DBG_ASSERT (nsfslite, n);
 
-  const struct variable *var = vars_get (&n->vds, (struct string){ .data = name, .len = i_strlen (name) }, e);
+  const struct variable *var = nsdb_rp_get_variable (&n->rp, strfcstr (name), e);
+
   if (var == NULL)
     {
       return e->cause_code;
     }
+
   pgno ret = var->var_root;
-  vars_free (&n->vds, var, e);
+  nsdb_rp_free_variable (&n->rp, var, e);
 
   if (e->cause_code)
     {
@@ -340,16 +326,16 @@ nsfslite_insert (
     b_size nelem,
     error *e)
 {
-  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  const struct variable *var = nsdb_rp_get_variable (&n->rp, strfcstr (name), e);
   if (var == NULL)
     {
       return e->cause_code;
     }
 
-  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  struct rptree_cursor *rc = nsdb_rp_open_cursor (&n->rp, strfcstr (name), e);
   if (rc == NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
       return e->cause_code;
     }
 
@@ -374,7 +360,7 @@ nsfslite_insert (
 
   // UPDATE VARIABLE META
   {
-    if (vars_update (&n->vds, tx, var, rc->root, rc->total_size, e))
+    if (nsdb_rp_update (&n->rp, tx, var, rc->root, rc->total_size, e))
       {
         goto theend;
       }
@@ -382,12 +368,12 @@ nsfslite_insert (
 
   // CLOSE RPTC
   {
-    if (rptds_close (&n->rds, rc, e))
+    if (nsdb_rp_close_cursor (&n->rp, rc, e))
       {
         goto theend;
       }
     rc = NULL;
-    if (vars_free (&n->vds, var, e))
+    if (nsdb_rp_free_variable (&n->rp, var, e))
       {
         goto theend;
       }
@@ -403,11 +389,11 @@ nsfslite_insert (
 theend:
   if (rc != NULL)
     {
-      rptds_close (&n->rds, rc, e);
+      nsdb_rp_close_cursor (&n->rp, rc, e);
     }
   if (var != NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
     }
 
   if (e->cause_code)
@@ -439,16 +425,16 @@ nsfslite_write (
       goto theend;
     }
 
-  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  const struct variable *var = nsdb_rp_get_variable (&n->rp, strfcstr (name), e);
   if (var == NULL)
     {
       return e->cause_code;
     }
 
-  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  struct rptree_cursor *rc = nsdb_rp_open_cursor (&n->rp, strfcstr (name), e);
   if (rc == NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
       return e->cause_code;
     }
 
@@ -479,12 +465,12 @@ nsfslite_write (
 
   // CLOSE RPTC
   {
-    if (rptds_close (&n->rds, rc, e))
+    if (nsdb_rp_close_cursor (&n->rp, rc, e))
       {
         goto theend;
       }
     rc = NULL;
-    if (vars_free (&n->vds, var, e))
+    if (nsdb_rp_free_variable (&n->rp, var, e))
       {
         goto theend;
       }
@@ -500,11 +486,11 @@ nsfslite_write (
 theend:
   if (rc != NULL)
     {
-      rptds_close (&n->rds, rc, e);
+      nsdb_rp_close_cursor (&n->rp, rc, e);
     }
   if (var != NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
     }
 
   if (e->cause_code)
@@ -535,42 +521,60 @@ nsfslite_read (
       goto theend;
     }
 
-  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  // Fetch the variable from the db
+  const struct variable *var = nsdb_rp_get_variable (&n->rp, strfcstr (name), e);
   if (var == NULL)
     {
       return e->cause_code;
     }
 
-  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  // Open the rptree cursor on that variable
+  struct rptree_cursor *rc = nsdb_rp_open_cursor (&n->rp, strfcstr (name), e);
   if (rc == NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
       return e->cause_code;
     }
 
+  // Resolve stride for this variable
   t_size size = type_byte_size (var->dtype);
+  if (rc->total_size % size != 0)
+    {
+      return error_causef (
+          e, ERR_CORRUPT,
+          "Type with size: %" PRt_size " has %" PRb_size " bytes, "
+          "which is not a multiple of it's type size",
+          size, rc->total_size);
+    }
   if (stride_resolve (&_stride, ustride, rc->total_size / size, e))
     {
       goto theend;
     }
 
-  // DO READ
-  sb_size ret = rptof_read (rc, dest, size, size * _stride.start, _stride.stride, _stride.nelems, e);
+  // Do Read
+  sb_size ret = rptof_read (
+      rc,
+      dest,
+      size,
+      size * _stride.start,
+      _stride.stride,
+      _stride.nelems,
+      e);
   if (ret < 0)
     {
-      vars_free (&n->vds, var, e);
-      rptds_close (&n->rds, rc, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
+      nsdb_rp_close_cursor (&n->rp, rc, e);
       goto theend;
     }
 
   // CLOSE RPTC
   {
-    if (rptds_close (&n->rds, rc, e))
+    if (nsdb_rp_close_cursor (&n->rp, rc, e))
       {
         goto theend;
       }
     rc = NULL;
-    if (vars_free (&n->vds, var, e))
+    if (nsdb_rp_free_variable (&n->rp, var, e))
       {
         goto theend;
       }
@@ -580,11 +584,11 @@ nsfslite_read (
 theend:
   if (rc != NULL)
     {
-      rptds_close (&n->rds, rc, e);
+      nsdb_rp_close_cursor (&n->rp, rc, e);
     }
   if (var != NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
     }
 
   if (e->cause_code)
@@ -615,16 +619,16 @@ nsfslite_remove (
       goto theend;
     }
 
-  const struct variable *var = vars_get (&n->vds, strfcstr (name), e);
+  const struct variable *var = nsdb_rp_get_variable (&n->rp, strfcstr (name), e);
   if (var == NULL)
     {
       return e->cause_code;
     }
 
-  struct rptree_cursor *rc = rptds_open (&n->rds, var, e);
+  struct rptree_cursor *rc = nsdb_rp_open_cursor (&n->rp, strfcstr (name), e);
   if (rc == NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
       return e->cause_code;
     }
 
@@ -655,12 +659,12 @@ nsfslite_remove (
 
   // CLOSE RPTC
   {
-    if (rptds_close (&n->rds, rc, e))
+    if (nsdb_rp_close_cursor (&n->rp, rc, e))
       {
         goto theend;
       }
     rc = NULL;
-    if (vars_free (&n->vds, var, e))
+    if (nsdb_rp_free_variable (&n->rp, var, e))
       {
         goto theend;
       }
@@ -676,11 +680,11 @@ nsfslite_remove (
 theend:
   if (rc != NULL)
     {
-      rptds_close (&n->rds, rc, e);
+      nsdb_rp_close_cursor (&n->rp, rc, e);
     }
   if (var != NULL)
     {
-      vars_free (&n->vds, var, e);
+      nsdb_rp_free_variable (&n->rp, var, e);
     }
 
   if (e->cause_code)

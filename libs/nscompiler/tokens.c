@@ -123,6 +123,8 @@ tt_tostr (enum token_t t)
       /* other literals */
       case_ENUM_RETURN_STRING (TT_FILE);
       case_ENUM_RETURN_STRING (TT_QUERY);
+      case_ENUM_RETURN_STRING (TT_OFST);
+      case_ENUM_RETURN_STRING (TT_LEN);
 
       /*      Bools */
       case_ENUM_RETURN_STRING (TT_TRUE);

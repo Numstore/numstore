@@ -18,7 +18,7 @@ struct rptc_ds
   struct lockt *lt;
 };
 
-err_t rptds_init (struct rptc_ds *r, struct pager *p, error *e);
+err_t rptds_init (struct rptc_ds *r, struct pager *p, struct lockt *lt, error *e);
 void rptds_free (struct rptc_ds *r);
 
 struct rptree_cursor *rptds_open (struct rptc_ds *r, const struct variable *v, error *e);

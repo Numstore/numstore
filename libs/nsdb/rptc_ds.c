@@ -4,9 +4,11 @@
 #include <numstore/datasource/rptc_ds.h>
 
 err_t
-rptds_init (struct rptc_ds *r, struct pager *p, error *e)
+rptds_init (struct rptc_ds *r, struct pager *p, struct lockt *lt, error *e)
 {
   slab_alloc_init (&r->alloc, sizeof (struct rptree_cursor), 512);
+  r->p = p;
+  r->lt = lt;
   return SUCCESS;
 }
 

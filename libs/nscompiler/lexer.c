@@ -179,6 +179,14 @@ check_keyword (const char *text, u32 len)
     {
       return TT_QUERY;
     }
+  if (len == sizeof ("ofst") - 1 && i_strncmp (text, "ofst", len) == 0)
+    {
+      return TT_OFST;
+    }
+  if (len == sizeof ("len") - 1 && i_strncmp (text, "len", len) == 0)
+    {
+      return TT_LEN;
+    }
 
   if (len == sizeof ("struct") - 1 && i_strncmp (text, "struct", len) == 0)
     {

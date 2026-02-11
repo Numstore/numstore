@@ -23,7 +23,6 @@
  */
 
 // core
-#include "numstore/types/vbank.h"
 #include <numstore/core/error.h>
 #include <numstore/core/lalloc.h>
 #include <numstore/core/llist.h>

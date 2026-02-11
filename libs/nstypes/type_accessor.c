@@ -1,6 +1,41 @@
 #include "numstore/core/assert.h"
 #include <numstore/types/type_accessor.h>
 
+bool
+type_accessor_equal (const struct type_accessor left, const struct type_accessor right)
+{
+  if (left.type != right.type)
+    {
+      return false;
+    }
+
+  switch (left.type)
+    {
+    case TA_TAKE:
+      {
+        return true;
+      }
+    case TA_SELECT:
+      {
+        if (!string_equal (left.select.key, right.select.key))
+          {
+            return false;
+          }
+        return type_accessor_equal (*left.select.sub_ta, *right.select.sub_ta);
+      }
+    case TA_RANGE:
+      {
+        if (!user_stride_equal (&left.range.stride, &right.range.stride))
+          {
+            return false;
+          }
+        return type_accessor_equal (*left.range.sub_ta, *right.range.sub_ta);
+      }
+    }
+
+  return false;
+}
+
 err_t
 ta_subtype (
     struct type *dest,

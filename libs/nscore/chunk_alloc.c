@@ -266,7 +266,9 @@ chunk_malloc (struct chunk_alloc *ca, u32 req, u32 size, error *e)
   // Try current chunk first
   if (ca->head != NULL)
     {
-      void *ptr = lmalloc (&ca->head->alloc, req, size, NULL);
+      error_expect_failure (e);
+      void *ptr = lmalloc (&ca->head->alloc, req, size, e);
+      error_unexpect_failure (e);
       if (ptr != NULL)
         {
           ca->total_used += alloc_size;

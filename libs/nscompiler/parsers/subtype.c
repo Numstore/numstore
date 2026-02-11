@@ -1,7 +1,7 @@
-#include "numstore/types/subtype.h"
-#include "numstore/compiler/parser/parser.h"
-#include "numstore/compiler/tokens.h"
+#include <numstore/compiler/parser/parser.h>
 #include <numstore/compiler/parser/subtype.h>
+#include <numstore/compiler/tokens.h>
+#include <numstore/types/subtype.h>
 
 #include <numstore/compiler/parser/stride.h>
 #include <numstore/core/assert.h>

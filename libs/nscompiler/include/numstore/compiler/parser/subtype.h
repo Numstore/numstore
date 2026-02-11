@@ -1,4 +1,5 @@
 #pragma once
+
 /*
  * Copyright 2025 Theo Lincke
  *

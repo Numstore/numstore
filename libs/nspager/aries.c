@@ -1,7 +1,9 @@
+#include "numstore/core/assert.h"
 #include "numstore/core/dbl_buffer.h"
 #include "numstore/core/error.h"
 #include "numstore/core/slab_alloc.h"
 #include "numstore/pager/txn.h"
+#include "numstore/pager/txn_table.h"
 #include <aries.h>
 
 #include <_pager.h>
@@ -237,11 +239,13 @@ pgr_rollback (struct pager *p, struct txn *tx, lsn save_lsn, error *e)
       tx->data.undo_next_lsn = undo_nxt_lsn;
     }
 
+  txnt_remove_txn_expect (&p->tnxt, tx, e);
+
 theend:
 
   latch_unlock (&tx->l);
 
-  return SUCCESS;
+  return e->cause_code;
 }
 
 //////////////////////////////////////////////////////////////////////////////////

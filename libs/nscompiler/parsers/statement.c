@@ -2,8 +2,8 @@
 #include <numstore/compiler/parser/parser.h>
 #include <numstore/compiler/parser/statement.h>
 #include <numstore/compiler/parser/stride.h>
-#include <numstore/compiler/parser/subtype.h>
 #include <numstore/compiler/parser/type.h>
+#include <numstore/compiler/parser/type_ref.h>
 #include <numstore/compiler/tokens.h>
 #include <numstore/core/chunk_alloc.h>
 #include <numstore/core/error.h>
@@ -21,7 +21,6 @@ struct statement_parser
 static err_t
 parse_create_cmd (struct statement_parser *parser, error *e)
 {
-
   err_t_wrap (parser_expect (parser->base, TT_CREATE, e), e);
 
   if (!parser_match (parser->base, TT_IDENTIFIER))
@@ -50,7 +49,6 @@ parse_create_cmd (struct statement_parser *parser, error *e)
 static err_t
 parse_delete_cmd (struct statement_parser *parser, error *e)
 {
-
   err_t_wrap (parser_expect (parser->base, TT_DELETE, e), e);
 
   if (!parser_match (parser->base, TT_IDENTIFIER))
@@ -71,7 +69,7 @@ parse_delete_cmd (struct statement_parser *parser, error *e)
   return dltst_create (parser->dest, vname, e);
 }
 
-/* insert_cmd ::= 'insert' VNAME NUMBER NUMBER */
+/* insert_cmd ::= 'insert' VNAME ('OFST' NUMBER)? ('LEN' NUMBER)? */
 static err_t
 parse_insert_cmd (struct statement_parser *parser, error *e)
 {
@@ -91,274 +89,61 @@ parse_insert_cmd (struct statement_parser *parser, error *e)
     .len = vname_tok->str.len
   };
 
-  // OFFSET
-  if (!parser_match (parser->base, TT_INTEGER))
+  // Optional OFST
+  sb_size ofst = -1;
+  if (parser_match (parser->base, TT_OFST))
     {
-      return error_causef (e, ERR_SYNTAX,
-                           "Expected offset at position %u",
-                           parser->base->pos);
+      parser_advance (parser->base);
+
+      if (!parser_match (parser->base, TT_INTEGER))
+        {
+          return error_causef (e, ERR_SYNTAX,
+                               "Expected number after OFST at position %u",
+                               parser->base->pos);
+        }
+
+      struct token *ofst_tok = parser_advance (parser->base);
+      ofst = ofst_tok->integer;
     }
 
-  struct token *ofst_tok = parser_advance (parser->base);
-  b_size ofst = ofst_tok->integer;
-
-  // NELEMS
-  if (!parser_match (parser->base, TT_INTEGER))
+  // Optional LEN
+  sb_size nelems = -1;
+  if (parser_match (parser->base, TT_LEN))
     {
-      return error_causef (e, ERR_SYNTAX,
-                           "Expected number of elements at position %u",
-                           parser->base->pos);
-    }
+      parser_advance (parser->base);
 
-  struct token *nelems_tok = parser_advance (parser->base);
-  b_size nelems = nelems_tok->integer;
+      if (!parser_match (parser->base, TT_INTEGER))
+        {
+          return error_causef (e, ERR_SYNTAX,
+                               "Expected number after LEN at position %u",
+                               parser->base->pos);
+        }
+
+      struct token *nelems_tok = parser_advance (parser->base);
+      nelems = nelems_tok->integer;
+    }
 
   parser->dest->type = ST_INSERT;
   return insst_create (parser->dest, vname, ofst, nelems, e);
 }
 
-/* append_cmd ::= 'append' VNAME NUMBER */
-static err_t
-parse_append_cmd (struct statement_parser *parser, error *e)
-{
-  err_t_wrap (parser_expect (parser->base, TT_APPEND, e), e);
-
-  // VNAME
-  if (!parser_match (parser->base, TT_IDENTIFIER))
-    {
-      return error_causef (e, ERR_SYNTAX,
-                           "Expected variable name at position %u",
-                           parser->base->pos);
-    }
-
-  struct token *vname_tok = parser_advance (parser->base);
-  struct string vname = {
-    .data = vname_tok->str.data,
-    .len = vname_tok->str.len
-  };
-
-  // NELEMS
-  if (!parser_match (parser->base, TT_INTEGER))
-    {
-      return error_causef (e, ERR_SYNTAX,
-                           "Expected number of elements at position %u",
-                           parser->base->pos);
-    }
-
-  struct token *nelems_tok = parser_advance (parser->base);
-  b_size nelems = nelems_tok->integer;
-
-  parser->dest->type = ST_APPEND;
-
-  return appst_create (parser->dest, vname, nelems, e);
-}
-
-/* var_ref ::= IDENT ('as' IDENT)? */
-static err_t
-parse_var_ref (
-    struct statement_parser *parser,
-    struct vref_list *dest,
-    error *e)
-{
-  struct vref_list_builder builder;
-  vrlb_create (&builder, &parser->temp, parser->persistent);
-
-  if (!parser_match (parser->base, TT_IDENTIFIER))
-    {
-      return error_causef (e, ERR_SYNTAX,
-                           "Expected identifier at position %u",
-                           parser->base->pos);
-    }
-
-  struct token *name_tok = parser_advance (parser->base);
-  const char *name = name_tok->str.data;
-  const char *ref = name;
-
-  if (parser_match (parser->base, TT_AS))
-    {
-      parser_advance (parser->base);
-
-      if (!parser_match (parser->base, TT_IDENTIFIER))
-        {
-          return error_causef (e, ERR_SYNTAX, "Expected identifier after 'as' at position %u", parser->base->pos);
-        }
-
-      struct token *ref_tok = parser_advance (parser->base);
-      ref = ref_tok->str.data;
-    }
-
-  err_t_wrap (vrlb_accept (&builder, name, ref, e), e);
-
-  return vrlb_build (dest, &builder, e);
-}
-
-/* field_selection ::= '[' type_accessor (',' type_accessor)* ']' */
-static err_t
-parse_field_selection (
-    struct statement_parser *parser,
-    struct subtype_list *dest,
-    error *e)
-{
-  struct subtype_list_builder builder;
-  stalb_create (&builder, &parser->temp, parser->persistent);
-
-  err_t_wrap (parser_expect (parser->base, TT_LEFT_BRACKET, e), e);
-
-  while (true)
-    {
-      struct subtype ta;
-      if (parse_subtype (parser->base, &ta, parser->persistent, e))
-        {
-          return e->cause_code;
-        }
-
-      err_t_wrap (stalb_accept (&builder, ta, e), e);
-
-      if (parser_match (parser->base, TT_RIGHT_BRACKET))
-        {
-          break;
-        }
-      else if (parser_match (parser->base, TT_COMMA))
-        {
-          parser_advance (parser->base);
-        }
-      else
-        {
-          return error_causef (e, ERR_SYNTAX, "Expected ',' or ']' at position %u", parser->base->pos);
-        }
-    }
-
-  err_t_wrap (parser_expect (parser->base, TT_RIGHT_BRACKET, e), e);
-
-  return stalb_build (dest, &builder, e);
-}
-
-/* var_selection ::= var_ref (',' var_ref)* field_selection? slice? */
-static err_t
-parse_var_selection (
-    struct statement_parser *parser,
-    struct vref_list *vdest,
-    struct subtype_list *tdest,
-    struct user_stride *gstride,
-    bool *has_ta_list,
-    bool *has_gstride,
-    error *e)
-{
-  // Parse var_ref list
-  err_t_wrap (parse_var_ref (parser, vdest, e), e);
-
-  while (parser_match (parser->base, TT_COMMA))
-    {
-      parser_advance (parser->base);
-      err_t_wrap (parse_var_ref (parser, vdest, e), e);
-    }
-
-  // Look ahead of 2 for [ident instead of [number/colon
-  if (parser_match (parser->base, TT_LEFT_BRACKET) && parser_peek (parser->base)->type == TT_IDENTIFIER)
-    {
-      err_t_wrap (parse_field_selection (parser, tdest, e), e);
-      *has_ta_list = true;
-    }
-
-  // Optional slice
-  if (parser_match (parser->base, TT_LEFT_BRACKET))
-    {
-      err_t_wrap (parse_stride (parser->base, gstride, e), e);
-      *has_gstride = true;
-    }
-  else
-    {
-      *has_gstride = false;
-    }
-
-  return SUCCESS;
-}
-
-/* read_cmd ::= 'read' var_selection */
+/* read_cmd ::= 'read' type_ref */
 static err_t
 parse_read_cmd (struct statement_parser *parser, error *e)
 {
   err_t_wrap (parser_expect (parser->base, TT_READ, e), e);
 
-  struct vref_list vlist;
-  struct subtype_list talist;
-  struct user_stride stride;
-  bool has_ta_list;
-  bool has_gstride;
+  struct type_ref tr;
+  err_t_wrap (parse_type_ref (parser->base, &tr, parser->persistent, e), e);
 
-  err_t_wrap (parse_var_selection (parser, &vlist, &talist, &stride, &has_ta_list, &has_gstride, e), e);
-
-  if (has_ta_list)
-    {
-      // err_t_wrap (rdb_accept_accessor_list (&builder, talist, e), e);
-    }
-
-  if (has_gstride)
-    {
-      // err_t_wrap (rdb_accept_stride (&builder, stride, e), e);
-    }
+  // Default stride (all elements)
+  struct user_stride stride = USER_STRIDE_ALL;
 
   parser->dest->type = ST_READ;
-  return redst_create (parser->dest, vlist, talist, stride, e);
+  return redst_create (parser->dest, tr, stride, e);
 }
 
-/* write_cmd ::= 'write' var_selection */
-static err_t
-parse_write_cmd (struct statement_parser *parser, error *e)
-{
-  err_t_wrap (parser_expect (parser->base, TT_WRITE, e), e);
-
-  struct vref_list vlist;
-  struct subtype_list talist;
-  struct user_stride stride;
-  bool has_ta_list;
-  bool has_gstride;
-
-  err_t_wrap (parse_var_selection (parser, &vlist, &talist, &stride, &has_ta_list, &has_gstride, e), e);
-
-  if (has_ta_list)
-    {
-      // err_t_wrap (wrb_accept_accessor_list (&builder, talist, e), e);
-    }
-
-  if (has_gstride)
-    {
-      // err_t_wrap (wrb_accept_stride (&builder, stride, e), e);
-    }
-
-  parser->dest->type = ST_WRITE;
-  return wrtst_create (parser->dest, vlist, talist, stride, e);
-}
-
-/* take_cmd ::= 'take' var_selection */
-static err_t
-parse_take_cmd (struct statement_parser *parser, error *e)
-{
-  err_t_wrap (parser_expect (parser->base, TT_TAKE, e), e);
-
-  struct vref_list vlist;
-  struct subtype_list talist;
-  struct user_stride stride;
-  bool has_ta_list;
-  bool has_gstride;
-
-  err_t_wrap (parse_var_selection (parser, &vlist, &talist, &stride, &has_ta_list, &has_gstride, e), e);
-
-  if (has_ta_list)
-    {
-      // err_t_wrap (tkb_accept_accessor_list (&builder, talist, e), e);
-    }
-
-  if (has_gstride)
-    {
-      // err_t_wrap (tkb_accept_stride (&builder, stride, e), e);
-    }
-
-  parser->dest->type = ST_TAKE;
-  return takst_create (parser->dest, vlist, talist, stride, e);
-}
-
-/* remove_cmd ::= 'remove' VNAME slice? */
+/* remove_cmd ::= 'remove' VNAME slice */
 static err_t
 parse_remove_cmd (struct statement_parser *parser, error *e)
 {
@@ -366,30 +151,39 @@ parse_remove_cmd (struct statement_parser *parser, error *e)
 
   if (!parser_match (parser->base, TT_IDENTIFIER))
     {
-      return error_causef (e, ERR_SYNTAX, "Expected variable name at position %u", parser->base->pos);
+      return error_causef (e, ERR_SYNTAX,
+                           "Expected variable name at position %u",
+                           parser->base->pos);
     }
 
   // VNAME
-  struct token *name_tok = parser_advance (parser->base);
-  struct vref ref = {
-    .vname = { .data = name_tok->str.data, .len = name_tok->str.len },
-    .alias = { .data = name_tok->str.data, .len = name_tok->str.len }
+  struct token *vname_tok = parser_advance (parser->base);
+  struct string vname = {
+    .data = vname_tok->str.data,
+    .len = vname_tok->str.len
   };
 
-  // STRIDE
-  struct user_stride gstride;
-  bool has_stride = false;
-  if (parser_match (parser->base, TT_LEFT_BRACKET))
-    {
-      err_t_wrap (parse_stride (parser->base, &gstride, e), e);
-      has_stride = true;
-    }
+  // Create a TAKE type_ref for the variable
+  struct type_accessor ta = {
+    .type = TA_TAKE
+  };
+
+  struct type_ref tr = {
+    .type = TR_TAKE,
+    .tk = {
+        .vname = vname,
+        .ta = ta }
+  };
+
+  // STRIDE (required)
+  struct user_stride stride;
+  err_t_wrap (parse_stride (parser->base, &stride, e), e);
 
   parser->dest->type = ST_REMOVE;
-  return remst_create (parser->dest, ref, gstride, e);
+  return remst_create (parser->dest, tr, stride, e);
 }
 
-/* command ::= create_cmd | delete_cmd | insert_cmd | append_cmd | read_cmd | write_cmd | take_cmd | remove_cmd */
+/* command ::= create_cmd | delete_cmd | insert_cmd | read_cmd | remove_cmd */
 static err_t
 parse_statement_inner (struct statement_parser *parser, error *e)
 {
@@ -401,34 +195,27 @@ parse_statement_inner (struct statement_parser *parser, error *e)
       {
         return parse_create_cmd (parser, e);
       }
+
     case TT_DELETE:
       {
         return parse_delete_cmd (parser, e);
       }
+
     case TT_INSERT:
       {
         return parse_insert_cmd (parser, e);
       }
-    case TT_APPEND:
-      {
-        return parse_append_cmd (parser, e);
-      }
+
     case TT_READ:
       {
         return parse_read_cmd (parser, e);
       }
-    case TT_WRITE:
-      {
-        return parse_write_cmd (parser, e);
-      }
-    case TT_TAKE:
-      {
-        return parse_take_cmd (parser, e);
-      }
+
     case TT_REMOVE:
       {
         return parse_remove_cmd (parser, e);
       }
+
     default:
       {
         return error_causef (

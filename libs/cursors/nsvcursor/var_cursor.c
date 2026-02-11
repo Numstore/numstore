@@ -105,14 +105,9 @@ varh_init_hash_page (struct pager *p, error *e)
   err_t_wrap (pgr_begin_txn (&tx, p, e), e);
 
   // See if we already initialized the hash page
-  // TODO - make htis error stuff better
-  bool print_msg_on_error = e->print_msg_on_error;
-  bool print_trace = e->print_trace;
-  e->print_msg_on_error = false;
-  e->print_trace = false;
+  error_expect_failure (e);
   err_t ret = pgr_get (&hp, PG_VAR_HASH_PAGE, VHASH_PGNO, p, e);
-  e->print_msg_on_error = print_msg_on_error;
-  e->print_trace = print_trace;
+  error_unexpect_failure (e);
 
   if (ret == ERR_PG_OUT_OF_RANGE)
     {
@@ -450,6 +445,7 @@ vpc_new (struct var_cursor *v, struct var_create_params params, error *e)
               }
             if (match)
               {
+                pgr_release (v->pager, &v->cur, PG_VAR_PAGE, e);
                 error_causef (
                     e, ERR_DUPLICATE_VARIABLE,
                     "Variable: %.*s already exists", params.vname.len, params.vname.data);

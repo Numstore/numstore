@@ -46,16 +46,77 @@ struct user_stride
   int present; // bit mask for present -> 0000...00[START][STEP][STOP]
 };
 
+#define USER_STRIDE_ALL ((struct user_stride){ .start = 0, .step = 1, .stop = -1, .present = ~0 })
+
+bool ustride_equal (struct user_stride left, struct user_stride right);
+void stride_resolve_expect (struct stride *dest, struct user_stride src, b_size arrlen);
+err_t stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e);
+
+////////////////////////////////////////
+/// Small Constructors
+
 HEADER_FUNC struct user_stride
-ustridefrom (sb_size start, sb_size step, sb_size stop)
+ustride012 (sb_size start, sb_size step, sb_size stop)
 {
   return (struct user_stride){
     .start = start,
     .step = step,
     .stop = stop,
-    .present = ~0,
+    .present = STOP_PRESENT | STEP_PRESENT | START_PRESENT,
   };
 }
 
-void stride_resolve_expect (struct stride *dest, struct user_stride src, b_size arrlen);
-err_t stride_resolve (struct stride *dest, struct user_stride src, b_size arrlen, error *e);
+HEADER_FUNC struct user_stride
+ustride01 (sb_size start, sb_size step)
+{
+  return (struct user_stride){
+    .start = start,
+    .step = step,
+    .present = STEP_PRESENT | START_PRESENT,
+  };
+}
+
+HEADER_FUNC struct user_stride
+ustride0 (sb_size start)
+{
+  return (struct user_stride){
+    .start = start,
+    .present = START_PRESENT,
+  };
+}
+
+HEADER_FUNC struct user_stride
+ustride12 (sb_size step, sb_size stop)
+{
+  return (struct user_stride){
+    .step = step,
+    .stop = stop,
+    .present = STOP_PRESENT | STEP_PRESENT,
+  };
+}
+
+HEADER_FUNC struct user_stride
+ustride1 (sb_size step)
+{
+  return (struct user_stride){
+    .step = step,
+    .present = STEP_PRESENT | START_PRESENT,
+  };
+}
+
+HEADER_FUNC struct user_stride
+ustride2 (sb_size stop)
+{
+  return (struct user_stride){
+    .stop = stop,
+    .present = STOP_PRESENT,
+  };
+}
+
+HEADER_FUNC struct user_stride
+ustride (void)
+{
+  return (struct user_stride){
+    .present = 0,
+  };
+}

@@ -8,6 +8,9 @@
 #include <numstore/core/string.h>
 #include <numstore/intf/types.h>
 
+////////////////////////////////////////////////////////////////
+/// TYPE ACCESSOR
+
 enum ta_type
 {
   TA_TAKE,
@@ -34,6 +37,11 @@ struct type_accessor
     } range;
   };
 };
+
+bool type_accessor_equal (const struct type_accessor left, const struct type_accessor right);
+
+////////////////////////////////////////////////////////////////
+/// BUILDER
 
 struct type_accessor_builder
 {
@@ -69,4 +77,3 @@ err_t ta_subtype (
     error *e);
 
 bool user_stride_equal (const struct user_stride *left, const struct user_stride *right);
-bool type_accessor_equal (const struct type_accessor *left, const struct type_accessor *right);

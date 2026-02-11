@@ -1,4 +1,5 @@
 #include "numstore/core/stride.h"
+#include "numstore/intf/stdlib.h"
 #include <numstore/compiler/parser/stride.h>
 
 struct stride_parser
@@ -89,6 +90,8 @@ parse_stride_inner (struct stride_parser *parser, error *e)
 err_t
 parse_stride (struct parser *parser, struct user_stride *dest, error *e)
 {
+  i_memset (dest, 0, sizeof *dest);
+
   struct stride_parser p = {
     .base = parser,
     .dest = dest,

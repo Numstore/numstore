@@ -1,10 +1,11 @@
-#include "numstore/compiler/lexer.h"
-#include "numstore/compiler/parser/parser.h"
-#include "numstore/compiler/parser/statement.h"
-#include "numstore/compiler/parser/stride.h"
-#include "numstore/compiler/parser/type.h"
-#include "numstore/core/chunk_alloc.h"
 #include <numstore/compiler/compiler.h>
+#include <numstore/compiler/lexer.h>
+#include <numstore/compiler/parser/parser.h>
+#include <numstore/compiler/parser/statement.h>
+#include <numstore/compiler/parser/stride.h>
+#include <numstore/compiler/parser/type.h>
+#include <numstore/compiler/parser/type_ref.h>
+#include <numstore/core/chunk_alloc.h>
 #include <numstore/test/testing.h>
 #include <numstore/types/prim.h>
 
@@ -52,8 +53,28 @@ compile_stride (
   return parse_stride (&parser, dest, e);
 }
 
+err_t
+compile_type_ref (
+    struct type_ref *dest,
+    const char *text,
+    struct chunk_alloc *dalloc,
+    error *e)
+{
+  struct lexer lex;
+  err_t_wrap (lex_tokens (text, i_strlen (text), &lex, e), e);
+
+  struct parser parser = parser_init (lex.tokens, lex.src_len);
+
+  return parse_type_ref (&parser, dest, dalloc, e);
+}
+
 /**
 #ifndef NTEST
+
+static inline void test_compile_stride_case(const char* str, struct user_stride expected) {
+
+}
+
 TEST (TT_UNIT, compile_stride_basic)
 {
   error err = error_create ();

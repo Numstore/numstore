@@ -106,9 +106,11 @@ txn_state_to_str (int state)
       case_ENUM_RETURN_STRING (TX_RUNNING);
       case_ENUM_RETURN_STRING (TX_CANDIDATE_FOR_UNDO);
       case_ENUM_RETURN_STRING (TX_COMMITTED);
+      case_ENUM_RETURN_STRING (TX_DONE);
     }
 
-  UNREACHABLE ();
+  // UNREACHABLE ();
+  return "UNKNOWN";
 }
 
 static void
